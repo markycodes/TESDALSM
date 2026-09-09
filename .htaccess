@@ -1,0 +1,15 @@
+# LearnHub LMS — Apache config (XAMPP)
+
+# Raise upload limits for video lessons (works with XAMPP's default mod_php).
+# If pages return HTTP 500 after this file is present, your PHP runs as CGI/FastCGI:
+# delete the php_value lines below and edit php.ini instead (see README.md).
+php_value upload_max_filesize 512M
+php_value post_max_size 512M
+php_value max_execution_time 300
+php_value max_input_time 300
+php_value memory_limit 256M
+
+# Never serve raw app data or docs
+<FilesMatch "\.(json|ini|log|md|txt)$">
+    Require all denied
+</FilesMatch>

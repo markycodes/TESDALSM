@@ -1,0 +1,17 @@
+# --- temp / diagnostic files ---
+_*
+*.log
+*.ps1.bak
+
+# --- user uploads: keep folder blockers + demo seed only ---
+uploads/*
+!uploads/.htaccess
+!uploads/pasted-material.md
+
+# --- legacy runtime storage (system now uses MySQL) ---
+data/
+
+# --- OS junk ---
+Thumbs.db
+.DS_Store
+Desktop.ini
