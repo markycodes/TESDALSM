@@ -22,6 +22,112 @@ if ($user) { touch_presence((int) $user['id']); } // keep the heartbeat fresh on
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
+/* ============================================================
+   LearnHub v2 — advanced design system (part 1)
+   Utility-scoped overrides keep every page's logic intact.
+   ============================================================ */
+:root{--lh-grad:linear-gradient(135deg,#4f46e5 0%,#7c3aed 50%,#c026d3 100%)}
+
+html{scroll-behavior:smooth}
+::selection{background:#ddd6fe;color:#2e1065}
+
+/* aurora page background */
+body{background:
+  radial-gradient(1100px 560px at 88% -8%,rgba(124,58,237,.16),transparent 60%),
+  radial-gradient(950px 520px at -8% 18%,rgba(79,70,229,.13),transparent 55%),
+  radial-gradient(900px 620px at 50% 112%,rgba(6,182,212,.10),transparent 60%),
+  #f6f7fb}
+
+/* thin gradient scrollbars */
+*{scrollbar-width:thin;scrollbar-color:#c4b5fd transparent}
+*::-webkit-scrollbar{height:8px;width:8px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{background:linear-gradient(#a5b4fc,#c4b5fd);border-radius:99px}
+
+/* page enter animation */
+main{animation:pageIn .45s cubic-bezier(.22,.61,.36,1) both}
+@keyframes pageIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+
+/* glass nav */
+nav.glass{background:rgba(255,255,255,.72);backdrop-filter:blur(16px) saturate(1.5);-webkit-backdrop-filter:blur(16px) saturate(1.5);box-shadow:0 8px 28px -14px rgba(79,70,229,.22)}
+nav.glass::after{content:'';position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--lh-grad);opacity:.45}
+
+/* scroll progress bar */
+#lh-progress{position:fixed;top:0;left:0;height:3px;width:0;background:var(--lh-grad);z-index:60;box-shadow:0 0 14px rgba(124,58,237,.55)}
+
+/* gradient logo with pulse glow */
+.lh-logo{background:var(--lh-grad);box-shadow:0 8px 20px -8px rgba(124,58,237,.6);position:relative;transition:transform .25s}
+.lh-logo:hover{transform:scale(1.06) rotate(-3deg)}
+.lh-logo::before{content:'';position:absolute;inset:-5px;border-radius:inherit;background:var(--lh-grad);opacity:.35;filter:blur(12px);z-index:-1;animation:logoPulse 3.2s ease-in-out infinite}
+@keyframes logoPulse{0%,100%{opacity:.22}50%{opacity:.5}}
+
+/* desktop nav pills */
+.lh-pill{position:relative;border-radius:12px;transition:color .2s,background-color .2s,box-shadow .2s,transform .2s}
+.lh-pill:hover{color:#4338ca!important;background:#eef2ff!important}
+.lh-pill.lh-active{color:#fff!important;background-image:var(--lh-grad)!important;background-color:#7c3aed!important;box-shadow:0 8px 18px -8px rgba(124,58,237,.6)}
+.lh-pill.lh-active:hover{filter:brightness(1.05)}
+
+/* mobile icon buttons */
+.lh-ico{position:relative;border-radius:12px;transition:all .2s}
+.lh-ico:hover{transform:translateY(-1px);color:#4338ca!important;background:#eef2ff!important}
+.lh-ico.lh-active{background-image:var(--lh-grad)!important;background-color:#7c3aed!important;color:#fff!important;box-shadow:0 8px 18px -8px rgba(124,58,237,.6)}
+
+/* avatar with gradient ring + online dot */
+.lh-avatar{background:var(--lh-grad);box-shadow:0 0 0 2px #fff,0 0 0 4px rgba(124,58,237,.30);position:relative}
+.lh-avatar::after{content:'';position:absolute;right:-2px;bottom:-2px;width:11px;height:11px;border-radius:99px;background:#10b981;border:2px solid #fff}
+
+/* guest CTA */
+.lh-cta{background-image:var(--lh-grad);background-color:#7c3aed;box-shadow:0 10px 22px -10px rgba(124,58,237,.65);transition:all .25s}
+.lh-cta:hover{transform:translateY(-2px);filter:brightness(1.07)}
+
+/* ---------- nav components via existing utility classes (no markup change) ---------- */
+/* desktop pills */
+nav .sm\:flex a{position:relative;border-radius:12px;transition:color .2s,background-color .2s,box-shadow .2s,transform .2s}
+nav .sm\:flex a:hover{color:#4338ca!important;background:#eef2ff!important}
+nav .sm\:flex a.bg-indigo-50{color:#fff!important;background-image:var(--lh-grad)!important;background-color:#7c3aed!important;box-shadow:0 8px 18px -8px rgba(124,58,237,.6)}
+/* mobile icon buttons */
+nav .sm\:hidden a{position:relative;border-radius:12px;transition:color .2s,background-color .2s,box-shadow .2s,transform .2s}
+nav .sm\:hidden a:hover{color:#4338ca!important;background:#eef2ff!important;transform:translateY(-1px)}
+nav .sm\:hidden a.bg-indigo-600{color:#fff!important;background-image:var(--lh-grad)!important;background-color:#7c3aed!important;box-shadow:0 8px 18px -8px rgba(124,58,237,.6)}
+/* gradient logo */
+nav a.grid.rounded-xl.bg-indigo-600{background-image:var(--lh-grad);background-color:#6d28d9;box-shadow:0 8px 20px -8px rgba(124,58,237,.6);position:relative;transition:transform .25s}
+nav a.grid.rounded-xl.bg-indigo-600:hover{transform:scale(1.06) rotate(-3deg)}
+/* avatar: gradient ring + online dot */
+nav span.rounded-full.bg-indigo-600{background-image:var(--lh-grad);background-color:#6d28d9;box-shadow:0 0 0 2px #fff,0 0 0 4px rgba(124,58,237,.3);position:relative}
+nav span.rounded-full.bg-indigo-600::after{content:'';position:absolute;right:-2px;bottom:-2px;width:11px;height:11px;border-radius:99px;background:#10b981;border:2px solid #fff}
+/* guest CTA */
+nav a.px-4.bg-indigo-600{background-image:var(--lh-grad);background-color:#6d28d9;box-shadow:0 10px 22px -10px rgba(124,58,237,.65);transition:all .25s}
+nav a.px-4.bg-indigo-600:hover{transform:translateY(-2px);filter:brightness(1.07)}
+
+/* ---------- site-wide card upgrade (glass + soft depth) ---------- */
+main .bg-white.ring-1{background:rgba(255,255,255,.85);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 12px 32px -14px rgba(15,23,42,.14),inset 0 0 0 1px rgba(255,255,255,.65)}
+main .rounded-2xl.bg-white.ring-1,main .rounded-3xl.bg-white.ring-1{transition:box-shadow .3s,transform .3s}
+main .rounded-2xl.bg-white.ring-1:hover,main .rounded-3xl.bg-white.ring-1:hover{box-shadow:0 22px 44px -18px rgba(79,70,229,.26)}
+
+/* gradient primary buttons site-wide */
+main a.bg-indigo-600,main button.bg-indigo-600{background-image:var(--lh-grad);background-color:#6d28d9;box-shadow:0 12px 24px -12px rgba(124,58,237,.7);transition:all .25s}
+main a.bg-indigo-600:hover,main button.bg-indigo-600:hover{transform:translateY(-2px);filter:brightness(1.08);box-shadow:0 18px 30px -12px rgba(124,58,237,.75)}
+
+/* progress bars: gradient + shimmer */
+main .h-2>.h-full,main .h-2\.5>.h-full,main .h-3>.h-full{background-image:var(--lh-grad);background-color:#7c3aed;position:relative;overflow:hidden}
+main .h-2>.h-full::after,main .h-2\.5>.h-full::after,main .h-3>.h-full::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(255,255,255,.28) 0 8px,transparent 8px 18px);animation:shimmer 1.4s linear infinite}
+@keyframes shimmer{from{transform:translateX(-18px)}to{transform:translateX(18px)}}
+
+/* hero sections: animated aurora */
+main>section.bg-gradient-to-r{position:relative;isolation:isolate;background-size:180% 180%!important;animation:heroShift 14s ease-in-out infinite}
+main>section.bg-gradient-to-r::before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(420px 220px at 15% 15%,rgba(255,255,255,.4),transparent 60%),radial-gradient(520px 280px at 85% 85%,rgba(255,255,255,.25),transparent 60%);mix-blend-mode:overlay;animation:blobFloat 10s ease-in-out infinite alternate}
+@keyframes heroShift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+@keyframes blobFloat{from{transform:translate(0,0) scale(1)}to{transform:translate(34px,-22px) scale(1.1)}}
+
+/* forms */
+main input:focus,main select:focus,main textarea:focus{outline:none;border-color:#8b5cf6;box-shadow:0 0 0 4px rgba(124,58,237,.14)}
+
+/* floating back-to-top */
+#lh-top{position:fixed;right:20px;bottom:20px;z-index:50;opacity:0;pointer-events:none;transform:translateY(10px);transition:all .3s}
+#lh-top.show{opacity:1;pointer-events:auto;transform:none}
+#lh-top:hover{filter:brightness(1.08)}
+
+/* ---------- preserved function styles (toast / reveal / swipe hint) ---------- */
 .toast-in{animation:toastIn .25s ease-out}@keyframes toastIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
 .reveal{opacity:0;transform:translateY(18px);transition:opacity .55s cubic-bezier(.22,.61,.36,1),transform .55s cubic-bezier(.22,.61,.36,1)}
 .reveal.in{opacity:1;transform:none}
@@ -30,18 +136,30 @@ if ($user) { touch_presence((int) $user['id']); } // keep the heartbeat fresh on
 /* Mobile swipe hint: right-edge fade + nudge chevron; hidden on desktop or after first swipe */
 .swipe-hint::after{content:'';position:absolute;top:0;bottom:0;right:0;width:16px;pointer-events:none;background:linear-gradient(to left,rgba(255,255,255,.95),rgba(255,255,255,0))}
 .swipe-hint .swipe-chevron{position:absolute;right:3px;top:50%;transform:translate(0,-50%);z-index:10;display:grid;place-items:center;width:26px;height:26px;border-radius:9999px;background:#1e293b;color:#fff;font-size:14px;line-height:1;box-shadow:0 4px 10px rgba(15,23,42,.25);animation:nudge 1.4s ease-in-out infinite;cursor:pointer}
-.swipe-hint .swipe-chevron:active{background:#4f46e5}
+.swipe-hint .swipe-chevron:active{background:#7c3aed}
 @keyframes nudge{0%,100%{margin-right:0}50%{margin-right:4px}}
 .swipe-hint.hint-off::after{display:none}
 .swipe-hint.hint-off .swipe-chevron{display:none}
 @media (min-width:640px){.swipe-hint::after{display:none}.swipe-hint .swipe-chevron{display:none}}
-@media (prefers-reduced-motion:reduce){.swipe-hint .swipe-chevron{animation:none}}
-@media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
+
+@media (prefers-reduced-motion:reduce){
+  .reveal{opacity:1;transform:none;transition:none}
+  main{animation:none}
+  nav a.grid.rounded-xl.bg-indigo-600::before{animation:none}
+  main>section.bg-gradient-to-r{animation:none;background-size:100% 100%!important}
+  main>section.bg-gradient-to-r::before{animation:none}
+  main .h-2>.h-full::after,main .h-2\.5>.h-full::after,main .h-3>.h-full::after{animation:none}
+  .swipe-hint .swipe-chevron{animation:none}
+  #lh-progress{transition:none}
+}
+
+
 </style>
 </head>
-<body class="flex min-h-screen flex-col bg-slate-50 font-sans text-slate-800"<?= $user ? ' data-heartbeat="1"' : '' ?>>
+<body class="flex min-h-screen flex-col font-sans text-slate-800"<?= $user ? ' data-heartbeat="1"' : '' ?>>
+<div id="lh-progress"></div>
 
-<nav class="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur">
+<nav class="glass sticky top-0 z-40 border-b border-white/60">
   <div class="mx-auto flex h-16 max-w-6xl items-center justify-between gap-2 px-2 sm:gap-4 sm:px-4">
     <a href="<?= $user ? 'dashboard.php' : 'index.php' ?>" class="grid h-9 w-9 place-items-center rounded-xl bg-indigo-600 text-white" title="LearnHub" aria-label="LearnHub home">🎓</a>
     <?php if ($user): ?>
