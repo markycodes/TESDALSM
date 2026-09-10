@@ -2,13 +2,13 @@
 
 <footer class="mt-16">
   <div class="mx-auto max-w-6xl px-4">
-    <div class="relative overflow-hidden rounded-3xl border border-white/60 bg-white/70 p-8 shadow-[0_20px_50px_-24px_rgba(79,70,229,0.28)] backdrop-blur-xl">
-      <div class="pointer-events-none absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,#4f46e5,#7c3aed,#c026d3)]"></div>
+    <div class="relative overflow-hidden rounded-3xl border border-white/60 bg-white/70 p-8 shadow-[0_20px_50px_-24px_rgba(4,120,87,0.28)] backdrop-blur-xl">
+      <div class="pointer-events-none absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,#047857,#059669,#10b981)]"></div>
       <div class="grid gap-8 sm:grid-cols-3">
         <div>
           <div class="flex items-center gap-2">
-            <span class="grid h-9 w-9 place-items-center rounded-xl bg-[linear-gradient(135deg,#4f46e5,#7c3aed,#c026d3)] text-white shadow-lg">🎓</span>
-            <span class="font-extrabold tracking-tight text-slate-900">LearnHub <span class="text-indigo-600">LMS</span></span>
+            <span class="grid h-9 w-9 place-items-center rounded-xl bg-[linear-gradient(135deg,#047857,#059669,#10b981)] text-white shadow-lg">🎓</span>
+            <span class="font-extrabold tracking-tight text-slate-900">LearnHub <span class="text-emerald-600">LMS</span></span>
           </div>
           <p class="mt-3 text-sm leading-6 text-slate-500">Upload learning materials &amp; video tutorials — built for easy learning.</p>
         </div>
@@ -16,14 +16,14 @@
           <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Explore</p>
           <ul class="mt-3 space-y-2 text-sm">
             <?php if ($user): ?>
-            <li><a class="text-slate-600 transition hover:text-indigo-600" href="dashboard.php">Dashboard</a></li>
-            <li><a class="text-slate-600 transition hover:text-indigo-600" href="courses.php">Courses</a></li>
-            <li><a class="text-slate-600 transition hover:text-indigo-600" href="enrollments.php">Enrollments</a></li>
-            <li><a class="text-slate-600 transition hover:text-indigo-600" href="attendance_day.php">Attendance</a></li>
+            <li><a class="text-slate-600 transition hover:text-emerald-600" href="dashboard.php">Dashboard</a></li>
+            <li><a class="text-slate-600 transition hover:text-emerald-600" href="courses.php">Courses</a></li>
+            <li><a class="text-slate-600 transition hover:text-emerald-600" href="enrollments.php">Enrollments</a></li>
+            <li><a class="text-slate-600 transition hover:text-emerald-600" href="attendance_day.php">Attendance</a></li>
             <?php else: ?>
-            <li><a class="text-slate-600 transition hover:text-indigo-600" href="login.php">Log in</a></li>
-            <li><a class="text-slate-600 transition hover:text-indigo-600" href="register.php">Create free account</a></li>
-            <li><a class="text-slate-600 transition hover:text-indigo-600" href="index.php">How it works</a></li>
+            <li><a class="text-slate-600 transition hover:text-emerald-600" href="login.php">Log in</a></li>
+            <li><a class="text-slate-600 transition hover:text-emerald-600" href="register.php">Create free account</a></li>
+            <li><a class="text-slate-600 transition hover:text-emerald-600" href="index.php">How it works</a></li>
             <?php endif; ?>
           </ul>
         </div>
@@ -45,7 +45,7 @@
   </div>
 </footer>
 
-<button id="lh-top" class="grid h-11 w-11 place-items-center rounded-full bg-[linear-gradient(135deg,#4f46e5,#7c3aed,#c026d3)] text-white shadow-[0_14px_30px_-12px_rgba(124,58,237,0.8)]" title="Back to top" aria-label="Back to top">
+<button id="lh-top" class="grid h-11 w-11 place-items-center rounded-full bg-[linear-gradient(135deg,#047857,#059669,#10b981)] text-white shadow-[0_14px_30px_-12px_rgba(5,150,105,0.8)]" title="Back to top" aria-label="Back to top">
   <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg>
 </button>
 

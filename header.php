@@ -26,90 +26,88 @@ if ($user) { touch_presence((int) $user['id']); } // keep the heartbeat fresh on
    LearnHub v2 — advanced design system (part 1)
    Utility-scoped overrides keep every page's logic intact.
    ============================================================ */
-:root{--lh-grad:linear-gradient(135deg,#4f46e5 0%,#7c3aed 50%,#c026d3 100%)}
+:root{--lh-grad:linear-gradient(135deg,#047857 0%,#059669 50%,#10b981 100%)}
 
 html{scroll-behavior:smooth}
-::selection{background:#ddd6fe;color:#2e1065}
+::selection{background:#d1fae5;color:#064e3b}
 
 /* aurora page background */
 body{background:
-  radial-gradient(1100px 560px at 88% -8%,rgba(124,58,237,.16),transparent 60%),
-  radial-gradient(950px 520px at -8% 18%,rgba(79,70,229,.13),transparent 55%),
+  radial-gradient(1100px 560px at 88% -8%,rgba(5,150,105,.16),transparent 60%),
+  radial-gradient(950px 520px at -8% 18%,rgba(4,120,87,.13),transparent 55%),
   radial-gradient(900px 620px at 50% 112%,rgba(6,182,212,.10),transparent 60%),
-  #f6f7fb}
+  #f2f8f4}
 
 /* thin gradient scrollbars */
-*{scrollbar-width:thin;scrollbar-color:#c4b5fd transparent}
+*{scrollbar-width:thin;scrollbar-color:#6ee7b7 transparent}
 *::-webkit-scrollbar{height:8px;width:8px}
 *::-webkit-scrollbar-track{background:transparent}
-*::-webkit-scrollbar-thumb{background:linear-gradient(#a5b4fc,#c4b5fd);border-radius:99px}
+*::-webkit-scrollbar-thumb{background:linear-gradient(#34d399,#6ee7b7);border-radius:99px}
 
 /* page enter animation */
 main{animation:pageIn .45s cubic-bezier(.22,.61,.36,1) both}
 @keyframes pageIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 
 /* glass nav */
-nav.glass{background:rgba(255,255,255,.72);backdrop-filter:blur(16px) saturate(1.5);-webkit-backdrop-filter:blur(16px) saturate(1.5);box-shadow:0 8px 28px -14px rgba(79,70,229,.22)}
+nav.glass{background:rgba(255,255,255,.72);backdrop-filter:blur(16px) saturate(1.5);-webkit-backdrop-filter:blur(16px) saturate(1.5);box-shadow:0 8px 28px -14px rgba(4,120,87,.22)}
 nav.glass::after{content:'';position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--lh-grad);opacity:.45}
 
 /* scroll progress bar */
-#lh-progress{position:fixed;top:0;left:0;height:3px;width:0;background:var(--lh-grad);z-index:60;box-shadow:0 0 14px rgba(124,58,237,.55)}
+#lh-progress{position:fixed;top:0;left:0;height:3px;width:0;background:var(--lh-grad);z-index:60;box-shadow:0 0 14px rgba(5,150,105,.55)}
 
 /* gradient logo with pulse glow */
-.lh-logo{background:var(--lh-grad);box-shadow:0 8px 20px -8px rgba(124,58,237,.6);position:relative;transition:transform .25s}
+.lh-logo{background:var(--lh-grad);box-shadow:0 8px 20px -8px rgba(5,150,105,.6);position:relative;transition:transform .25s}
 .lh-logo:hover{transform:scale(1.06) rotate(-3deg)}
 .lh-logo::before{content:'';position:absolute;inset:-5px;border-radius:inherit;background:var(--lh-grad);opacity:.35;filter:blur(12px);z-index:-1;animation:logoPulse 3.2s ease-in-out infinite}
 @keyframes logoPulse{0%,100%{opacity:.22}50%{opacity:.5}}
 
 /* desktop nav pills */
 .lh-pill{position:relative;border-radius:12px;transition:color .2s,background-color .2s,box-shadow .2s,transform .2s}
-.lh-pill:hover{color:#4338ca!important;background:#eef2ff!important}
-.lh-pill.lh-active{color:#fff!important;background-image:var(--lh-grad)!important;background-color:#7c3aed!important;box-shadow:0 8px 18px -8px rgba(124,58,237,.6)}
-.lh-pill.lh-active:hover{filter:brightness(1.05)}
+.lh-pill:hover{color:#047857!important;background:#ecfdf5!important}
+/* active state: original header colors preserved (no gradient) */
 
 /* mobile icon buttons */
 .lh-ico{position:relative;border-radius:12px;transition:all .2s}
-.lh-ico:hover{transform:translateY(-1px);color:#4338ca!important;background:#eef2ff!important}
-.lh-ico.lh-active{background-image:var(--lh-grad)!important;background-color:#7c3aed!important;color:#fff!important;box-shadow:0 8px 18px -8px rgba(124,58,237,.6)}
+.lh-ico:hover{transform:translateY(-1px);color:#047857!important;background:#ecfdf5!important}
 
 /* avatar with gradient ring + online dot */
-.lh-avatar{background:var(--lh-grad);box-shadow:0 0 0 2px #fff,0 0 0 4px rgba(124,58,237,.30);position:relative}
+.lh-avatar{background:var(--lh-grad);box-shadow:0 0 0 2px #fff,0 0 0 4px rgba(5,150,105,.30);position:relative}
 .lh-avatar::after{content:'';position:absolute;right:-2px;bottom:-2px;width:11px;height:11px;border-radius:99px;background:#10b981;border:2px solid #fff}
 
 /* guest CTA */
-.lh-cta{background-image:var(--lh-grad);background-color:#7c3aed;box-shadow:0 10px 22px -10px rgba(124,58,237,.65);transition:all .25s}
+.lh-cta{background-image:var(--lh-grad);background-color:#047857;box-shadow:0 10px 22px -10px rgba(5,150,105,.65);transition:all .25s}
 .lh-cta:hover{transform:translateY(-2px);filter:brightness(1.07)}
 
 /* ---------- nav components via existing utility classes (no markup change) ---------- */
 /* desktop pills */
 nav .sm\:flex a{position:relative;border-radius:12px;transition:color .2s,background-color .2s,box-shadow .2s,transform .2s}
-nav .sm\:flex a:hover{color:#4338ca!important;background:#eef2ff!important}
-nav .sm\:flex a.bg-indigo-50{color:#fff!important;background-image:var(--lh-grad)!important;background-color:#7c3aed!important;box-shadow:0 8px 18px -8px rgba(124,58,237,.6)}
+nav .sm\:flex a:not(.bg-indigo-50):hover{color:#047857!important;background:#ecfdf5!important}
+/* active state: original header colors preserved (bg-indigo-50 text-indigo-700, no gradient) */
 /* mobile icon buttons */
 nav .sm\:hidden a{position:relative;border-radius:12px;transition:color .2s,background-color .2s,box-shadow .2s,transform .2s}
-nav .sm\:hidden a:hover{color:#4338ca!important;background:#eef2ff!important;transform:translateY(-1px)}
-nav .sm\:hidden a.bg-indigo-600{color:#fff!important;background-image:var(--lh-grad)!important;background-color:#7c3aed!important;box-shadow:0 8px 18px -8px rgba(124,58,237,.6)}
+nav .sm\:hidden a:not(.bg-indigo-600):hover{color:#047857!important;background:#ecfdf5!important;transform:translateY(-1px)}
+/* active state: original header colors preserved (bg-indigo-600 text-white, no gradient) */
 /* gradient logo */
-nav a.grid.rounded-xl.bg-indigo-600{background-image:var(--lh-grad);background-color:#6d28d9;box-shadow:0 8px 20px -8px rgba(124,58,237,.6);position:relative;transition:transform .25s}
+nav a.grid.rounded-xl.bg-indigo-600{background-image:var(--lh-grad);background-color:#047857;box-shadow:0 8px 20px -8px rgba(5,150,105,.6);position:relative;transition:transform .25s}
 nav a.grid.rounded-xl.bg-indigo-600:hover{transform:scale(1.06) rotate(-3deg)}
 /* avatar: gradient ring + online dot */
-nav span.rounded-full.bg-indigo-600{background-image:var(--lh-grad);background-color:#6d28d9;box-shadow:0 0 0 2px #fff,0 0 0 4px rgba(124,58,237,.3);position:relative}
+nav span.rounded-full.bg-indigo-600{background-image:var(--lh-grad);background-color:#047857;box-shadow:0 0 0 2px #fff,0 0 0 4px rgba(5,150,105,.3);position:relative}
 nav span.rounded-full.bg-indigo-600::after{content:'';position:absolute;right:-2px;bottom:-2px;width:11px;height:11px;border-radius:99px;background:#10b981;border:2px solid #fff}
 /* guest CTA */
-nav a.px-4.bg-indigo-600{background-image:var(--lh-grad);background-color:#6d28d9;box-shadow:0 10px 22px -10px rgba(124,58,237,.65);transition:all .25s}
+nav a.px-4.bg-indigo-600{background-image:var(--lh-grad);background-color:#047857;box-shadow:0 10px 22px -10px rgba(5,150,105,.65);transition:all .25s}
 nav a.px-4.bg-indigo-600:hover{transform:translateY(-2px);filter:brightness(1.07)}
 
 /* ---------- site-wide card upgrade (glass + soft depth) ---------- */
 main .bg-white.ring-1{background:rgba(255,255,255,.85);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 12px 32px -14px rgba(15,23,42,.14),inset 0 0 0 1px rgba(255,255,255,.65)}
 main .rounded-2xl.bg-white.ring-1,main .rounded-3xl.bg-white.ring-1{transition:box-shadow .3s,transform .3s}
-main .rounded-2xl.bg-white.ring-1:hover,main .rounded-3xl.bg-white.ring-1:hover{box-shadow:0 22px 44px -18px rgba(79,70,229,.26)}
+main .rounded-2xl.bg-white.ring-1:hover,main .rounded-3xl.bg-white.ring-1:hover{box-shadow:0 22px 44px -18px rgba(4,120,87,.26)}
 
 /* gradient primary buttons site-wide */
-main a.bg-indigo-600,main button.bg-indigo-600{background-image:var(--lh-grad);background-color:#6d28d9;box-shadow:0 12px 24px -12px rgba(124,58,237,.7);transition:all .25s}
-main a.bg-indigo-600:hover,main button.bg-indigo-600:hover{transform:translateY(-2px);filter:brightness(1.08);box-shadow:0 18px 30px -12px rgba(124,58,237,.75)}
+main a.bg-indigo-600,main button.bg-indigo-600{background-image:var(--lh-grad);background-color:#047857;box-shadow:0 12px 24px -12px rgba(4,120,87,.7);transition:all .25s}
+main a.bg-indigo-600:hover,main button.bg-indigo-600:hover{transform:translateY(-2px);filter:brightness(1.08);box-shadow:0 18px 30px -12px rgba(4,120,87,.75)}
 
 /* progress bars: gradient + shimmer */
-main .h-2>.h-full,main .h-2\.5>.h-full,main .h-3>.h-full{background-image:var(--lh-grad);background-color:#7c3aed;position:relative;overflow:hidden}
+main .h-2>.h-full,main .h-2\.5>.h-full,main .h-3>.h-full{background-image:var(--lh-grad);background-color:#059669;position:relative;overflow:hidden}
 main .h-2>.h-full::after,main .h-2\.5>.h-full::after,main .h-3>.h-full::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(255,255,255,.28) 0 8px,transparent 8px 18px);animation:shimmer 1.4s linear infinite}
 @keyframes shimmer{from{transform:translateX(-18px)}to{transform:translateX(18px)}}
 
@@ -120,7 +118,7 @@ main>section.bg-gradient-to-r::before{content:'';position:absolute;inset:0;z-ind
 @keyframes blobFloat{from{transform:translate(0,0) scale(1)}to{transform:translate(34px,-22px) scale(1.1)}}
 
 /* forms */
-main input:focus,main select:focus,main textarea:focus{outline:none;border-color:#8b5cf6;box-shadow:0 0 0 4px rgba(124,58,237,.14)}
+main input:focus,main select:focus,main textarea:focus{outline:none;border-color:#10b981;box-shadow:0 0 0 4px rgba(5,150,105,.14)}
 
 /* floating back-to-top */
 #lh-top{position:fixed;right:20px;bottom:20px;z-index:50;opacity:0;pointer-events:none;transform:translateY(10px);transition:all .3s}
@@ -136,7 +134,7 @@ main input:focus,main select:focus,main textarea:focus{outline:none;border-color
 /* Mobile swipe hint: right-edge fade + nudge chevron; hidden on desktop or after first swipe */
 .swipe-hint::after{content:'';position:absolute;top:0;bottom:0;right:0;width:16px;pointer-events:none;background:linear-gradient(to left,rgba(255,255,255,.95),rgba(255,255,255,0))}
 .swipe-hint .swipe-chevron{position:absolute;right:3px;top:50%;transform:translate(0,-50%);z-index:10;display:grid;place-items:center;width:26px;height:26px;border-radius:9999px;background:#1e293b;color:#fff;font-size:14px;line-height:1;box-shadow:0 4px 10px rgba(15,23,42,.25);animation:nudge 1.4s ease-in-out infinite;cursor:pointer}
-.swipe-hint .swipe-chevron:active{background:#7c3aed}
+.swipe-hint .swipe-chevron:active{background:#059669}
 @keyframes nudge{0%,100%{margin-right:0}50%{margin-right:4px}}
 .swipe-hint.hint-off::after{display:none}
 .swipe-hint.hint-off .swipe-chevron{display:none}
