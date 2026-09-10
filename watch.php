@@ -25,6 +25,7 @@ $userId     = (int) $user['id'];
 $watched    = (int) ($_POST['watched'] ?? 0);
 $duration   = (int) ($_POST['duration'] ?? 0);
 $position   = (int) ($_POST['position'] ?? 0);
+$ended      = ($_POST['ended'] ?? '') === '1' || ($_POST['ended'] ?? '') === 'true';
 
 $ownerId = course_owner_id($courseId);
 if ($ownerId === null) {
@@ -37,7 +38,7 @@ if (!course_material_exists($courseId, $materialId)) {
     json_out(['ok' => false, 'error' => 'Lesson not found']);
 }
 
-$data = record_video_progress($userId, $materialId, $watched, $duration, $position);
+$data = record_video_progress($userId, $materialId, $watched, $duration, $position, $ended);
 $total = course_materials_count($courseId);
 $done  = user_progress_count($courseId, $userId);
 $pct   = $total > 0 ? (int) round($done * 100 / $total) : 0;

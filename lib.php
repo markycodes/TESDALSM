@@ -976,28 +976,34 @@ function material_completed(int $userId, int $materialId): bool
     return (int) $stmt->fetchColumn() > 0;
 }
 
-/** Store watch time for a video lesson; auto-completes at >= 90% watched. */
-function record_video_progress(int $userId, int $materialId, int $watched, int $duration, int $position): array
+/** Store watch time for a video lesson. The percent is the real watched time divided by the duration,
+ *  and the lesson only completes once the video actually reaches the very end of its duration.
+ *  (Reported by the player with $ended = true, by a position sitting at the end, or when full time is watched.) */
+function record_video_progress(int $userId, int $materialId, int $watched, int $duration, int $position, bool $ended = false): array
 {
     $stmt = db()->prepare('SELECT watched_seconds, duration_seconds FROM video_progress WHERE user_id = ? AND material_id = ?');
     $stmt->execute([$userId, $materialId]);
     $prev = $stmt->fetch();
     $watched  = max(0, max($watched, (int) ($prev['watched_seconds'] ?? 0)));
     $duration = max(0, max($duration, (int) ($prev['duration_seconds'] ?? 0)));
+    if ($ended && $duration > 0) $watched = max($watched, $duration);
     $position = max(0, $position);
     $percent  = $duration > 0 ? (int) min(100, round($watched / $duration * 100)) : 0;
     db()->prepare('INSERT INTO video_progress (user_id, material_id, watched_seconds, duration_seconds, position_seconds, percent, updated_at) VALUES (?,?,?,?,?,?,?)
                    ON DUPLICATE KEY UPDATE watched_seconds = VALUES(watched_seconds), duration_seconds = VALUES(duration_seconds), position_seconds = VALUES(position_seconds), percent = VALUES(percent), updated_at = VALUES(updated_at)')
         ->execute([$userId, $materialId, $watched, $duration, $position, $percent, time()]);
     $complete = false;
-    if ($percent >= 90) {
+    $reachedEnd = $ended || ($duration > 0 && $position >= $duration - 1) || $percent >= 100;
+    if ($reachedEnd) {
         mark_material_complete($userId, $materialId);
         $complete = true;
     }
-    return ['percent' => $percent, 'watched' => $watched, 'duration' => $duration, 'complete' => $complete];
+    return ['percent' => $percent, 'watched' => $watched, 'duration' => $duration, 'position' => $position, 'complete' => $complete];
 }
 
-/** Store reading depth/time for a material; auto-completes at >= 95% depth after the minimum reading time. */
+/** Store reading depth/time for a material. Progress equals how far the student actually scrolled
+ *  through the lesson (0-100%), and the lesson completes only after reaching the very bottom
+ *  (100% scroll depth) and staying the minimum reading time. */
 function record_read_progress(int $userId, int $materialId, int $depth, int $seconds, int $minSeconds): array
 {
     $stmt = db()->prepare('SELECT depth, seconds FROM read_progress WHERE user_id = ? AND material_id = ?');
@@ -1008,7 +1014,7 @@ function record_read_progress(int $userId, int $materialId, int $depth, int $sec
     db()->prepare('INSERT INTO read_progress (user_id, material_id, depth, seconds, updated_at) VALUES (?,?,?,?,?)
                    ON DUPLICATE KEY UPDATE depth = VALUES(depth), seconds = VALUES(seconds), updated_at = VALUES(updated_at)')
         ->execute([$userId, $materialId, $depth, $seconds, time()]);
-    $complete = $depth >= 95 && $seconds >= max(5, $minSeconds);
+    $complete = $depth >= 100 && $seconds >= max(5, $minSeconds);
     if ($complete) mark_material_complete($userId, $materialId);
     return ['depth' => $depth, 'seconds' => $seconds, 'complete' => $complete];
 }

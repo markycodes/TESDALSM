@@ -15,6 +15,7 @@ $isOwner = ($user['role'] ?? '') === 'teacher' && (int) ($course['teacher_id'] ?
 $enrolled = is_enrolled($course, $userId);
 $canView = $isOwner || $enrolled;
 $progress = course_progress($course, $userId);
+$lessonW  = $progress['total'] > 0 ? (int) round(100 / $progress['total']) : 0;
 
 // attendance recording: log student entries only (with timestamp + IP, page-load side)
 if ($canView && ($user['role'] ?? '') === 'student') {
@@ -89,7 +90,7 @@ require __DIR__ . '/header.php';
           <div class="mt-2 h-2 overflow-hidden rounded-full bg-indigo-200/70">
             <div data-role="bar" data-progress-for="<?= e((string) $course['id']) ?>" class="h-full rounded-full bg-indigo-600 transition-all duration-300" style="width: <?= $progress['pct'] ?>%"></div>
           </div>
-          <p class="mt-2 text-[11px] leading-4 text-slate-500">Progress is tracked automatically — watch videos and read materials at a normal pace. Every course counts up to 100%.</p>
+          <p class="mt-2 text-[11px] leading-4 text-slate-500">Progress splits <b>100% equally</b> across the <?= $progress['total'] ?> lessons — each lesson counts <b><?= $lessonW ?>%</b> toward this course. Videos complete only when watched to the very end; materials complete when read to the bottom at a normal pace.</p>
           <form method="post" action="enroll.php" data-confirm="Leave this course? Your progress will be kept." class="mt-3">
             <?= csrf_field() ?><input type="hidden" name="course_id" value="<?= e((string) $course['id']) ?>">
             <button class="text-xs font-medium text-slate-400 hover:text-rose-500">Leave course</button>

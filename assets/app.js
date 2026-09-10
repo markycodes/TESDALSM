@@ -189,10 +189,11 @@ function setLessonState(materialId, text, done) {
     el.classList.toggle('text-slate-600', !done);
   });
 }
-async function sendWatch(courseId, materialId, watched, duration, position) {
+async function sendWatch(courseId, materialId, watched, duration, position, ended) {
   const body = new URLSearchParams({
     csrf: csrfToken(), course: courseId, material: materialId,
     watched: String(watched), duration: String(duration), position: String(position),
+    ended: ended ? '1' : '0',
   });
   const res = await fetch('watch.php', {
     method: 'POST',
@@ -202,11 +203,50 @@ async function sendWatch(courseId, materialId, watched, duration, position) {
   const data = await res.json();
   if (!data.ok) return null;
   applyCourseProgress(courseId, data);
+  if (data.complete) {
+    setLessonState(materialId, '✓ Completed', true);
+    finalizeCompletedVideo(materialId, data.watched || 0);
+    showToast('Video lesson completed 🎉');
+    return data;
+  }
   const pct = data.percent || 0;
-  setLessonState(materialId, data.complete ? '✓ Completed' : (pct > 0 ? '▶ ' + pct + '% watched' : 'Not started'), !!data.complete);
-  if (data.complete) showToast('Video lesson completed 🎉');
+  setLessonState(materialId, pct > 0 ? '▶ ' + pct + '% watched' : 'Not started', false);
   return data;
 }
+/* Completed videos never auto-play: the player is paused and the "✓ Completed" overlay is shown instead. */
+function finalizeCompletedVideo(materialId, duration) {
+  const overlay = document.querySelector('[data-overlay-for="' + materialId + '"]');
+  if (overlay) { overlay.classList.remove('hidden'); overlay.classList.add('flex'); }
+  const video = document.querySelector('video[data-watch][data-material="' + materialId + '"]');
+  if (video) {
+    video.setAttribute('data-done', '1');
+    try { video.loop = false; video.pause(); } catch (e) {}
+  }
+  const ytEl = document.querySelector('[data-yt][data-material="' + materialId + '"]');
+  if (ytEl) ytEl.setAttribute('data-done', '1');
+  const yp = ytPlayers[materialId];
+  if (yp) { try { if (yp.getPlayerState && yp.getPlayerState() === 1) yp.pauseVideo(); } catch (e) {} }
+}
+/* Replay (manual only) for completed videos */
+var ytPlayers = {};
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.js-video-replay');
+  if (!btn) return;
+  const article = btn.closest('article');
+  if (!article) return;
+  const overlay = btn.closest('[data-overlay-for]');
+  if (overlay) { overlay.classList.add('hidden'); overlay.classList.remove('flex'); }
+  btn.disabled = true;
+  setTimeout(() => { btn.disabled = false; }, 900);
+  const video = article.querySelector('video[data-watch]');
+  if (video) {
+    try { video.loop = false; video.currentTime = 0; video.play(); } catch (err) {}
+    return;
+  }
+  const ytEl = article.querySelector('[data-yt]');
+  const yp = ytEl ? ytPlayers[ytEl.getAttribute('data-material')] : null;
+  if (yp) { try { if (yp.seekTo) yp.seekTo(0); if (yp.playVideo) yp.playVideo(); } catch (err) {} }
+});
 function trackUploadedVideo(video) {
   const courseId = video.getAttribute('data-course') || '';
   const materialId = video.getAttribute('data-material') || '';
@@ -215,31 +255,51 @@ function trackUploadedVideo(video) {
   let last = -1;
   let duration = 0;
   let lastSent = Math.floor(watched);
-  const done = video.getAttribute('data-done') === '1';
+  let endSent = false;
+  let done = video.getAttribute('data-done') === '1';
   if (resume > 3) video.addEventListener('loadedmetadata', () => {
-    try { if (resume < (video.duration || Infinity) - 3) video.currentTime = resume; } catch (e) {}
+    try { if (!done && resume < (video.duration || Infinity) - 3) video.currentTime = resume; } catch (e) {}
+  }, { once: true });
+  /* a completed video must never auto-play (browsers can restore playback from the cache) */
+  if (done) video.addEventListener('loadedmetadata', () => {
+    try { video.loop = false; video.pause(); } catch (e) {}
   }, { once: true });
   video.addEventListener('timeupdate', () => {
     const t = video.currentTime || 0;
     if (last >= 0) { const d = t - last; if (d > 0 && d <= 1.5) watched += d; }
     last = t;
     if (video.duration) duration = video.duration;
+    /* reaching the very last second IS the end: report it so the lesson completes at 100% */
+    if (!done && !endSent && duration > 0 && t >= duration - 1) {
+      endSent = true;
+      watched = Math.max(watched, duration);
+      sendWatch(courseId, materialId, Math.round(watched), Math.round(duration), Math.round(t), true);
+      return;
+    }
     if (done) return;
     if (Math.floor(watched) - lastSent >= 5) {
       lastSent = Math.floor(watched);
-      sendWatch(courseId, materialId, Math.round(watched), Math.round(duration), Math.round(t));
+      sendWatch(courseId, materialId, Math.round(watched), Math.round(duration), Math.round(t), false);
     }
   });
-  ['pause', 'ended'].forEach((ev) => video.addEventListener(ev, () => {
-    if (done) return;
-    sendWatch(courseId, materialId, Math.round(watched), Math.round(duration), Math.round(video.currentTime || 0));
-  }));
+  video.addEventListener('ended', () => {
+    if (done || endSent) return;
+    endSent = true;
+    const total = video.duration || duration;
+    watched = Math.max(watched, total);
+    sendWatch(courseId, materialId, Math.round(watched), Math.round(total), Math.round(total), true);
+  });
+  video.addEventListener('pause', () => {
+    if (done || endSent) return;
+    sendWatch(courseId, materialId, Math.round(watched), Math.round(duration), Math.round(video.currentTime || 0), false);
+  });
   window.addEventListener('pagehide', () => {
     if (done) return;
     navigator.sendBeacon('watch.php', new URLSearchParams({
       csrf: csrfToken(), course: courseId, material: materialId,
       watched: String(Math.round(watched)), duration: String(Math.round(duration)),
       position: String(Math.round(video.currentTime || 0)),
+      ended: endSent ? '1' : '0',
     }));
   });
   /* --- never auto-resume: bfcache restores play AFTER pageshow, so suppress + catch the play event --- */
@@ -254,7 +314,7 @@ function trackUploadedVideo(video) {
     }, 800);
   });
   video.addEventListener('play', () => {
-    if (suppressReplay) { try { video.pause(); } catch (err) {} }
+    if (suppressReplay || done) { try { video.pause(); } catch (err) {} }
   });
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden' && !video.paused) { try { video.pause(); } catch (err) {} }
@@ -302,27 +362,33 @@ function trackYouTube(el) {
   ytReady().then(() => {
     if (!el.isConnected) return;
     el.setAttribute('data-api', '1');
+    const wasDone = el.getAttribute('data-done') === '1';
     player = new YT.Player(el, {
       width: '100%', height: '100%',
       videoId: el.getAttribute('data-yt'),
-      playerVars: { rel: 0, modestbranding: 1 },
+      playerVars: { rel: 0, modestbranding: 1, autoplay: 0, loop: 0 },
       events: {
         onReady: (e) => {
           try {
             duration = e.target.getDuration() || 0;
-            if (resume > 3 && resume < duration - 3) e.target.seekTo(resume, true);
+            if (!wasDone && resume > 3 && resume < duration - 3) e.target.seekTo(resume, true);
+            if (wasDone) { try { e.target.pauseVideo(); } catch (err) {} }
           } catch (err) {}
           if (e.target.getIframe) e.target.getIframe().classList.add('h-full', 'w-full');
           setInterval(tick, 1000);
         },
         onStateChange: (e) => {
-          if (e.data === YT.PlayerState.ENDED || e.data === YT.PlayerState.PAUSED) {
+          if (e.data === YT.PlayerState.ENDED) {
+            watched = Math.max(watched, duration || 0);
+            sendWatch(courseId, materialId, Math.round(watched), Math.round(duration), Math.round(duration || 0), true);
+          } else if (e.data === YT.PlayerState.PAUSED) {
             const t = player.getCurrentTime ? player.getCurrentTime() : 0;
-            sendWatch(courseId, materialId, Math.round(watched), Math.round(duration), Math.round(t || 0));
+            sendWatch(courseId, materialId, Math.round(watched), Math.round(duration), Math.round(t || 0), false);
           }
         },
       },
     });
+    ytPlayers[materialId] = player;
   });
   setTimeout(() => {
     if (!el.getAttribute('data-api')) {

@@ -234,6 +234,38 @@ $fileSrc = 'download.php?c=' . $courseId . '&m=' . $materialId . '&disp=inline';
   var timeEl = document.getElementById('read-time');
   var barEl = document.getElementById('read-bar');
   var badgeEl = document.getElementById('read-badge');
+  /* ----- anti-skimming: warn when the student scrolls too fast and freeze progress while they do ----- */
+  var lastY = window.scrollY || 0;
+  var lastT = performance.now();
+  var speedWarn = false;
+  var frozenUntil = 0;
+  var warnCount = 0;
+  var warnBox = null;
+  function showSpeedWarn() {
+    if (!warnBox) {
+      warnBox = document.createElement('div');
+      warnBox.className = 'fixed inset-0 z-[80] hidden items-center justify-center bg-slate-900/60 p-6';
+      warnBox.innerHTML = '<div class="mx-auto w-full max-w-md rounded-2xl bg-white p-6 shadow-xl ring-2 ring-amber-300">' +
+        '<p class="text-4xl text-center">⚠️</p>' +
+        '<h2 class="mt-2 text-lg font-bold text-center text-slate-900">Please slow down</h2>' +
+        '<p class="mt-2 text-sm leading-6 text-center text-slate-600">You are scrolling too fast. ' +
+        'Reading progress is tied to actually reading the lesson — your progress pauses while you skim, ' +
+        'and the lesson only counts once you reach the bottom at a reading pace.</p>' +
+        '<button id="read-warn-ok" class="mt-4 w-full rounded-xl bg-amber-500 py-2.5 font-semibold text-white hover:bg-amber-600">OK, I will read properly</button></div>';
+      document.body.appendChild(warnBox);
+      warnBox.querySelector('#read-warn-ok').addEventListener('click', function () {
+        hideSpeedWarn();
+        frozenUntil = performance.now() + 1500;
+      });
+    }
+    warnBox.classList.remove('hidden');
+    warnBox.classList.add('flex');
+  }
+  function hideSpeedWarn() {
+    if (!warnBox) return;
+    warnBox.classList.add('hidden');
+    warnBox.classList.remove('flex');
+  }
   function depthNow() {
     var doc = document.documentElement;
     var scrollable = doc.scrollHeight - window.innerHeight;
@@ -256,10 +288,40 @@ $fileSrc = 'download.php?c=' . $courseId . '&m=' . $materialId . '&disp=inline';
   setInterval(function () {
     if (document.visibilityState !== 'visible') return;
     seconds++;
-    maxDepth = Math.max(maxDepth, depthNow());
+    if (performance.now() >= frozenUntil) maxDepth = Math.max(maxDepth, depthNow());
     render();
   }, 1000);
-  window.addEventListener('scroll', function () { maxDepth = Math.max(maxDepth, depthNow()); render(); }, { passive: true });
+  window.addEventListener('scroll', function () {
+    var now = performance.now();
+    var y = window.scrollY || 0;
+    var dY = Math.abs(y - lastY);
+    var dT = Math.max(now - lastT, 25);
+    var speed = dY / dT * 1000; /* pixels per second between scroll events */
+    lastY = y;
+    lastT = now;
+    var jump = dY > Math.max(650, (window.innerHeight || 768) * 0.75);
+    if (jump || speed > 1500) {
+      speedWarn = true;
+      warnCount++;
+      frozenUntil = now + 2500; /* skimming is frozen: depth cannot increase for a moment */
+      showSpeedWarn();
+    }
+    if (speedWarn && performance.now() >= frozenUntil) {
+      speedWarn = false;
+      hideSpeedWarn();
+    }
+    if (!speedWarn) maxDepth = Math.max(maxDepth, depthNow());
+    render();
+  }, { passive: true });
+  /* watchdog: if the student keeps racing downwards, keep the warning up and progress frozen */
+  setInterval(function () {
+    if (frozenUntil === 0) return;
+    if (speedWarn && performance.now() < frozenUntil) return;
+    if (speedWarn) {
+      speedWarn = false;
+      hideSpeedWarn();
+    }
+  }, 700);
   function payload() {
     return new URLSearchParams({ csrf: csrf, course: courseId, material: materialId, depth: String(maxDepth), seconds: String(seconds), min: String(minSeconds) });
   }

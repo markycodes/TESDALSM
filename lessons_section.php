@@ -31,18 +31,34 @@ $progressSet = $course['progress'][$userId] ?? [];
     ?>
     <article class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
       <?php if ($type === 'youtube' && $ytId !== null): ?>
-        <div class="aspect-video w-full bg-black">
-          <div data-yt="<?= e((string) $ytId) ?>" data-course="<?= e((string) $course['id']) ?>" data-material="<?= e((string) $mid) ?>"
+        <div class="relative aspect-video w-full bg-black">
+          <div data-yt="<?= e((string) $ytId) ?>" data-done="<?= $done ? '1' : '0' ?>" data-course="<?= e((string) $course['id']) ?>" data-material="<?= e((string) $mid) ?>"
                data-watched="<?= (int) ($ms['watched'] ?? 0) ?>" data-position="<?= (int) ($ms['position'] ?? 0) ?>" class="h-full w-full"></div>
+          <div data-overlay-for="<?= e((string) $mid) ?>" class="js-video-done-overlay absolute inset-0 z-10 <?= $done ? 'flex' : 'hidden' ?> items-center justify-center bg-black/70">
+            <div class="flex flex-col items-center gap-2.5 rounded-2xl bg-slate-900/90 px-6 py-4 text-center ring-1 ring-emerald-300">
+              <span class="text-sm font-semibold text-emerald-400">✓ Completed</span>
+              <span class="max-w-[280px] text-center text-xs text-slate-200">You watched the whole video — great job!</span>
+              <button type="button" class="js-video-replay rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">↻ Replay video</button>
+            </div>
+          </div>
         </div>
       <?php elseif ($type === 'youtube' && $embed !== null): ?>
         <iframe class="aspect-video w-full" src="<?= e((string) $embed) ?>" title="<?= e((string) $m['title']) ?>" loading="lazy"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
       <?php else: ?>
-        <video controls preload="metadata" class="aspect-video w-full bg-black" data-watch data-done="<?= $done ? '1' : '0' ?>"
-               data-course="<?= e((string) $course['id']) ?>" data-material="<?= e((string) $mid) ?>"
-               data-watched="<?= (int) ($ms['watched'] ?? 0) ?>" data-position="<?= (int) ($ms['position'] ?? 0) ?>"
-               src="download.php?c=<?= e((string) $course['id']) ?>&amp;m=<?= e((string) $mid) ?>&amp;disp=inline"></video>
+        <div class="relative aspect-video w-full bg-black">
+          <video controls preload="metadata" class="h-full w-full" data-watch data-done="<?= $done ? '1' : '0' ?>"
+                 data-course="<?= e((string) $course['id']) ?>" data-material="<?= e((string) $mid) ?>"
+                 data-watched="<?= (int) ($ms['watched'] ?? 0) ?>" data-position="<?= (int) ($ms['position'] ?? 0) ?>"
+                 src="download.php?c=<?= e((string) $course['id']) ?>&amp;m=<?= e((string) $mid) ?>&amp;disp=inline"></video>
+          <div data-overlay-for="<?= e((string) $mid) ?>" class="js-video-done-overlay absolute inset-0 z-10 <?= $done ? 'flex' : 'hidden' ?> items-center justify-center bg-black/70">
+            <div class="flex flex-col items-center gap-2.5 rounded-2xl bg-slate-900/90 px-6 py-4 text-center ring-1 ring-emerald-300">
+              <span class="text-sm font-semibold text-emerald-400">✓ Completed</span>
+              <span class="max-w-[280px] text-center text-xs text-slate-200">You watched the whole video — great job!</span>
+              <button type="button" class="js-video-replay rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">↻ Replay video</button>
+            </div>
+          </div>
+        </div>
       <?php endif; ?>
       <div class="p-5">
         <div class="flex flex-wrap items-start justify-between gap-3">
