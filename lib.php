@@ -163,6 +163,21 @@ function db_ensure_schema(PDO $pdo): void
             CONSTRAINT fk_att_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
             CONSTRAINT fk_att_course FOREIGN KEY (course_id) REFERENCES courses (id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        "CREATE TABLE IF NOT EXISTS enroll_codes (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            code VARCHAR(20) NOT NULL,
+            course_id INT UNSIGNED NOT NULL,
+            teacher_id INT UNSIGNED NOT NULL,
+            used_by INT UNSIGNED NULL,
+            used_at INT UNSIGNED NULL,
+            created_at INT UNSIGNED NOT NULL DEFAULT 0,
+            UNIQUE KEY uq_enroll_codes_code (code),
+            INDEX idx_enroll_codes_course (course_id),
+            INDEX idx_enroll_codes_teacher (teacher_id),
+            CONSTRAINT fk_ec_course FOREIGN KEY (course_id) REFERENCES courses (id) ON DELETE CASCADE,
+            CONSTRAINT fk_ec_teacher FOREIGN KEY (teacher_id) REFERENCES users (id) ON DELETE CASCADE,
+            CONSTRAINT fk_ec_user FOREIGN KEY (used_by) REFERENCES users (id) ON DELETE SET NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
     ];
     foreach ($tables as $sql) {
         $pdo->exec($sql);
@@ -251,6 +266,7 @@ function db_seed_if_empty(PDO $pdo): void
     $course1 = (int) $pdo->lastInsertId();
     $addCourse->execute([$teacherId, 'Intro to Graphic Design', 'Design',
         'Colors, typography and layout fundamentals for absolute beginners.', $now]);
+    $course2 = (int) $pdo->lastInsertId();
 
     $addMaterial = $pdo->prepare('INSERT INTO materials (course_id, type, title, description, filename, orig_name, mime, size, url, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)');
     $addMaterial->execute([$course1, 'youtube', 'Lesson 1 - JavaScript Full Course',
@@ -267,6 +283,11 @@ function db_seed_if_empty(PDO $pdo): void
         ->execute([$course1, $studentId, $now]);
     $pdo->prepare('INSERT INTO progress (user_id, material_id, completed_at) VALUES (?,?,?)')
         ->execute([$studentId, $lesson1, $now]);
+
+    // Demo invitation codes so students can register into a course out of the box.
+    $addCode = $pdo->prepare('INSERT INTO enroll_codes (code, course_id, teacher_id, created_at) VALUES (?,?,?,?)');
+    $addCode->execute(['DEMO-7K3P', $course1, $teacherId, $now]);
+    $addCode->execute(['DEMO-9X4Q', $course2, $teacherId, $now]);
 }
 /* ---------------- users ---------------- */
 
@@ -705,6 +726,85 @@ function toggle_enroll(int $courseId, int $userId): bool
     }
     db()->prepare('INSERT INTO enrollments (course_id, user_id, created_at) VALUES (?,?,?)')->execute([$courseId, $userId, time()]);
     return true;
+}
+
+/* ---------------- enrollment codes (invite-only) ---------------- */
+
+/** Look up an invitation code (joined with course + teacher names). */
+function enroll_code_lookup(string $code): ?array
+{
+    $st = db()->prepare('SELECT ec.*, c.title AS course_title, u.name AS teacher_name
+                         FROM enroll_codes ec
+                         JOIN courses c ON c.id = ec.course_id
+                         JOIN users u ON u.id = ec.teacher_id
+                         WHERE ec.code = ? LIMIT 1');
+    $st->execute([strtoupper(trim($code))]);
+    return $st->fetch() ?: null;
+}
+
+/** Generate a fresh, unused invitation code for one of the teacher's own courses. */
+function generate_enroll_code(int $teacherId, int $courseId): ?string
+{
+    $c = course_row($courseId);
+    if (!$c || (int) $c['teacher_id'] !== $teacherId) return null;
+
+    $st = db()->prepare('SELECT COUNT(*) FROM enroll_codes WHERE course_id = ? AND teacher_id = ? AND used_by IS NULL');
+    $st->execute([$courseId, $teacherId]);
+    if ((int) $st->fetchColumn() >= 25) return null; // cap outstanding codes per course
+
+    for ($i = 0; $i < 8; $i++) {
+        $code = strtoupper(bin2hex(random_bytes(2)) . '-' . bin2hex(random_bytes(2)));
+        $st = db()->prepare('SELECT COUNT(*) FROM enroll_codes WHERE code = ?');
+        $st->execute([$code]);
+        if ((int) $st->fetchColumn() === 0) {
+            db()->prepare('INSERT INTO enroll_codes (code, course_id, teacher_id, created_at) VALUES (?,?,?,?)')
+                ->execute([$code, $courseId, $teacherId, time()]);
+            return $code;
+        }
+    }
+    return null;
+}
+
+/** Atomically redeem a code: marks it used and enrolls the student. Returns the course id or null. */
+function redeem_enroll_code(string $code, int $userId): ?int
+{
+    $code = strtoupper(trim($code));
+    $db = db();
+    $st = $db->prepare('SELECT id, course_id FROM enroll_codes WHERE code = ? AND used_by IS NULL LIMIT 1');
+    $st->execute([$code]);
+    $row = $st->fetch();
+    if (!$row) return null;
+
+    // Guarded UPDATE: only one concurrent redemption can win (rowCount 1); losers get 0 and return null.
+    $st = $db->prepare('UPDATE enroll_codes SET used_by = ?, used_at = ? WHERE id = ? AND used_by IS NULL');
+    $st->execute([$userId, time(), (int) $row['id']]);
+    if ($st->rowCount() === 0) return null;
+
+    $db->prepare('INSERT IGNORE INTO enrollments (course_id, user_id, created_at) VALUES (?,?,?)')
+        ->execute([(int) $row['course_id'], $userId, time()]);
+    return (int) $row['course_id'];
+}
+
+/** All codes belonging to one teacher (newest first). */
+function teacher_enroll_codes(int $teacherId): array
+{
+    $st = db()->prepare('SELECT ec.id, ec.code, ec.course_id, ec.created_at, ec.used_at, ec.used_by,
+                         c.title AS course_title, u.name AS used_by_name
+                         FROM enroll_codes ec
+                         JOIN courses c ON c.id = ec.course_id
+                         LEFT JOIN users u ON u.id = ec.used_by
+                         WHERE ec.teacher_id = ?
+                         ORDER BY ec.id DESC LIMIT 100');
+    $st->execute([$teacherId]);
+    return $st->fetchAll();
+}
+
+/** Revoke an unused code (teachers can only revoke their own). */
+function delete_enroll_code(int $teacherId, int $codeId): bool
+{
+    $st = db()->prepare('DELETE FROM enroll_codes WHERE id = ? AND teacher_id = ? AND used_by IS NULL');
+    $st->execute([$codeId, $teacherId]);
+    return $st->rowCount() > 0;
 }
 
 function course_material_exists(int $courseId, int $materialId): bool

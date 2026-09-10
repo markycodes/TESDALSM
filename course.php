@@ -76,12 +76,9 @@ require __DIR__ . '/header.php';
           </form>
         </div>
       <?php elseif (($user['role'] ?? '') === 'student' && !$enrolled): ?>
-        <div class="rounded-xl bg-indigo-50 p-4 ring-1 ring-indigo-100">
-          <p class="text-sm font-semibold text-indigo-900">🎓 Enroll to unlock all lessons</p>
-          <form method="post" action="enroll.php" class="mt-3">
-            <?= csrf_field() ?><input type="hidden" name="course_id" value="<?= e((string) $course['id']) ?>">
-            <button class="w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">Enroll now — free</button>
-          </form>
+        <div class="rounded-xl bg-amber-50 p-4 ring-1 ring-amber-100">
+          <p class="text-sm font-semibold text-amber-800">🔑 Invitation only</p>
+          <p class="mt-1 text-xs leading-5 text-amber-700">Ask <b><?= e((string) ($course['teacher_name'] ?? 'the teacher')) ?></b> for an invitation code, then create your account with it to unlock this course.</p>
         </div>
       <?php elseif ($enrolled): ?>
         <div class="rounded-xl bg-indigo-50 p-4 ring-1 ring-indigo-100">
@@ -112,7 +109,7 @@ require __DIR__ . '/header.php';
 <div class="mt-6 rounded-2xl border-2 border-dashed border-slate-300 p-12 text-center">
   <p class="text-5xl">🔒</p>
   <h2 class="mt-4 text-xl font-bold text-slate-900"><?= count($course['materials'] ?? []) ?> lessons are locked</h2>
-  <p class="mt-1 text-sm text-slate-500">Enroll in this course to watch the videos and download the materials.</p>
+  <p class="mt-1 text-sm text-slate-500">This course is invite-only — register with the invitation code from <?= e((string) ($course['teacher_name'] ?? 'the teacher')) ?> to unlock the lessons.</p>
 </div>
 <?php endif; ?>
 

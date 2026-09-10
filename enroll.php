@@ -1,5 +1,5 @@
 <?php
-/** Enroll / leave a course (students only). MySQL-backed. */
+/** Enroll / leave a course. Enrollment is invite-only (via teacher codes), so students may only LEAVE. */
 require_once __DIR__ . '/lib.php';
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') { header('Location: courses.php'); exit; }
 verify_csrf();
@@ -15,13 +15,17 @@ if (!$course) {
 $back = 'course.php?id=' . $courseId;
 
 if (($user['role'] ?? '') !== 'student') {
-    set_flash('error', 'Only student accounts can enroll in courses.');
+    set_flash('error', 'Only student accounts can manage enrollment.');
     header('Location: ' . $back); exit;
 }
 
-$enrolledNow = toggle_enroll($courseId, $userId);
-set_flash($enrolledNow
-    ? 'You are enrolled in "' . $course['title'] . '". Happy learning! 🎉'
-    : 'You left "' . $course['title'] . '". Your progress was kept.');
+// Students can only LEAVE a course they are already in.
+if (!is_enrolled_id($courseId, $userId)) {
+    set_flash('error', 'Enrollment is by invitation only — register with the invitation code you got from the teacher to join this course.');
+    header('Location: ' . $back); exit;
+}
+
+db()->prepare('DELETE FROM enrollments WHERE course_id = ? AND user_id = ?')->execute([$courseId, $userId]);
+set_flash('success', 'You left "' . $course['title'] . '". Your progress was kept.');
 header('Location: ' . $back);
 exit;

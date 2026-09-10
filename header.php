@@ -51,6 +51,9 @@ if ($user) { touch_presence((int) $user['id']); } // keep the heartbeat fresh on
       <a href="courses.php" class="rounded-lg px-3 py-2 text-sm font-medium <?= $nav_active === 'courses' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100' ?>">Courses</a>
       <a href="enrollments.php" class="rounded-lg px-3 py-2 text-sm font-medium <?= $nav_active === 'enrollments' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100' ?>">Enrollments</a>
       <a href="attendance_day.php" class="rounded-lg px-3 py-2 text-sm font-medium <?= $nav_active === 'attendance' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100' ?>">Attendance</a>
+      <?php if (($user['role'] ?? '') === 'teacher'): ?>
+      <a href="codes.php" class="rounded-lg px-3 py-2 text-sm font-medium <?= $nav_active === 'codes' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100' ?>">Invite codes</a>
+      <?php endif; ?>
     </div>
     <!-- mobile: minimal icons only -->
     <div class="flex items-center gap-1 sm:hidden">
@@ -67,6 +70,11 @@ if ($user) { touch_presence((int) $user['id']); } // keep the heartbeat fresh on
         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-4.5h.008v.008H14.25v-.008zm0 2.25h.008v.008H14.25V15zm0 2.25h.008v.008H14.25v-.008zm2.25-4.5h.008v.008H16.5v-.008zm0 2.25h.008v.008H16.5V15z" /></svg>
       </a>
     </div>
+    <?php if (($user['role'] ?? '') === 'teacher'): ?>
+      <a href="codes.php" title="Invite codes" aria-label="Invite codes" class="grid h-9 w-9 place-items-center rounded-lg <?= $nav_active === 'codes' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700' ?>">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18.75 6.75v6.75a2.25 2.25 0 015 0l6 0a2.25 2.25 0 002.25 6.75h-3v6.75H6.75a2.25 2.25 0 01-2.25 0a2.25 2.25 0 017.5 0l-2.25-2.25V10.5m2.25 0l2.25 2.25V16.5l-2.25 2.25l-3 5.25v2.25m-2.25-.75a2.25 2.25 0 01-2.25 0l2.25 0m6.75 0l2.25 4.5V6.75z" /></svg>
+      </a>
+    <?php endif; ?>
     <?php endif; ?>
     <div class="flex items-center gap-2">
       <?php if ($user): ?>

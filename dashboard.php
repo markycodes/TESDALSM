@@ -242,8 +242,8 @@ require __DIR__ . '/header.php';
   <?php if (!$enrolled): ?>
     <div class="mt-4 rounded-2xl border-2 border-dashed border-slate-300 p-10 text-center text-slate-500">
       <p class="text-4xl">🎒</p>
-      <p class="mt-3 font-medium">You have not enrolled in any courses yet.</p>
-      <a href="courses.php" class="mt-4 inline-block rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">Find a course</a>
+      <p class="mt-3 font-medium">You don't have any courses yet.</p>
+      <p class="mt-1 text-sm leading-6 text-slate-500">Ask your teacher for an <b>invitation code</b>, then register with it — your course will appear here automatically.</p>
     </div>
   <?php else: ?>
   <div class="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -264,26 +264,9 @@ require __DIR__ . '/header.php';
 </section>
 
 <?php
-$enrolledIds = array_map(fn ($c) => (string) $c['id'], $enrolled);
-$suggested = array_slice(array_values(array_filter($courses, fn ($c) => !in_array((string) $c['id'], $enrolledIds, true))), 0, 3);
-if ($suggested):
+// Students see EXACTLY the course they registered with — enrollment is invite-only via teacher codes,
+// so there is no self-serve course browsing on the student dashboard.
 ?>
-<section class="mt-10">
-  <div class="flex items-center justify-between">
-    <h2 class="text-lg font-bold text-slate-900">Recommended for you</h2>
-    <a href="courses.php" class="text-sm font-semibold text-indigo-600 hover:underline">View all →</a>
-  </div>
-  <div class="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-    <?php foreach ($suggested as $c): ?>
-    <a href="course.php?id=<?= e((string) $c['id']) ?>" class="reveal rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-md">
-      <span class="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700"><?= e((string) ($c['category'] ?? 'General')) ?></span>
-      <h3 class="mt-2 font-bold text-slate-900"><?= e((string) $c['title']) ?></h3>
-      <p class="mt-1 text-xs text-slate-500">by <?= e((string) ($c['teacher_name'] ?? '')) ?> · 📦 <?= count($c['materials'] ?? []) ?> lessons · 👥 <?= count($c['enrolled'] ?? []) ?></p>
-    </a>
-    <?php endforeach; ?>
-  </div>
-</section>
-<?php endif; ?>
 <?php endif; ?>
 </div>
 
