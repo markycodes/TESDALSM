@@ -22,6 +22,7 @@ if ($user) { touch_presence((int) $user['id']); } // keep the heartbeat fresh on
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
+
 /* ============================================================
    LearnHub v2 — advanced design system (part 1)
    Utility-scoped overrides keep every page's logic intact.
@@ -175,7 +176,7 @@ body.lh-app{padding-left:0}
 .lh-side-ico{width:1.25rem;text-align:center;font-size:15px;line-height:1}
 .lh-side-label{flex:1;min-width:0}
 .lh-side-foot{margin-top:auto;display:flex;align-items:center;gap:.6rem;padding:1rem;border-top:1px solid rgba(226,232,240,.9)}
-.lh-topbar .lh-top-inner{display:flex;align-items:center;gap:.5rem;padding:0 .85rem;height:60px}
+.lh-topbar .lh-top-inner{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:0 1rem;height:60px}
 .lh-badge{position:absolute;top:-3px;right:-4px;min-width:17px;height:17px;padding:0 3px;border-radius:9999px;background:linear-gradient(135deg,#047857,#10b981);color:#fff;font-size:10px;font-weight:800;line-height:17px;text-align:center;box-shadow:0 0 0 2px #fff}
 .lh-panel{position:absolute;top:calc(100% + 10px);right:0;z-index:60;width:min(360px,calc(100vw - 16px));max-height:min(480px,calc(100vh - 70px));overflow:hidden;border-radius:18px;border:1px solid rgba(226,232,240,.9);background:#fff;box-shadow:0 28px 60px -24px rgba(4,120,87,.28)}
 .lh-panel-list{max-height:min(400px,calc(100vh - 130px));overflow-y:auto}
@@ -189,40 +190,35 @@ body.lh-app{padding-left:0}
 
 
 /* ============================================================
-   Redesign shell: fixed sidebar + top bar + notification panel
-   ============================================================ */
-.lh-app{background:#eef3ee}
-.lh-sidebar{position:fixed;top:0;left:0;bottom:0;width:264px;z-index:35;background:rgba(255,255,255,.97);border-right:1px solid rgba(226,232,240,.92);box-shadow:0 24px 48px -24px rgba(4,120,87,.18);transform:translateX(-280px);transition:transform .25s ease;display:flex;flex-direction:column}
-.lh-sidebar.open{transform:none}
-@media(min-width:1024px){.lh-sidebar{transform:none;box-shadow:none}}
-.lh-backdrop{position:fixed;inset:0;z-index:34;background:rgba(15,23,42,.35);display:none}
-body.lh-side-open .lh-backdrop{display:block}
-@media(min-width:1024px){.lh-backdrop{display:none!important}}
-body.lh-app{padding-left:0}
-@media(min-width:1024px){body.lh-app{padding-left:264px}}
-.lh-main{transition:padding-left .25s ease}
-.lh-side-head{display:flex;align-items:center;gap:.6rem;padding:.9rem 1rem .8rem;border-bottom:1px solid rgba(226,232,240,.9)}
-.lh-side-sec{padding:.9rem 1rem .35rem;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8}
-.lh-side-nav{display:flex;flex-direction:column;gap:2px;padding:0 .65rem}
-.lh-side-link{display:flex;align-items:center;gap:.65rem;padding:.55rem .7rem;font-size:.875rem;font-weight:600;color:#475569;border-radius:12px;transition:all .15s;position:relative}
-.lh-side-link:hover{background:#ecfdf5;color:#047857}
-.lh-side-link.active{background:linear-gradient(135deg,rgba(4,120,87,.14),rgba(16,185,129,.10));color:#047857;box-shadow:inset 0 0 0 1.5px rgba(16,185,129,.28)}
-.lh-side-link.active::before{content:'';position:absolute;left:-.65rem;top:20%;bottom:20%;width:3px;border-radius:99px;background:linear-gradient(#047857,#10b981)}
-.lh-side-ico{width:1.25rem;text-align:center;font-size:15px;line-height:1}
-.lh-side-label{flex:1;min-width:0}
-.lh-side-foot{margin-top:auto;display:flex;align-items:center;gap:.6rem;padding:1rem;border-top:1px solid rgba(226,232,240,.9)}
-.lh-topbar .lh-top-inner{display:flex;align-items:center;gap:.5rem;padding:0 .85rem;height:60px}
-.lh-badge{position:absolute;top:-3px;right:-4px;min-width:17px;height:17px;padding:0 3px;border-radius:9999px;background:linear-gradient(135deg,#047857,#10b981);color:#fff;font-size:10px;font-weight:800;line-height:17px;text-align:center;box-shadow:0 0 0 2px #fff}
-.lh-panel{position:absolute;top:calc(100% + 10px);right:0;z-index:60;width:min(360px,calc(100vw - 16px));max-height:min(480px,calc(100vh - 70px));overflow:hidden;border-radius:18px;border:1px solid rgba(226,232,240,.9);background:#fff;box-shadow:0 28px 60px -24px rgba(4,120,87,.28)}
-.lh-panel-list{max-height:min(400px,calc(100vh - 130px));overflow-y:auto}
-.lx-panel-item{display:flex;flex-direction:column;gap:2px;padding:.65rem .85rem;border-bottom:1px solid rgba(241,245,249,.8);cursor:pointer;text-decoration:none}
-.lx-panel-item:hover{background:#f6fbf8}
-.lh-notif-unread{background:#ecfdf5}
-.lh-notif-unread:hover{background:#d1fae5}
-.lh-notif-unread::before{content:'';align-self:flex-start;width:7px;height:7px;border-radius:99px;background:#059669;margin-bottom:3px}
-.lh-notif-item{display:flex;flex-direction:column;gap:1px}
+   
 
-</style>
+/* ---------- collapsible sidebar (icon rail + hover labels) ---------- */
+#lh-side-collapse{margin-top:0;display:grid;place-items:center;width:36px;height:36px;border-radius:10px;border:1px solid rgba(226,232,240,.9);color:#64748b;background:#fff;cursor:pointer;transition:all .2s}
+#lh-side-collapse:hover{color:#047857;background:#ecfdf5;border-color:#a7f3d0}
+.lh-side-collapse-wrap{display:flex;justify-content:center;padding:.8rem 0;border-top:1px solid rgba(226,232,240,.9)}
+@media(min-width:1024px){#lh-rail-toggle{display:grid;visibility:visible}}
+@media(max-width:1023.98px){#lh-rail-toggle{display:none}}
+@media(max-width:1023.98px){.lh-side-collapse-wrap{display:none}}
+/* collapsed rail on desktop only */
+@media(min-width:1024px){
+  body.lh-rail .lh-sidebar{width:76px;overflow:visible}
+  body.lh-rail{padding-left:76px}
+  body.lh-rail .lh-side-head{justify-content:center;padding:.9rem .5rem .8rem}
+  body.lh-rail .lh-side-head > div{display:none}
+  body.lh-rail .lh-side-sec{display:none}
+  body.lh-rail .lh-side-nav{padding:0 .55rem}
+  body.lh-rail .lh-side-link{justify-content:center;padding:.62rem .4rem;gap:0}
+  body.lh-rail .lh-side-link .lh-side-label{display:none}
+  body.lh-rail .lh-side-foot{justify-content:center;padding:.8rem .4rem}
+  body.lh-rail .lh-side-foot > span:not(:first-child){display:none}
+  body.lh-rail .lh-side-foot > a{display:none}
+  body.lh-rail .lh-side-collapse-wrap{padding:0 .4rem .8rem}
+  body.lh-rail .lh-side-link .lh-badge{position:absolute;top:-2px;right:2px}
+}
+/* hover tooltip on collapsed rail */
+.lh-side-link::after{content:attr(data-tip);position:absolute;left:calc(100% + 10px);top:50%;transform:translateY(-50%);white-space:nowrap;background:#0f172a;color:#fff;font-size:11px;font-weight:700;padding:5px 9px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .15s;box-shadow:0 8px 20px -8px rgba(15,23,42,.4);z-index:80}
+@media(min-width:1024px){body.lh-rail .lh-side-link:hover::after{opacity:1}}
+
 </style>
 </head>
 <body class="flex min-h-screen flex-col font-sans text-slate-800<?= $user ? ' lh-app' : '' ?>"<?= $user ? ' data-heartbeat="1"' : '' ?>>
@@ -240,25 +236,26 @@ body.lh-app{padding-left:0}
 
   <div class="lh-side-sec">Menu</div>
   <nav class="lh-side-nav">
-    <a href="dashboard.php" class="lh-side-link <?= $nav_active === 'dashboard' ? 'active' : '' ?>"><span class="lh-side-ico">🏠</span><span class="lh-side-label">Dashboard</span></a>
-    <a href="courses.php" class="lh-side-link <?= $nav_active === 'courses' ? 'active' : '' ?>"><span class="lh-side-ico">📚</span><span class="lh-side-label">My Courses</span></a>
-    <a href="enrollments.php" class="lh-side-link <?= $nav_active === 'enrollments' ? 'active' : '' ?>"><span class="lh-side-ico">👥</span><span class="lh-side-label">Enrollments</span></a>
-    <a href="attendance_day.php" class="lh-side-link <?= $nav_active === 'attendance' ? 'active' : '' ?>"><span class="lh-side-ico">🕒</span><span class="lh-side-label">Attendance</span></a>
+    <a href="dashboard.php" class="lh-side-link <?= $nav_active === 'dashboard' ? 'active' : '' ?>" data-tip="Dashboard"><span class="lh-side-ico">🏠</span><span class="lh-side-label">Dashboard</span></a>
+    <a href="courses.php" class="lh-side-link <?= $nav_active === 'courses' ? 'active' : '' ?>" data-tip="My Courses"><span class="lh-side-ico">📚</span><span class="lh-side-label">My Courses</span></a>
+    <a href="enrollments.php" class="lh-side-link <?= $nav_active === 'enrollments' ? 'active' : '' ?>" data-tip="Enrollments"><span class="lh-side-ico">👥</span><span class="lh-side-label">Enrollments</span></a>
+    <a href="attendance_day.php" class="lh-side-link <?= $nav_active === 'attendance' ? 'active' : '' ?>" data-tip="Attendance"><span class="lh-side-ico">🕒</span><span class="lh-side-label">Attendance</span></a>
     <?php if (($user['role'] ?? '') === 'teacher'): ?>
-    <a href="codes.php" class="lh-side-link <?= $nav_active === 'codes' ? 'active' : '' ?>"><span class="lh-side-ico">🔑</span><span class="lh-side-label">Invite codes</span></a>
+    <a href="codes.php" class="lh-side-link <?= $nav_active === 'codes' ? 'active' : '' ?>" data-tip="Invite codes"><span class="lh-side-ico">🔑</span><span class="lh-side-label">Invite codes</span></a>
     <?php endif; ?>
-    <a href="<?= ($user['role'] ?? '') === 'teacher' ? 'quiz_records.php' : 'my_records.php' ?>" class="lh-side-link <?= $nav_active === 'records' ? 'active' : '' ?>"><span class="lh-side-ico">📊</span><span class="lh-side-label"><?= ($user['role'] ?? '') === 'teacher' ? 'Student Records' : 'My Progress' ?></span></a>
+    <a href="<?= ($user['role'] ?? '') === 'teacher' ? 'quiz_records.php' : 'my_records.php' ?>" class="lh-side-link <?= $nav_active === 'records' ? 'active' : '' ?>" data-tip="Quiz Records"><span class="lh-side-ico">📊</span><span class="lh-side-label"><?= ($user['role'] ?? '') === 'teacher' ? 'Student Records' : 'My Progress' ?></span></a>
   </nav>
 
   <div class="lh-side-sec">Communication</div>
   <nav class="lh-side-nav">
-    <a href="messages.php" class="lh-side-link <?= $nav_active === 'messages' ? 'active' : '' ?>" id="lh-side-chat">
+    <a href="messages.php" class="lh-side-link <?= $nav_active === 'messages' ? 'active' : '' ?>" data-tip="Messages" id="lh-side-chat">
       <span class="lh-side-ico">💬</span><span class="lh-side-label flex-1">Messages</span>
       <span id="lh-chat-badge-side" class="lh-badge hidden">0</span>
     </a>
   </nav>
 
-  <div class="lh-side-foot">
+  <div class="lh-side-collapse-wrap"><button id="lh-side-collapse" type="button" title="Collapse sidebar" aria-label="Collapse sidebar">«</button></div>
+<div class="lh-side-foot">
     <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-emerald-600 text-sm font-bold text-white"><?= e(strtoupper(substr((string) $user['name'], 0, 1))) ?></span>
     <span class="min-w-0 flex-1 text-left leading-tight">
       <span class="block truncate text-sm font-semibold text-slate-800"><?= e((string) $user['name']) ?></span>
@@ -271,8 +268,10 @@ body.lh-app{padding-left:0}
 <?php endif; ?>
 <nav class="glass lh-topbar sticky top-0 z-40 border-b border-white/60" aria-label="Primary">
   <div class="lh-top-inner">
+    <div class="flex min-w-0 items-center gap-1.5">
     <?php if ($user): ?>
-    <button id="lh-side-toggle" class="lh-ico grid h-9 w-9 place-items-center rounded-lg text-slate-600 lg:hidden" aria-label="Open menu">
+    <button id="lh-rail-toggle" type="button" title="Collapse sidebar" aria-label="Collapse sidebar" class="lh-ico grid h-9 w-9 place-items-center rounded-lg text-slate-600"><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg></button>
+<button id="lh-side-toggle" class="lh-ico grid h-9 w-9 place-items-center rounded-lg text-slate-600 lg:hidden" aria-label="Open menu">
       <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M3 12h18M3 18h18" /></svg>
     </button>
     <?php endif; ?>
@@ -282,15 +281,8 @@ body.lh-app{padding-left:0}
       <span class="text-sm font-extrabold tracking-tight text-slate-900">LearnHub <span class="text-emerald-600">LMS</span></span>
     </a>
 
-    <form id="lh-global-search" action="courses.php" class="hidden min-w-0 flex-1 items-center md:flex md:max-w-sm" role="search">
-      <div class="relative w-full">
-        <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6.1L21 17M17 15.5v-9M15.5 7.5H6M7.5 6V19h8M7 17h11" /></svg>
-        </span>
-        <input name="q" type="search" id="lh-search-input" placeholder="Search courses…"
-          class="h-9.5 w-full rounded-full border border-slate-200 bg-slate-100/70 py-2 pl-9 pr-3 text-sm outline-none focus:border-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-100">
-      </div>
-    </form>
+    </div>
+
 
     <div class="flex items-center gap-1.5">
       <?php if ($user): ?>
@@ -348,3 +340,4 @@ body.lh-app{padding-left:0}
 <?php endforeach; ?>
 
 <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-8<?= $user ? ' lh-main' : '' ?>">
+
