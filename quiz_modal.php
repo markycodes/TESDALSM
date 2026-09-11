@@ -22,8 +22,8 @@
           <select id="quiz-pass" name="pass_score"
             class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
             <option value="50">50%</option>
-            <option value="60" selected>60%</option>
-            <option value="70">70%</option>
+            <option value="60">60%</option>
+            <option value="70" selected>70%</option>
             <option value="80">80%</option>
             <option value="100">100%</option>
           </select>

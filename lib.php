@@ -196,22 +196,72 @@ function db_ensure_schema(PDO $pdo): void
             INDEX idx_quiz_questions_quiz (quiz_id),
             CONSTRAINT fk_qq_quiz FOREIGN KEY (quiz_id) REFERENCES quizzes (id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
-        "CREATE TABLE IF NOT EXISTS quiz_attempts (
+        "CREATE TABLE IF NOT EXISTS quiz_results (
             id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
             quiz_id INT UNSIGNED NOT NULL,
             user_id INT UNSIGNED NOT NULL,
-            score TINYINT UNSIGNED NOT NULL DEFAULT 0,
-            correct_count SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            lesson_id INT UNSIGNED NULL,
+            quiz_title VARCHAR(120) NOT NULL DEFAULT '',
+            lesson_title VARCHAR(120) NOT NULL DEFAULT '',
+            correct SMALLINT UNSIGNED NOT NULL DEFAULT 0,
             total SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-            passed TINYINT(1) NOT NULL DEFAULT 0,
+            percentage DECIMAL(5,2) NOT NULL DEFAULT 0,
+            status ENUM('PASSED','FAILED') NOT NULL DEFAULT 'FAILED',
+            answers TEXT NULL,
             created_at INT UNSIGNED NOT NULL DEFAULT 0,
-            INDEX idx_qa_quiz_user (quiz_id, user_id),
-            CONSTRAINT fk_qa_quiz FOREIGN KEY (quiz_id) REFERENCES quizzes (id) ON DELETE CASCADE,
-            CONSTRAINT fk_qa_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+            UNIQUE KEY uq_quiz_result_once (quiz_id, user_id),
+            INDEX idx_qr_user (user_id),
+            CONSTRAINT fk_qr_quiz FOREIGN KEY (quiz_id) REFERENCES quizzes (id) ON DELETE CASCADE,
+            CONSTRAINT fk_qr_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        "CREATE TABLE IF NOT EXISTS quiz_progress (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            quiz_id INT UNSIGNED NOT NULL,
+            user_id INT UNSIGNED NOT NULL,
+            answers TEXT NOT NULL,
+            updated_at INT UNSIGNED NOT NULL DEFAULT 0,
+            UNIQUE KEY uq_quiz_progress_once (quiz_id, user_id),
+            CONSTRAINT fk_qp_quiz FOREIGN KEY (quiz_id) REFERENCES quizzes (id) ON DELETE CASCADE,
+            CONSTRAINT fk_qp_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
     ];
     foreach ($tables as $sql) {
         $pdo->exec($sql);
+    }
+    db_migrate_quiz_results($pdo);
+}
+
+/** One-time migration: legacy multi-attempt rows -> one QuizResult per student (best attempt), then drop the old table. */
+function db_migrate_quiz_results(PDO $pdo): void
+{
+    try {
+        if (!$pdo->query("SHOW TABLES LIKE 'quiz_attempts'")->fetchColumn()) return;
+        if ((int) $pdo->query('SELECT COUNT(*) FROM quiz_results')->fetchColumn() > 0) return;
+        $rows = $pdo->query('SELECT qa.*, q.material_id, q.title AS qtitle, m.title AS mtitle
+                             FROM quiz_attempts qa
+                             JOIN quizzes q ON q.id = qa.quiz_id
+                             JOIN materials m ON m.id = q.material_id')->fetchAll();
+        $best = [];
+        foreach ($rows as $r) {
+            $key = (int) $r['quiz_id'] . ':' . (int) $r['user_id'];
+            $cur = $best[$key] ?? null;
+            if ($cur === null || (int) $r['score'] > (int) $cur['score'] || ((int) $r['score'] === (int) $cur['score'] && (int) $r['id'] > (int) $cur['id'])) {
+                $best[$key] = $r;
+            }
+        }
+        $ins = $pdo->prepare('INSERT INTO quiz_results (quiz_id, user_id, lesson_id, quiz_title, lesson_title, correct, total, percentage, status, answers, created_at)
+                              VALUES (?,?,?,?,?,?,?,?,?,?,?)');
+        foreach ($best as $r) {
+            $ins->execute([
+                (int) $r['quiz_id'], (int) $r['user_id'], (int) $r['material_id'],
+                (string) $r['qtitle'], (string) $r['mtitle'],
+                (int) $r['correct_count'], (int) $r['total'], (float) $r['score'],
+                ((int) $r['passed'] === 1 ? 'PASSED' : 'FAILED'), '{}', (int) $r['created_at'],
+            ]);
+        }
+        $pdo->exec('DROP TABLE quiz_attempts');
+    } catch (Throwable $e) {
+        // migration is best-effort; never block page loads
     }
 }
 /** Import the old JSON storage into MySQL (runs once, only when the DB is empty). */
@@ -959,6 +1009,12 @@ function save_quiz(int $materialId, string $title, int $passScore, array $questi
     $db = db();
     $db->beginTransaction();
     try {
+        // fresh quiz = fresh single attempt: wipe any abandoned in-progress answers
+        $q = $db->prepare('SELECT id FROM quizzes WHERE material_id = ? LIMIT 1');
+        $q->execute([$materialId]);
+        foreach ($q->fetchAll(PDO::FETCH_COLUMN) as $oldQuizId) {
+            $db->prepare('DELETE FROM quiz_progress WHERE quiz_id = ?')->execute([(int) $oldQuizId]);
+        }
         delete_quiz($materialId);
         $db->prepare('INSERT INTO quizzes (material_id, title, pass_score, created_at) VALUES (?,?,?,?)')
             ->execute([$materialId, $title, $passScore, time()]);
@@ -983,29 +1039,161 @@ function delete_quiz(int $materialId): bool
     return $st->rowCount() > 0;
 }
 
-/** Grade + store an attempt. Returns [score, correct, total, passed]. */
-function record_quiz_attempt(int $quizId, int $userId, int $correct, int $total, int $passScore): array
+/** The passing threshold used when a quiz does not carry its own (adjust here). */
+const QUIZ_DEFAULT_PASS_SCORE = 70;
+
+/** The stored QuizResult for one student + quiz (null if not taken yet). */
+function quiz_result_for(int $quizId, int $userId): ?array
 {
-    $score = $total > 0 ? (int) round($correct * 100 / $total) : 0;
-    $passed = $total > 0 && $score >= $passScore;
-    db()->prepare('INSERT INTO quiz_attempts (quiz_id, user_id, score, correct_count, total, passed, created_at) VALUES (?,?,?,?,?,?,?)')
-        ->execute([$quizId, $userId, $score, $correct, $total, $passed ? 1 : 0, time()]);
-    return ['score' => $score, 'correct' => $correct, 'total' => $total, 'passed' => $passed];
+    $st = db()->prepare('SELECT * FROM quiz_results WHERE quiz_id = ? AND user_id = ? LIMIT 1');
+    $st->execute([$quizId, $userId]);
+    if ($r = $st->fetch()) {
+        $r['id'] = (int) $r['id'];
+        $r['quiz_id'] = (int) $r['quiz_id'];
+        $r['user_id'] = (int) $r['user_id'];
+        $r['lesson_id'] = (int) $r['lesson_id'];
+        $r['correct'] = (int) $r['correct'];
+        $r['total'] = (int) $r['total'];
+        $r['percentage'] = (float) $r['percentage'];
+        $r['answers'] = json_decode((string) ($r['answers'] ?? '{}'), true) ?: [];
+    }
+    return $r ?: null;
 }
 
-/** Attempt summary for one user: attempts count, best score, latest attempt. */
-function quiz_attempt_stats(int $quizId, int $userId): array
+/** Mid-quiz saved state (answers locked so far) for one student + quiz. */
+function quiz_progress_for(int $quizId, int $userId): ?array
 {
-    $st = db()->prepare('SELECT COUNT(*) n, MAX(score) best FROM quiz_attempts WHERE quiz_id = ? AND user_id = ?');
+    $st = db()->prepare('SELECT answers FROM quiz_progress WHERE quiz_id = ? AND user_id = ? LIMIT 1');
     $st->execute([$quizId, $userId]);
-    $row = $st->fetch() ?: [];
-    $out = ['attempts' => (int) ($row['n'] ?? 0), 'best' => (int) ($row['best'] ?? 0), 'last' => null];
-    $st = db()->prepare('SELECT score, correct_count, total, passed, created_at FROM quiz_attempts WHERE quiz_id = ? AND user_id = ? ORDER BY id DESC LIMIT 1');
-    $st->execute([$quizId, $userId]);
-    if ($last = $st->fetch()) {
-        $out['last'] = ['score' => (int) $last['score'], 'correct' => (int) $last['correct_count'], 'total' => (int) $last['total'], 'passed' => (bool) $last['passed'], 'created_at' => (int) $last['created_at']];
+    if ($r = $st->fetch()) {
+        return json_decode((string) $r['answers'], true) ?: [];
+    }
+    return null;
+}
+
+/**
+ * Lock in ONE answer for an in-progress attempt.
+ * - silently ignores re-answers (a question may only be answered once);
+ * - returns the current answers map. Saving is guarded so a double POST cannot corrupt state.
+ */
+function save_quiz_answer(int $quizId, int $userId, int $questionId, int $choice): array
+{
+    $answers = quiz_progress_for($quizId, $userId) ?? [];
+    if (array_key_exists((string) $questionId, $answers)) {
+        return $answers; // already locked — never overwrite
+    }
+    $answers[(string) $questionId] = max(0, $choice);
+    db()->prepare('INSERT INTO quiz_progress (quiz_id, user_id, answers, updated_at) VALUES (?,?,?,?)
+                   ON DUPLICATE KEY UPDATE answers = VALUES(answers), updated_at = VALUES(updated_at)')
+        ->execute([$quizId, $userId, json_encode($answers, JSON_UNESCAPED_UNICODE), time()]);
+    return $answers;
+}
+
+/** Delete an abandoned in-progress attempt (used when a quiz is re-assigned by the teacher). */
+function clear_quiz_progress(int $quizId, int $userId): void
+{
+    db()->prepare('DELETE FROM quiz_progress WHERE quiz_id = ? AND user_id = ?')->execute([$quizId, $userId]);
+}
+
+/** Grade the saved answers and store the single QuizResult. Returns the result row. */
+function finalize_quiz(int $quizId, int $userId): ?array
+{
+    $st = db()->prepare('SELECT * FROM quizzes WHERE id = ? LIMIT 1');
+    $st->execute([$quizId]);
+    $quiz = $st->fetch();
+    $answers = quiz_progress_for($quizId, $userId);
+    if (!$quiz || $answers === null) return null;
+
+    $q = db()->prepare('SELECT id, correct FROM quiz_questions WHERE quiz_id = ? ORDER BY sort_order, id');
+    $q->execute([$quizId]);
+    $questions = $q->fetchAll();
+    $total = count($questions);
+    $correct = 0;
+    foreach ($questions as $qq) {
+        if ((int) ($answers[(string) $qq['id']] ?? -1) === (int) $qq['correct']) $correct++;
+    }
+    $percentage = $total > 0 ? round($correct * 100 / $total, 2) : 0.0;
+    $passScore = max(1, min(100, (int) $quiz['pass_score']));
+    $status = ($total > 0 && $percentage >= $passScore) ? 'PASSED' : 'FAILED';
+
+    // lock titles at completion time; UNIQUE(quiz_id,user_id) makes double-finalization harmless
+    db()->prepare('INSERT INTO quiz_results (quiz_id, user_id, lesson_id, quiz_title, lesson_title, correct, total, percentage, status, answers, created_at)
+                   SELECT q.id, ?, q.material_id, q.title, m.title, ?, ?, ?, ?, ?, ?
+                   FROM quizzes q JOIN materials m ON m.id = q.material_id WHERE q.id = ?
+                   ON DUPLICATE KEY UPDATE correct = VALUES(correct), total = VALUES(total), percentage = VALUES(percentage), status = VALUES(status), answers = VALUES(answers), created_at = VALUES(created_at)')
+        ->execute([$userId, $correct, $total, $percentage, $status, json_encode($answers, JSON_UNESCAPED_UNICODE), time(), $quizId]);
+    clear_quiz_progress($quizId, $userId);
+    return quiz_result_for($quizId, $userId);
+}
+
+/** All quiz results of one student, newest first (course + lesson titles joined). */
+function student_quiz_records(int $userId): array
+{
+    $st = db()->prepare('SELECT qr.*, c.title AS course_title, c.id AS course_id
+                         FROM quiz_results qr
+                         JOIN quizzes q ON q.id = qr.quiz_id
+                         JOIN materials m ON m.id = q.material_id
+                         JOIN courses c ON c.id = m.course_id
+                         WHERE qr.user_id = ?
+                         ORDER BY qr.created_at DESC, qr.id DESC');
+    $st->execute([$userId]);
+    $out = [];
+    foreach ($st->fetchAll() as $r) {
+        $r['id'] = (int) $r['id'];
+        $r['quiz_id'] = (int) $r['quiz_id'];
+        $r['lesson_id'] = (int) $r['lesson_id'];
+        $r['course_id'] = (int) $r['course_id'];
+        $r['correct'] = (int) $r['correct'];
+        $r['total'] = (int) $r['total'];
+        $r['percentage'] = (float) $r['percentage'];
+        $r['created_at'] = (int) $r['created_at'];
+        $r['answers'] = json_decode((string) ($r['answers'] ?? '{}'), true) ?: [];
+        $out[] = $r;
     }
     return $out;
+}
+
+/** All quiz results for the quizzes a teacher owns, newest first (student names joined). */
+function teacher_quiz_records(int $teacherId): array
+{
+    $st = db()->prepare('SELECT qr.*, u.name AS student_name, c.title AS course_title, c.id AS course_id, q.material_id AS material_id
+                         FROM quiz_results qr
+                         JOIN quizzes q ON q.id = qr.quiz_id
+                         JOIN materials m ON m.id = q.material_id
+                         JOIN courses c ON c.id = m.course_id
+                         JOIN users u ON u.id = qr.user_id
+                         WHERE c.teacher_id = ?
+                         ORDER BY qr.created_at DESC, qr.id DESC');
+    $st->execute([$teacherId]);
+    $out = [];
+    foreach ($st->fetchAll() as $r) {
+        $r['id'] = (int) $r['id'];
+        $r['quiz_id'] = (int) $r['quiz_id'];
+        $r['lesson_id'] = (int) $r['lesson_id'];
+        $r['course_id'] = (int) $r['course_id'];
+        $r['material_id'] = (int) $r['material_id'];
+        $r['correct'] = (int) $r['correct'];
+        $r['total'] = (int) $r['total'];
+        $r['percentage'] = (float) $r['percentage'];
+        $r['created_at'] = (int) $r['created_at'];
+        $r['answers'] = json_decode((string) ($r['answers'] ?? '{}'), true) ?: [];
+        $out[] = $r;
+    }
+    return $out;
+}
+
+/** Summary over result rows: taken / passed / failed / average percentage. */
+function quiz_records_summary(array $rows): array
+{
+    $taken = count($rows);
+    $passed = 0;
+    $failed = 0;
+    $sum = 0.0;
+    foreach ($rows as $r) {
+        if (($r['status'] ?? '') === 'PASSED') $passed++; else $failed++;
+        $sum += (float) ($r['percentage'] ?? 0);
+    }
+    return ['taken' => $taken, 'passed' => $passed, 'failed' => $failed, 'avg' => $taken > 0 ? round($sum / $taken, 1) : 0.0];
 }
 
 /**

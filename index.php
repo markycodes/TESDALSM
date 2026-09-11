@@ -17,7 +17,7 @@ require __DIR__ . '/header.php';
 <section class="grid items-center gap-10 py-10 md:grid-cols-2 md:py-14">
   <div>
     <span class="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700 ring-1 ring-indigo-200">🎓 Simple Learning Management System</span>
-    <h1 class="mt-4 text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">Learn anything.<br><span class="text-indigo-600">Teach everything.</span></h1>
+    <h1 class="mt-4 text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">Learn anything.<br><span class="text-emerald-600">Teach everything.</span></h1>
     <p class="mt-4 text-lg leading-8 text-slate-600">Upload learning materials and video tutorials, enroll students, and track progress — all in one simple place. No database setup needed.</p>
     <div class="mt-8 flex flex-wrap gap-3">
       <a href="register.php" class="rounded-xl bg-indigo-600 px-6 py-3 font-semibold text-white shadow-sm hover:bg-indigo-700">Create free account</a>
@@ -43,9 +43,9 @@ require __DIR__ . '/header.php';
 
 <!-- Stats band -->
 <section data-live-scope="index" class="grid grid-cols-3 gap-4 rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200">
-  <div><p class="text-3xl font-extrabold text-indigo-600" data-live-index="courses"><?= (int) $stats['courses'] ?></p><p class="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Courses</p></div>
-  <div><p class="text-3xl font-extrabold text-indigo-600" data-live-index="lessons"><?= (int) $stats['lessons'] ?></p><p class="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Lessons</p></div>
-  <div><p class="text-3xl font-extrabold text-indigo-600" data-live-index="students"><?= (int) $stats['students'] ?></p><p class="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Students</p></div>
+  <div><p class="text-3xl font-extrabold text-emerald-600" data-live-index="courses"><?= (int) $stats['courses'] ?></p><p class="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Courses</p></div>
+  <div><p class="text-3xl font-extrabold text-emerald-600" data-live-index="lessons"><?= (int) $stats['lessons'] ?></p><p class="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Lessons</p></div>
+  <div><p class="text-3xl font-extrabold text-emerald-600" data-live-index="students"><?= (int) $stats['students'] ?></p><p class="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Students</p></div>
 </section>
 
 <!-- How it works -->

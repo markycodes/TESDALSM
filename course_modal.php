@@ -13,24 +13,27 @@
       <div>
         <label class="block text-sm font-medium text-slate-700" for="c-title">Course title *</label>
         <input id="c-title" name="title" required maxlength="120" placeholder="e.g. PHP for Beginners"
-               class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
+          class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
       </div>
       <div>
         <label class="block text-sm font-medium text-slate-700" for="c-category">Category</label>
         <input id="c-category" name="category" list="category-list" maxlength="60" placeholder="e.g. Programming"
-               class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
+          class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
         <datalist id="category-list">
-          <?php foreach ($categories as $cat): ?><option value="<?= e($cat) ?>"><?php endforeach; ?>
+          <?php foreach ($categories as $cat): ?>
+            <option value="<?= e($cat) ?>"><?php endforeach; ?>
         </datalist>
       </div>
       <div>
         <label class="block text-sm font-medium text-slate-700" for="c-desc">Description</label>
         <textarea id="c-desc" name="description" rows="3" maxlength="2000" placeholder="What will students learn?"
-                  class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"></textarea>
+          class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"></textarea>
       </div>
       <div class="flex justify-end gap-2 pt-2">
-        <button type="button" data-modal-close class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel</button>
-        <button class="rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Create course</button>
+        <button type="button" data-modal-close
+          class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel</button>
+        <button class="rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Create
+          course</button>
       </div>
     </form>
   </div>

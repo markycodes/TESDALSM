@@ -50,7 +50,8 @@ Schema (auto-created, InnoDB, utf8mb4, foreign keys with `ON DELETE CASCADE`):
 | `attendance` | id PK, user_id, course_id, entered_at, left_at, ip (every visit to a course) |
 | `quizzes` | id PK, material_id FK→materials UNIQUE (one quiz per lesson), title, pass_score, created_at |
 | `quiz_questions` | id PK, quiz_id FK→quizzes, prompt, options (JSON array), correct (option index), sort_order |
-| `quiz_attempts` | id PK, quiz_id FK→quizzes, user_id FK→users, score, correct_count, total, passed, created_at |
+| `quiz_results` | id PK, quiz_id FK→quizzes + user_id FK→users (UNIQUE — one attempt per student), lesson_id, quiz_title, lesson_title, correct, total, percentage DECIMAL(5,2), status ENUM(PASSED/FAILED), answers JSON, created_at |
+| `quiz_progress` | quiz_id + user_id (UNIQUE), answers JSON (in-progress, saved per question — survives a closed browser) |
 
 Uploaded files themselves live in `uploads/` (filenames are stored in `materials.filename`).
 
@@ -87,12 +88,16 @@ Open a course you teach and click **＋ Add lesson**. The modal has one tab per 
 
 ## Lesson quizzes
 
-Every lesson can carry a **multiple-choice quiz**:
+Every lesson can carry a **multiple-choice quiz** taken **once** per student:
 
-- **Teachers** click **🧪 Assign quiz / Quiz (N)** on any lesson card (videos and materials) to open the quiz editor: title, pass score (50–100%), and up to 20 questions with 2–4 options each and a marked correct answer. Saving replaces the quiz; **🗑 Remove this quiz** deletes it.
-- **Students** see a 🔒 *“Quiz — complete the lesson to unlock”* chip while the lesson is unfinished. As soon as the lesson is completed (video watched to the end, or document read to the bottom), the chip flips to a green **🧪 Take the lesson quiz** button — even live, without a page refresh.
-- **Server-side gate**: `quiz.php` and `quiz_submit.php` both run through `require_quiz_access()` — the quiz page returns **403 “Quiz locked”** for anyone who has not completed the lesson, and a forced early POST to the grading endpoint is rejected the same way. Correct answers never reach the browser before submission; grading is server-side and every attempt is stored (`quiz_attempts`) with best/latest score and a retake option.
-- The owning teacher can **preview** the quiz any time (preview submissions are not recorded). The demo course ships with a 2-question quiz on Lesson 1, already unlocked for the demo student.
+- **Teachers** click **🧪 Assign quiz / Quiz (N)** on any lesson card (videos and materials) to open the quiz editor: title, pass score (50–100%, default **70%**), and up to 20 questions with 2–4 options each and a marked correct answer. Saving replaces the quiz (and any in-progress attempt); **🗑 Remove this quiz** deletes it.
+- **Students** see a 🔒 *“Quiz — complete the lesson to unlock”* chip while the lesson is unfinished. As soon as the lesson is completed, the chip flips to a green **🧪 Take the lesson quiz** button.
+- **One attempt, locked per question**: the quiz is a one-question-at-a-time wizard. Each answer is **saved server-side immediately** (closing the browser keeps progress) and **locked** — no back button, no editing, and the whole quiz can only be completed once. `quiz_answer.php` rejects re-answered questions and post-completion submissions; the DB enforces it with a UNIQUE(quiz, student) key.
+- **Score & status**: on the final answer the quiz is graded — score `x/y`, percentage (2 decimals), and status **PASSED/FAILED** against the quiz's pass score — and stored in `quiz_results` (the shared records source).
+- **Server-side gate**: `quiz.php` and `quiz_answer.php` both run through `require_quiz_access()` — 403 “Quiz locked” until the lesson is completed; correct answers never reach the browser before submission.
+- **📋 My Records** (`my_records.php`, student nav): greeting, summary (taken / passed / failed / average %), All/Passed/Failed filters, and the full history (quiz title, lesson, score, %, status badge, date) — always filtered to the signed-in student's own rows.
+- **👤 Student Records** (`quiz_records.php`, teacher nav): the same data grouped alphabetically by student with collapsible cards, name search, summary chips, and the per-quiz table. Teacher-only route.
+- The owning teacher can **preview** the quiz any time with correct answers highlighted (never recorded). The demo course ships with a quiz on Lesson 1.
 
 ## Upload size limits
 
@@ -115,8 +120,10 @@ LMS/
 ├── lessons_section.php / lesson_modal.php / course_modal.php   partials
 ├── quiz_modal.php        quiz editor modal (teacher)
 ├── quiz_save.php / quiz_delete.php   assign / replace / remove a lesson quiz
-├── quiz.php              take a lesson quiz (403-gated until the lesson is completed)
-├── quiz_submit.php       server-side grading + attempt storage (same gate)
+├── quiz.php              take a lesson quiz (gated; one attempt, locked per question)
+├── quiz_answer.php       per-question lock endpoint (same gate, rejects re-answers)
+├── my_records.php        student "My Quiz Records" (own results only)
+├── quiz_records.php      teacher "Student Quiz Records" (grouped, searchable)
 ├── upload.php          handles document / pasted-text / multiple video(s) / multiple link(s) uploads
 ├── download.php        secure, range-aware file streaming
 ├── read.php            material reader (in-browser, scroll-tracked)
