@@ -224,6 +224,40 @@ function db_ensure_schema(PDO $pdo): void
             CONSTRAINT fk_qp_quiz FOREIGN KEY (quiz_id) REFERENCES quizzes (id) ON DELETE CASCADE,
             CONSTRAINT fk_qp_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        "CREATE TABLE IF NOT EXISTS conversations (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            student_id INT UNSIGNED NOT NULL,
+            teacher_id INT UNSIGNED NOT NULL,
+            created_at INT UNSIGNED NOT NULL DEFAULT 0,
+            UNIQUE KEY uq_conversation_pair (student_id, teacher_id),
+            INDEX idx_convo_student (student_id),
+            INDEX idx_convo_teacher (teacher_id),
+            CONSTRAINT fk_convo_student FOREIGN KEY (student_id) REFERENCES users (id) ON DELETE CASCADE,
+            CONSTRAINT fk_convo_teacher FOREIGN KEY (teacher_id) REFERENCES users (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        "CREATE TABLE IF NOT EXISTS messages (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            conversation_id INT UNSIGNED NOT NULL,
+            sender_id INT UNSIGNED NOT NULL,
+            body VARCHAR(2000) NOT NULL,
+            is_read TINYINT(1) NOT NULL DEFAULT 0,
+            created_at INT UNSIGNED NOT NULL DEFAULT 0,
+            INDEX idx_msg_convo (conversation_id),
+            CONSTRAINT fk_msg_convo FOREIGN KEY (conversation_id) REFERENCES conversations (id) ON DELETE CASCADE,
+            CONSTRAINT fk_msg_sender FOREIGN KEY (sender_id) REFERENCES users (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        "CREATE TABLE IF NOT EXISTS notifications (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            user_id INT UNSIGNED NOT NULL,
+            type VARCHAR(40) NOT NULL DEFAULT 'info',
+            title VARCHAR(200) NOT NULL,
+            body VARCHAR(500) NOT NULL DEFAULT '',
+            link VARCHAR(500) NOT NULL DEFAULT '',
+            is_read TINYINT(1) NOT NULL DEFAULT 0,
+            created_at INT UNSIGNED NOT NULL DEFAULT 0,
+            INDEX idx_notif_user (user_id, is_read),
+            CONSTRAINT fk_notif_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
     ];
     foreach ($tables as $sql) {
         $pdo->exec($sql);
@@ -1834,4 +1868,93 @@ function student_daily_series(int $userId, int $days = 14): array
     return ['labels' => $labels, 'completions' => $completions, 'visits' => $bucket($st->fetchAll(PDO::FETCH_COLUMN))];
 }
 
-ensure_storage();
+/* ---------------- private student <-> teacher messaging ---------------- */
+
+/** Return the existing conversation between a student and a teacher, or create it. */
+function get_or_create_conversation(int $studentId, int $teacherId): int
+{
+    db()->prepare('INSERT IGNORE INTO conversations (student_id, teacher_id, created_at) VALUES (?,?,?)')
+        ->execute([$studentId, $teacherId, time()]);
+    $st = db()->prepare('SELECT id FROM conversations WHERE student_id = ? AND teacher_id = ? LIMIT 1');
+    $st->execute([$studentId, $teacherId]);
+    return (int) ($st->fetchColumn() ?: 0);
+}
+
+/** True when a conversation belongs to the given user (as the student or the teacher). */
+function user_owns_conversation(int $conversationId, int $userId): bool
+{
+    $st = db()->prepare('SELECT COUNT(*) FROM conversations WHERE id = ? AND (student_id = ? OR teacher_id = ?)');
+    $st->execute([$conversationId, $userId, $userId]);
+    return (int) $st->fetchColumn() > 0;
+}
+
+/** Send a private message. $toId is the OTHER party. Returns the message id (0 on empty body). */
+function send_private_message(int $fromId, int $toId, int $conversationId, string $body): int
+{
+    $body = cut(trim($body), 2000);
+    if ($body === '') return 0;
+    db()->prepare('INSERT INTO messages (conversation_id, sender_id, body, is_read, created_at) VALUES (?,?,?,0,?)')
+        ->execute([$conversationId, $fromId, $body, time()]);
+    $id = (int) db()->lastInsertId();
+    if ($toId > 0) {
+        $peer = find_user_by_id($fromId);
+        add_notification($toId, 'message',
+            '💬 New message from ' . ((string) ($peer['name'] ?? 'a user')),
+            cut($body, 140),
+            'messages.php?with=' . $fromId);
+    }
+    return $id;
+}
+
+/**
+ * Conversation list for a user (student sees teachers, teacher sees students),
+ * each row carrying the latest message preview + unread count for that user.
+ */
+function conversations_for(int $userId, string $role): array
+{
+    $out = [];
+    $st = db()->prepare('SELECT id, student_id, teacher_id, created_at FROM conversations
+                         WHERE student_id = ? OR teacher_id = ? ORDER BY id DESC');
+    $st->execute([$userId, $userId]);
+    foreach ($st->fetchAll() as $c) {
+        $peerId = $role === 'teacher' ? (int) $c['student_id'] : (int) $c['teacher_id'];
+        $peer = find_user_by_id($peerId);
+        $last = db()->prepare('SELECT body, created_at FROM messages WHERE conversation_id = ? ORDER BY id DESC LIMIT 1');
+        $last->execute([(int) $c['id']]);
+        $lr = $last->fetch() ?: [];
+        $unread = db()->prepare('SELECT COUNT(*) FROM messages WHERE conversation_id = ? AND sender_id <> ? AND is_read = 0');
+        $unread->execute([(int) $c['id'], $userId]);
+        $out[] = [
+            'id' => (int) $c['id'],
+            'peer_id' => $peerId,
+            'peer_name' => (string) ($peer['name'] ?? 'User'),
+            'last_body' => (string) ($lr['body'] ?? ''),
+            'last_ts' => (int) ($lr['created_at'] ?? 0),
+            'unread' => (int) $unread->fetchColumn(),
+        ];
+    }
+    return $out;
+}
+
+/** People a user can start a conversation with (no conversation yet). */
+function message_contacts_for(int $userId, string $role): array
+{
+    if ($role === 'teacher') {
+        // students enrolled in any of the teacher's courses
+        $st = db()->prepare('SELECT DISTINCT u.id, u.name FROM enrollments e
+                             JOIN courses c ON c.id = e.course_id
+                             JOIN users u ON u.id = e.user_id
+                             WHERE c.teacher_id = ? AND u.role = \'student\'
+                             ORDER BY u.name');
+        $st->execute([$userId]);
+        return array_map(fn ($r) => ['id' => (int) $r['id'], 'name' => (string) $r['name'], 'role' => 'student'], $st->fetchAll());
+    }
+    // student: teachers of their enrolled courses (or a course owner when enrolled)
+    $st = db()->prepare('SELECT DISTINCT u.id, u.name FROM courses c
+                         JOIN enrollments e ON e.course_id = c.id
+                         JOIN users u ON u.id = c.teacher_id
+                         WHERE e.user_id = ? AND u.role = \'teacher\'
+                         ORDER BY u.name');
+    $st->execute([$userId]);
+    return array_map(fn ($r) => ['id' => (int) $r['id'], 'name' => (string) $r['name'], 'role' => 'teacher'], $st->fetchAll());
+}
