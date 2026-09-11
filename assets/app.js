@@ -54,6 +54,10 @@ document.querySelectorAll('[data-toast]').forEach((t) => setTimeout(() => t.remo
 /* ---------- Modals ---------- */
 function openModal(modal) {
   if (!modal) return;
+  // Escape transformed ancestors: <main> runs the v2 pageIn animation (transform + fill-mode),
+  // which turns it into the containing block for position:fixed. Re-parenting the backdrop to
+  // <body> guarantees "fixed inset-0 + items-center justify-center" centers against the viewport.
+  if (modal.parentElement && modal.parentElement !== document.body) document.body.appendChild(modal);
   modal.classList.remove('hidden');
   modal.classList.add('flex');
   document.body.classList.add('overflow-hidden');

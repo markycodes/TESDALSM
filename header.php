@@ -211,8 +211,6 @@ main input:focus,main select:focus,main textarea:focus{outline:none;border-color
   </div>
 </nav>
 
-<main class="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
-
 <?php foreach ($flashes as $f): ?>
 <div data-toast class="toast-in fixed right-4 top-20 z-50 flex max-w-sm items-start gap-3 rounded-xl border p-4 shadow-lg <?= ($f['type'] ?? '') === 'error' ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-emerald-200 bg-emerald-50 text-emerald-800' ?>">
   <span><?= ($f['type'] ?? '') === 'error' ? '⚠️' : '✅' ?></span>
@@ -220,3 +218,6 @@ main input:focus,main select:focus,main textarea:focus{outline:none;border-color
   <button data-toast-close class="ml-2 text-slate-400 hover:text-slate-600">✕</button>
 </div>
 <?php endforeach; ?>
+
+<main class="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
+
