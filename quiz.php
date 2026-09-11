@@ -24,7 +24,10 @@ $isOwner = $ctx['isOwner'];
 $material = get_material($courseId, $materialId);
 
 $result = $isOwner ? null : quiz_result_for((int) $quiz['id'], $userId);
-$answered = $isOwner ? [] : (quiz_progress_for((int) $quiz['id'], $userId) ?? []);
+// Review source: once finished, read the persisted answers from quiz_results
+// (progress rows are deleted on completion); while in progress, read quiz_progress.
+$answered = $result ? $result['answers']
+          : ($isOwner ? [] : (quiz_progress_for((int) $quiz['id'], $userId) ?? []));
 $total = count($quiz['questions']);
 $answeredCount = count($answered);
 // first unanswered question (in sort order)

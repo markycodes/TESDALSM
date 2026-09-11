@@ -100,8 +100,13 @@ require __DIR__ . '/header.php';
               <summary class="cursor-pointer list-none rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">👁 View details</summary>
               <div class="mt-2 w-64 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs shadow-lg">
                 <p class="font-bold uppercase tracking-wide text-slate-400">Answer review</p>
+                <?php
+                  $qmap = [];
+                  $rowQuiz = lesson_quiz((int) $r['lesson_id']);
+                  foreach (($rowQuiz['questions'] ?? []) as $qi => $qq) { $qmap[(int) $qq['id']] = $qi + 1; }
+                ?>
                 <?php if ($r['answers']): foreach ($r['answers'] as $qid => $choice): ?>
-                  <p class="mt-1.5 text-slate-600">Question #<?= (int) $qid + 1 ?> — your choice: option <b><?= (int) $choice + 1 ?></b></p>
+                  <p class="mt-1.5 text-slate-600">Question #<?= (int) ($qmap[(int) $qid] ?? $qid) ?> — your choice: option <b><?= (int) $choice + 1 ?></b></p>
                 <?php endforeach; else: ?>
                   <p class="mt-1.5 text-slate-400">Detailed answers were not stored for this record.</p>
                 <?php endif; ?>
