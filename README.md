@@ -3,6 +3,12 @@
 A simple Learning Management System built with **plain PHP, HTML, Tailwind CSS (CDN) and vanilla JavaScript**, backed by a **MySQL database** (XAMPP).
 
 Teachers create courses and upload **learning materials** (PDF, DOCX, PPTX, images…), **paste whole materials as text**, and add **video tutorials** (MP4/WebM uploads or YouTube/Vimeo links). Students enroll, watch/read lessons, and track their progress.
+## Private messaging & notifications
+
+- **Private 1:1 chat** (`messages.php`): students message the teachers of their courses; teachers message their enrolled students. Two-pane responsive layout (conversation list + chat bubbles), live updates via 4s polling of `realtime.php?v=chat` (since last message id), AJAX send, timestamps, unread badges. Conversations are strictly `student_id ↔ teacher_id` pairs — `send_message.php` / `realtime.php?v=chat` enforce server-side ownership, so one student can never read another student's chat.
+- **Real-time notifications** (header bell): green unread badge, dropdown panel, per-item "mark as read" (click-through to the linked page) and "Mark all as read". Generated **only from real events**: 💬 new private message, 📚 new lesson posted, 🧪 quiz assigned, 🏆/📝 quiz result. Polled every 8s via `realtime.php?v=notifications` (also carries the chat unread total).
+- Tables (auto-created): `conversations` (UNIQUE student↔teacher pair), `messages` (sender, body, is_read, created_at), `notifications` (user, type, title, body, link, is_read). Demo data includes one teacher→student welcome message.
+
 ## Requirements
 
 - XAMPP with **Apache** and **MySQL** running

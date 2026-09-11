@@ -409,6 +409,15 @@ function db_seed_if_empty(PDO $pdo): void
     $addQuestion->execute([$demoQuizId, 'Which technology makes a web page interactive?',
         json_encode(['HTML', 'CSS', 'JavaScript', 'SQL'], JSON_UNESCAPED_UNICODE), 2, 1]);
 
+    // Demo private message + notification so Messaging / Notifications have content out of the box.
+    $pdo->prepare('INSERT INTO conversations (student_id, teacher_id, created_at) VALUES (?,?,?)')
+        ->execute([$studentId, $teacherId, $now]);
+    $demoConvo = (int) $pdo->lastInsertId();
+    $pdo->prepare('INSERT INTO messages (conversation_id, sender_id, body, is_read, created_at) VALUES (?,?,?,0,?)')
+        ->execute([$demoConvo, $teacherId, 'Welcome to the Web Development Bootcamp! Reply any time — ask me anything about the lessons. 🙌', $now]);
+    $pdo->prepare('INSERT INTO notifications (user_id, type, title, body, link, is_read, created_at) VALUES (?,?,?,?,?,0,?)')
+        ->execute([$studentId, 'message', '💬 New message from Sara Ahmed', 'Welcome to the Web Development Bootcamp! Reply any time.', 'messages.php?with=' . $teacherId, $now]);
+
     // Demo invitation codes so students can register into a course out of the box.
     $addCode = $pdo->prepare('INSERT INTO enroll_codes (code, course_id, teacher_id, created_at) VALUES (?,?,?,?)');
     $addCode->execute(['DEMO-7K3P', $course1, $teacherId, $now]);
@@ -1157,6 +1166,13 @@ function finalize_quiz(int $quizId, int $userId): ?array
                    ON DUPLICATE KEY UPDATE correct = VALUES(correct), total = VALUES(total), percentage = VALUES(percentage), status = VALUES(status), answers = VALUES(answers), created_at = VALUES(created_at)')
         ->execute([$userId, $correct, $total, $percentage, $status, json_encode($answers, JSON_UNESCAPED_UNICODE), time(), $quizId]);
     clear_quiz_progress($quizId, $userId);
+
+    // real event -> notification: the student just got their result
+    $pctTxt = rtrim(rtrim(number_format($percentage, 2), '0'), '.');
+    add_notification($userId, 'result',
+        $status === 'PASSED' ? '🏆 Quiz passed: ' . (string) $quiz['title'] : '📝 Quiz result: ' . (string) $quiz['title'],
+        "You scored {$correct}/{$total} ({$pctTxt}%) — " . ($status === 'PASSED' ? 'passed!' : 'not passed yet.'),
+        'my_records.php');
     return quiz_result_for($quizId, $userId);
 }
 
@@ -1958,3 +1974,98 @@ function message_contacts_for(int $userId, string $role): array
     $st->execute([$userId]);
     return array_map(fn ($r) => ['id' => (int) $r['id'], 'name' => (string) $r['name'], 'role' => 'teacher'], $st->fetchAll());
 }
+/** Messages in a conversation the user may access, newest-last. Marks them read for the viewer. */
+function messages_in_conversation(int $conversationId, int $userId, int $limit = 60, bool $markRead = true): ?array
+{
+    // inline ownership guard (avoids a cross-function call that can unbind in this PHP build)
+    $chk = db()->prepare('SELECT COUNT(*) FROM conversations WHERE id = ? AND (student_id = ? OR teacher_id = ?)');
+    $chk->execute([$conversationId, $userId, $userId]);
+    if ((int) $chk->fetchColumn() === 0) return null;
+    $st = db()->prepare('SELECT id, sender_id, body, is_read, created_at FROM messages WHERE conversation_id = ? ORDER BY id DESC LIMIT ?');
+    $st->execute([$conversationId, $limit]);
+    $rows = $st->fetchAll();                // DESC order
+    $rev = [];
+    for ($i = count($rows) - 1; $i >= 0; $i--) { $rev[] = $rows[$i]; }
+    if ($markRead) {
+        db()->prepare('UPDATE messages SET is_read = 1 WHERE conversation_id = ? AND sender_id <> ? AND is_read = 0')
+            ->execute([$conversationId, $userId]);
+    }
+    return array_map(fn ($r) => [
+        'id' => (int) $r['id'],
+        'sender_id' => (int) $r['sender_id'],
+        'body' => (string) $r['body'],
+        'created_at' => (int) $r['created_at'],
+    ], $rev);
+}
+
+/** Total unread private messages for a user (across conversations). */
+function unread_message_total(int $userId): int
+{
+    $st = db()->prepare('SELECT COUNT(*) FROM messages m JOIN conversations c ON c.id = m.conversation_id
+                         WHERE (c.student_id = ? OR c.teacher_id = ?) AND m.sender_id <> ? AND m.is_read = 0');
+    $st->execute([$userId, $userId, $userId]);
+    return (int) $st->fetchColumn();
+}
+
+/** Mark every message in a conversation as read for the viewer (used on open). */
+function mark_conversation_read(int $conversationId, int $userId): void
+{
+    $st = db()->prepare('SELECT COUNT(*) FROM conversations WHERE id = ? AND (student_id = ? OR teacher_id = ?)');
+    $st->execute([$conversationId, $userId, $userId]);
+    if ((int) $st->fetchColumn() === 0) return;
+    db()->prepare('UPDATE messages SET is_read = 1 WHERE conversation_id = ? AND sender_id <> ? AND is_read = 0')
+        ->execute([$conversationId, $userId]);
+}
+
+/* ---------------- notifications ---------------- */
+
+function add_notification(int $userId, string $type, string $title, string $body = '', string $link = ''): void
+{
+    db()->prepare('INSERT INTO notifications (user_id, type, title, body, link, is_read, created_at) VALUES (?,?,?,?,?,0,?)')
+        ->execute([$userId, cut($type, 40), cut($title, 200), cut($body, 500), cut($link, 500), time()]);
+}
+
+/** Notify every student enrolled in a course (used for real events like new lessons/quizzes). */
+function notify_course_students(int $courseId, string $type, string $title, string $body = '', string $link = ''): void
+{
+    $st = db()->prepare('SELECT e.user_id FROM enrollments e WHERE e.course_id = ?');
+    $st->execute([$courseId]);
+    foreach ($st->fetchAll(PDO::FETCH_COLUMN) as $uid) {
+        add_notification((int) $uid, $type, $title, $body, $link);
+    }
+}
+
+/** Newest-first list. */
+function notifications_for(int $userId, int $limit = 20): array
+{
+    $st = db()->prepare('SELECT id, type, title, body, link, is_read, created_at FROM notifications WHERE user_id = ? ORDER BY id DESC LIMIT ?');
+    $st->execute([$userId, $limit]);
+    return array_map(fn ($r) => [
+        'id' => (int) $r['id'],
+        'type' => (string) $r['type'],
+        'title' => (string) $r['title'],
+        'body' => (string) $r['body'],
+        'link' => (string) $r['link'],
+        'is_read' => (bool) $r['is_read'],
+        'created_at' => (int) $r['created_at'],
+    ], $st->fetchAll());
+}
+
+function unread_notification_count(int $userId): int
+{
+    $st = db()->prepare('SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0');
+    $st->execute([$userId]);
+    return (int) $st->fetchColumn();
+}
+
+function mark_one_notification_read(int $notifId, int $userId): void
+{
+    db()->prepare('UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?')->execute([$notifId, $userId]);
+}
+
+function mark_all_notifications_read(int $userId): void
+{
+    db()->prepare('UPDATE notifications SET is_read = 1 WHERE user_id = ?')->execute([$userId]);
+}
+
+ensure_storage();

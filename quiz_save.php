@@ -47,6 +47,10 @@ foreach ($prompts as $i => $p) {
 
 try {
     save_quiz($materialId, $title, $passScore, $questions);
+    notify_course_students($courseId, 'quiz',
+        '🧪 New quiz: "' . cut($title, 70) . '"',
+        'A new quiz was assigned to this lesson.',
+        'course.php?id=' . $courseId);
     set_flash('success', '🧪 Quiz saved — ' . count($questions) . ' question(s) assigned to this lesson. It unlocks for students once they complete the lesson.');
 } catch (RuntimeException $e) {
     set_flash('error', $e->getMessage());

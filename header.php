@@ -152,68 +152,192 @@ main input:focus,main select:focus,main textarea:focus{outline:none;border-color
 }
 
 
+/* ============================================================
+   Redesign shell: fixed sidebar + top bar + notification panel
+   ============================================================ */
+.lh-app{background:#eef3ee}
+.lh-sidebar{position:fixed;top:0;left:0;bottom:0;width:264px;z-index:35;background:rgba(255,255,255,.97);border-right:1px solid rgba(226,232,240,.92);box-shadow:0 24px 48px -24px rgba(4,120,87,.18);transform:translateX(-280px);transition:transform .25s ease;display:flex;flex-direction:column}
+.lh-sidebar.open{transform:none}
+@media(min-width:1024px){.lh-sidebar{transform:none;box-shadow:none}}
+.lh-backdrop{position:fixed;inset:0;z-index:34;background:rgba(15,23,42,.35);display:none}
+body.lh-side-open .lh-backdrop{display:block}
+@media(min-width:1024px){.lh-backdrop{display:none!important}}
+body.lh-app{padding-left:0}
+@media(min-width:1024px){body.lh-app{padding-left:264px}}
+.lh-main{transition:padding-left .25s ease}
+.lh-side-head{display:flex;align-items:center;gap:.6rem;padding:.9rem 1rem .8rem;border-bottom:1px solid rgba(226,232,240,.9)}
+.lh-side-sec{padding:.9rem 1rem .35rem;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8}
+.lh-side-nav{display:flex;flex-direction:column;gap:2px;padding:0 .65rem}
+.lh-side-link{display:flex;align-items:center;gap:.65rem;padding:.55rem .7rem;font-size:.875rem;font-weight:600;color:#475569;border-radius:12px;transition:all .15s;position:relative}
+.lh-side-link:hover{background:#ecfdf5;color:#047857}
+.lh-side-link.active{background:linear-gradient(135deg,rgba(4,120,87,.14),rgba(16,185,129,.10));color:#047857;box-shadow:inset 0 0 0 1.5px rgba(16,185,129,.28)}
+.lh-side-link.active::before{content:'';position:absolute;left:-.65rem;top:20%;bottom:20%;width:3px;border-radius:99px;background:linear-gradient(#047857,#10b981)}
+.lh-side-ico{width:1.25rem;text-align:center;font-size:15px;line-height:1}
+.lh-side-label{flex:1;min-width:0}
+.lh-side-foot{margin-top:auto;display:flex;align-items:center;gap:.6rem;padding:1rem;border-top:1px solid rgba(226,232,240,.9)}
+.lh-topbar .lh-top-inner{display:flex;align-items:center;gap:.5rem;padding:0 .85rem;height:60px}
+.lh-badge{position:absolute;top:-3px;right:-4px;min-width:17px;height:17px;padding:0 3px;border-radius:9999px;background:linear-gradient(135deg,#047857,#10b981);color:#fff;font-size:10px;font-weight:800;line-height:17px;text-align:center;box-shadow:0 0 0 2px #fff}
+.lh-panel{position:absolute;top:calc(100% + 10px);right:0;z-index:60;width:min(360px,calc(100vw - 16px));max-height:min(480px,calc(100vh - 70px));overflow:hidden;border-radius:18px;border:1px solid rgba(226,232,240,.9);background:#fff;box-shadow:0 28px 60px -24px rgba(4,120,87,.28)}
+.lh-panel-list{max-height:min(400px,calc(100vh - 130px));overflow-y:auto}
+.lx-panel-item{display:flex;flex-direction:column;gap:2px;padding:.65rem .85rem;border-bottom:1px solid rgba(241,245,249,.8);cursor:pointer;text-decoration:none}
+.lx-panel-item:hover{background:#f6fbf8}
+.lh-notif-unread{background:#ecfdf5}
+.lh-notif-unread:hover{background:#d1fae5}
+.lh-notif-unread::before{content:'';align-self:flex-start;width:7px;height:7px;border-radius:99px;background:#059669;margin-bottom:3px}
+.lh-notif-item{display:flex;flex-direction:column;gap:1px}
+
+
+
+/* ============================================================
+   Redesign shell: fixed sidebar + top bar + notification panel
+   ============================================================ */
+.lh-app{background:#eef3ee}
+.lh-sidebar{position:fixed;top:0;left:0;bottom:0;width:264px;z-index:35;background:rgba(255,255,255,.97);border-right:1px solid rgba(226,232,240,.92);box-shadow:0 24px 48px -24px rgba(4,120,87,.18);transform:translateX(-280px);transition:transform .25s ease;display:flex;flex-direction:column}
+.lh-sidebar.open{transform:none}
+@media(min-width:1024px){.lh-sidebar{transform:none;box-shadow:none}}
+.lh-backdrop{position:fixed;inset:0;z-index:34;background:rgba(15,23,42,.35);display:none}
+body.lh-side-open .lh-backdrop{display:block}
+@media(min-width:1024px){.lh-backdrop{display:none!important}}
+body.lh-app{padding-left:0}
+@media(min-width:1024px){body.lh-app{padding-left:264px}}
+.lh-main{transition:padding-left .25s ease}
+.lh-side-head{display:flex;align-items:center;gap:.6rem;padding:.9rem 1rem .8rem;border-bottom:1px solid rgba(226,232,240,.9)}
+.lh-side-sec{padding:.9rem 1rem .35rem;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8}
+.lh-side-nav{display:flex;flex-direction:column;gap:2px;padding:0 .65rem}
+.lh-side-link{display:flex;align-items:center;gap:.65rem;padding:.55rem .7rem;font-size:.875rem;font-weight:600;color:#475569;border-radius:12px;transition:all .15s;position:relative}
+.lh-side-link:hover{background:#ecfdf5;color:#047857}
+.lh-side-link.active{background:linear-gradient(135deg,rgba(4,120,87,.14),rgba(16,185,129,.10));color:#047857;box-shadow:inset 0 0 0 1.5px rgba(16,185,129,.28)}
+.lh-side-link.active::before{content:'';position:absolute;left:-.65rem;top:20%;bottom:20%;width:3px;border-radius:99px;background:linear-gradient(#047857,#10b981)}
+.lh-side-ico{width:1.25rem;text-align:center;font-size:15px;line-height:1}
+.lh-side-label{flex:1;min-width:0}
+.lh-side-foot{margin-top:auto;display:flex;align-items:center;gap:.6rem;padding:1rem;border-top:1px solid rgba(226,232,240,.9)}
+.lh-topbar .lh-top-inner{display:flex;align-items:center;gap:.5rem;padding:0 .85rem;height:60px}
+.lh-badge{position:absolute;top:-3px;right:-4px;min-width:17px;height:17px;padding:0 3px;border-radius:9999px;background:linear-gradient(135deg,#047857,#10b981);color:#fff;font-size:10px;font-weight:800;line-height:17px;text-align:center;box-shadow:0 0 0 2px #fff}
+.lh-panel{position:absolute;top:calc(100% + 10px);right:0;z-index:60;width:min(360px,calc(100vw - 16px));max-height:min(480px,calc(100vh - 70px));overflow:hidden;border-radius:18px;border:1px solid rgba(226,232,240,.9);background:#fff;box-shadow:0 28px 60px -24px rgba(4,120,87,.28)}
+.lh-panel-list{max-height:min(400px,calc(100vh - 130px));overflow-y:auto}
+.lx-panel-item{display:flex;flex-direction:column;gap:2px;padding:.65rem .85rem;border-bottom:1px solid rgba(241,245,249,.8);cursor:pointer;text-decoration:none}
+.lx-panel-item:hover{background:#f6fbf8}
+.lh-notif-unread{background:#ecfdf5}
+.lh-notif-unread:hover{background:#d1fae5}
+.lh-notif-unread::before{content:'';align-self:flex-start;width:7px;height:7px;border-radius:99px;background:#059669;margin-bottom:3px}
+.lh-notif-item{display:flex;flex-direction:column;gap:1px}
+
+</style>
 </style>
 </head>
-<body class="flex min-h-screen flex-col font-sans text-slate-800"<?= $user ? ' data-heartbeat="1"' : '' ?>>
+<body class="flex min-h-screen flex-col font-sans text-slate-800<?= $user ? ' lh-app' : '' ?>"<?= $user ? ' data-heartbeat="1"' : '' ?>>
 <div id="lh-progress"></div>
 
-<nav class="glass sticky top-0 z-40 border-b border-white/60">
-  <div class="mx-auto flex h-16 max-w-6xl items-center justify-between gap-2 px-2 sm:gap-4 sm:px-4">
-    <a href="<?= $user ? 'dashboard.php' : 'index.php' ?>" class="grid h-9 w-9 place-items-center rounded-xl bg-indigo-600 text-white" title="LearnHub" aria-label="LearnHub home">🎓</a>
-    <?php if ($user): ?>
-    <!-- desktop: text links -->
-    <div class="hidden items-center gap-1 sm:flex">
-      <a href="dashboard.php" class="rounded-lg px-3 py-2 text-sm font-medium <?= $nav_active === 'dashboard' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100' ?>">Dashboard</a>
-      <a href="courses.php" class="rounded-lg px-3 py-2 text-sm font-medium <?= $nav_active === 'courses' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100' ?>">Courses</a>
-      <a href="enrollments.php" class="rounded-lg px-3 py-2 text-sm font-medium <?= $nav_active === 'enrollments' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100' ?>">Enrollments</a>
-      <a href="attendance_day.php" class="rounded-lg px-3 py-2 text-sm font-medium <?= $nav_active === 'attendance' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100' ?>">Attendance</a>
-      <a href="<?= ($user['role'] ?? '') === 'teacher' ? 'quiz_records.php' : 'my_records.php' ?>" class="rounded-lg px-3 py-2 text-sm font-medium <?= $nav_active === 'records' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100' ?>"><?= ($user['role'] ?? '') === 'teacher' ? 'Student records' : 'My records' ?></a>
-      <?php if (($user['role'] ?? '') === 'teacher'): ?>
-      <a href="codes.php" class="rounded-lg px-3 py-2 text-sm font-medium <?= $nav_active === 'codes' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100' ?>">Invite codes</a>
-      <?php endif; ?>
+<?php if ($user): ?>
+<aside id="lh-sidebar" class="lh-sidebar" aria-label="Main navigation">
+  <div class="lh-side-head">
+    <a href="dashboard.php" title="LearnHub home" class="lh-logo grid h-10 w-10 place-items-center rounded-xl text-white text-lg">🎓</a>
+    <div class="min-w-0 leading-tight">
+      <a href="dashboard.php" class="block text-sm font-extrabold tracking-tight text-slate-900">LearnHub <span class="text-emerald-600">LMS</span></a>
+      <p class="text-[11px] text-slate-400"><?= ($user['role'] ?? '') === 'teacher' ? '👩‍🏫 Teacher' : '👨‍🎓 Student' ?></p>
     </div>
-    <!-- mobile: minimal icons only -->
-    <div class="flex items-center gap-1 sm:hidden">
-      <a href="dashboard.php" title="Dashboard" aria-label="Dashboard" class="grid h-9 w-9 place-items-center rounded-lg <?= $nav_active === 'dashboard' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700' ?>">
-        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75" /></svg>
-      </a>
-      <a href="courses.php" title="Courses" aria-label="Courses" class="grid h-9 w-9 place-items-center rounded-lg <?= $nav_active === 'courses' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700' ?>">
-        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5" /></svg>
-      </a>
-      <a href="enrollments.php" title="Enrollments" aria-label="Enrollments" class="grid h-9 w-9 place-items-center rounded-lg <?= $nav_active === 'enrollments' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700' ?>">
-        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>
-      </a>
-      <a href="attendance_day.php" title="Attendance" aria-label="Attendance" class="grid h-9 w-9 place-items-center rounded-lg <?= $nav_active === 'attendance' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700' ?>">
-        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-4.5h.008v.008H14.25v-.008zm0 2.25h.008v.008H14.25V15zm0 2.25h.008v.008H14.25v-.008zm2.25-4.5h.008v.008H16.5v-.008zm0 2.25h.008v.008H16.5V15z" /></svg>
-      </a>
-      <a href="<?= ($user['role'] ?? '') === 'teacher' ? 'quiz_records.php' : 'my_records.php' ?>" title="<?= ($user['role'] ?? '') === 'teacher' ? 'Student records' : 'My records' ?>" aria-label="Quiz records" class="grid h-9 w-9 place-items-center rounded-lg <?= $nav_active === 'records' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700' ?>">
-        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.878c-.611 0-1.154.333-1.44.83a2.25 2.25 0 000 2.24l3.11 5.39M8.25 8.25h7.5m-7.5 0v9m7.5-9v9m-7.5 0h7.5" /></svg>
-      </a>
-      <?php if (($user['role'] ?? '') === 'teacher'): ?>
-      <a href="codes.php" title="Invite codes" aria-label="Invite codes" class="grid h-9 w-9 place-items-center rounded-lg <?= $nav_active === 'codes' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700' ?>">
-        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" /></svg>
-      </a>
-      <?php endif; ?>
-    </div>
+  </div>
+
+  <div class="lh-side-sec">Menu</div>
+  <nav class="lh-side-nav">
+    <a href="dashboard.php" class="lh-side-link <?= $nav_active === 'dashboard' ? 'active' : '' ?>"><span class="lh-side-ico">🏠</span><span class="lh-side-label">Dashboard</span></a>
+    <a href="courses.php" class="lh-side-link <?= $nav_active === 'courses' ? 'active' : '' ?>"><span class="lh-side-ico">📚</span><span class="lh-side-label">My Courses</span></a>
+    <a href="enrollments.php" class="lh-side-link <?= $nav_active === 'enrollments' ? 'active' : '' ?>"><span class="lh-side-ico">👥</span><span class="lh-side-label">Enrollments</span></a>
+    <a href="attendance_day.php" class="lh-side-link <?= $nav_active === 'attendance' ? 'active' : '' ?>"><span class="lh-side-ico">🕒</span><span class="lh-side-label">Attendance</span></a>
+    <?php if (($user['role'] ?? '') === 'teacher'): ?>
+    <a href="codes.php" class="lh-side-link <?= $nav_active === 'codes' ? 'active' : '' ?>"><span class="lh-side-ico">🔑</span><span class="lh-side-label">Invite codes</span></a>
     <?php endif; ?>
-    <div class="flex items-center gap-2">
-      <?php if ($user): ?>
-        <span class="hidden text-right sm:block">
-          <span class="block text-sm font-semibold leading-4"><?= e((string) $user['name']) ?></span>
-          <span class="block text-xs text-slate-500"><?= ($user['role'] ?? '') === 'teacher' ? '👩‍🏫 Teacher' : '👨‍🎓 Student' ?></span>
+    <a href="<?= ($user['role'] ?? '') === 'teacher' ? 'quiz_records.php' : 'my_records.php' ?>" class="lh-side-link <?= $nav_active === 'records' ? 'active' : '' ?>"><span class="lh-side-ico">📊</span><span class="lh-side-label"><?= ($user['role'] ?? '') === 'teacher' ? 'Student Records' : 'My Progress' ?></span></a>
+  </nav>
+
+  <div class="lh-side-sec">Communication</div>
+  <nav class="lh-side-nav">
+    <a href="messages.php" class="lh-side-link <?= $nav_active === 'messages' ? 'active' : '' ?>" id="lh-side-chat">
+      <span class="lh-side-ico">💬</span><span class="lh-side-label flex-1">Messages</span>
+      <span id="lh-chat-badge-side" class="lh-badge hidden">0</span>
+    </a>
+  </nav>
+
+  <div class="lh-side-foot">
+    <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-emerald-600 text-sm font-bold text-white"><?= e(strtoupper(substr((string) $user['name'], 0, 1))) ?></span>
+    <span class="min-w-0 flex-1 text-left leading-tight">
+      <span class="block truncate text-sm font-semibold text-slate-800"><?= e((string) $user['name']) ?></span>
+      <span class="block truncate text-[10px] uppercase tracking-wide text-slate-400"><?= ($user['role'] ?? '') === 'teacher' ? 'Teacher' : 'Student' ?></span>
+    </span>
+    <a href="logout.php" title="Log out" class="lh-ico grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-500">⏻</a>
+  </div>
+</aside>
+<div id="lh-side-backdrop" class="lh-backdrop" aria-hidden="true"></div>
+<?php endif; ?>
+<nav class="glass lh-topbar sticky top-0 z-40 border-b border-white/60" aria-label="Primary">
+  <div class="lh-top-inner">
+    <?php if ($user): ?>
+    <button id="lh-side-toggle" class="lh-ico grid h-9 w-9 place-items-center rounded-lg text-slate-600 lg:hidden" aria-label="Open menu">
+      <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M3 12h18M3 18h18" /></svg>
+    </button>
+    <?php endif; ?>
+    <a href="<?= $user ? 'dashboard.php' : 'index.php' ?>" title="LearnHub home" class="lh-logo grid h-9 w-9 place-items-center rounded-xl text-white lg:hidden">🎓</a>
+    <a href="<?= $user ? 'dashboard.php' : 'index.php' ?>" class="lh-topword hidden items-center gap-2 lg:flex">
+      <span class="lh-logo grid h-8 w-8 place-items-center rounded-xl text-white">🎓</span>
+      <span class="text-sm font-extrabold tracking-tight text-slate-900">LearnHub <span class="text-emerald-600">LMS</span></span>
+    </a>
+
+    <form id="lh-global-search" action="courses.php" class="hidden min-w-0 flex-1 items-center md:flex md:max-w-sm" role="search">
+      <div class="relative w-full">
+        <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6.1L21 17M17 15.5v-9M15.5 7.5H6M7.5 6V19h8M7 17h11" /></svg>
         </span>
-        <span class="grid h-9 w-9 place-items-center rounded-full bg-indigo-600 text-sm font-bold text-white"><?= e(strtoupper(substr((string) $user['name'], 0, 1))) ?></span>
-        <a href="logout.php" title="Logout" aria-label="Logout" class="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-700 sm:hidden">
-          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" /></svg>
-        </a>
-        <a href="logout.php" class="hidden rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 sm:block">Logout</a>
+        <input name="q" type="search" id="lh-search-input" placeholder="Search courses…"
+          class="h-9.5 w-full rounded-full border border-slate-200 bg-slate-100/70 py-2 pl-9 pr-3 text-sm outline-none focus:border-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-100">
+      </div>
+    </form>
+
+    <div class="flex items-center gap-1.5">
+      <?php if ($user): ?>
+      <div class="relative">
+        <button id="lh-notif-btn" class="lh-ico grid h-9 w-9 place-items-center rounded-lg text-slate-600" aria-label="Notifications">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18.37 4.6L12.9 5.8a4.6 4.6 0 002.6-2.6M15.5 3.5l1.2 9m.5 0v3.6M15.5 15.5h6M9.75 4.75V21m6-6.75M9.75 9.5h6M9.75 15.5h6M9.75 21h6" /></svg>
+          <span id="lh-notif-badge" class="lh-badge hidden">0</span>
+        </button>
+      </div>
+      <a href="messages.php" id="lh-chat-link" class="lh-ico grid h-9 w-9 place-items-center rounded-lg text-slate-600" aria-label="Messages">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.75 3l7.5-4.75a4.75 4.75 0 003.78-3.78l-3.78-6.57M6.3 6.3h2.85M13.2 6.3h2.4M12.75 6.3h.9M3.75 13.05l1.8 4.5M4.75 16.05h7.5m3 2.25h.9M4.75 18.3h7.5m-.9 1.05l3.6 2.1M8.5 20.25h5.25m4.5 0l-5.25 2.1M17.35 9.3h3.6M16.9 12.15h3.6M4.75 6.3h2.7v3M9.6 9.3h1.05M8.05 6.3h2.7M4.75 6.9l-1.05 2.4M9.6 15.3h4.5M14.85 15.3h3.75" /></svg>
+        <span id="lh-chat-badge" class="lh-badge hidden">0</span>
+      </a>
+      <span class="hidden text-right sm:flex sm:flex-col sm:items-start leading-tight">
+        <span class="text-sm font-semibold leading-4 text-slate-800"><?= e((string) $user['name']) ?></span>
+        <span class="text-[10px] font-semibold uppercase tracking-wide text-slate-400"><?= ($user['role'] ?? '') === 'teacher' ? 'Teacher' : 'Student' ?></span>
+      </span>
+      <span class="grid h-9 w-9 place-items-center rounded-full bg-emerald-600 text-sm font-bold text-white"><?= e(strtoupper(substr((string) $user['name'], 0, 1))) ?></span>
+      <a href="logout.php" title="Log out" aria-label="Log out" class="hidden rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 sm:inline-block">Log out</a>
+      <a href="logout.php" title="Log out" aria-label="Log out" class="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-500 sm:hidden">⏻</a>
       <?php else: ?>
-        <a href="login.php" class="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100">Log in</a>
-        <a href="register.php" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700">Get started</a>
+      <a href="login.php" class="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100">Log in</a>
+      <a href="register.php" class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700">Get started</a>
       <?php endif; ?>
     </div>
   </div>
 </nav>
+<?php if ($user): ?>
+<div id="lh-notif-panel" class="lh-panel hidden" aria-label="Notifications">
+  <div class="lx-panel-head flex items-center justify-between gap-2 border-b border-slate-200 px-3.5 py-2.5">
+    <span class="text-sm font-bold text-slate-800">🔔 Notifications</span>
+    <button id="lh-notif-read-all" type="button" class="text-xs font-semibold text-emerald-600 hover:underline">Mark all as read</button>
+  </div>
+  <div id="lh-notif-list" class="lx-panel-list">
+    <?php $lh_notifs = notifications_for((int) $user['id'], 8); ?>
+    <?php if (!$lh_notifs): ?>
+    <p class="px-3.5 py-6 text-center text-xs text-slate-400">No notifications yet.<br>New lessons, quizzes, results and messages will show up here.</p>
+    <?php else: foreach ($lh_notifs as $n): $lh_ago = time() - (int) $n['created_at']; $lh_agoTxt = $lh_ago < 60 ? 'just now' : ($lh_ago < 3600 ? (int) floor($lh_ago / 60) . 'm ago' : ($lh_ago < 86400 ? (int) floor($lh_ago / 3600) . 'h ago' : (int) floor($lh_ago / 86400) . 'd ago')); ?>
+    <a href="<?= e((string) $n['link']) ?>" data-notif-id="<?= (int) $n['id'] ?>" data-notif-link="<?= e((string) $n['link']) ?>" class="lx-panel-item lh-notif-item <?= $n['is_read'] ? '' : 'lh-notif-unread' ?>">
+      <span class="lx-panel-item-title text-[13px] font-semibold text-slate-800"><?= e((string) $n['title']) ?></span>
+      <?php if ($n['body']): ?><span class="text-xs text-slate-500"><?= e((string) $n['body']) ?></span><?php endif; ?>
+      <span class="text-[10px] text-slate-400"><?= e($lh_agoTxt) ?></span>
+    </a>
+    <?php endforeach; endif; ?>
+  </div>
+</div>
+<?php endif; ?>
 
 <?php foreach ($flashes as $f): ?>
 <div data-toast class="toast-in fixed right-4 top-20 z-50 flex max-w-sm items-start gap-3 rounded-xl border p-4 shadow-lg <?= ($f['type'] ?? '') === 'error' ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-emerald-200 bg-emerald-50 text-emerald-800' ?>">
@@ -223,5 +347,4 @@ main input:focus,main select:focus,main textarea:focus{outline:none;border-color
 </div>
 <?php endforeach; ?>
 
-<main class="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
-
+<main class="mx-auto w-full max-w-6xl flex-1 px-4 py-8<?= $user ? ' lh-main' : '' ?>">

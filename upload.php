@@ -83,6 +83,12 @@ try {
     } else {
         throw new RuntimeException('Unknown lesson type.');
     }
+    // real event -> notification for every enrolled student
+    $courseTitle = (string) (course_row($courseIdInt)['title'] ?? 'Course');
+    notify_course_students($courseIdInt, 'lesson',
+        '📚 New lesson in "' . cut($courseTitle, 60) . '"',
+        cut($title, 90) . ($type === 'video' ? '' : ''),
+        'course.php?id=' . $courseId);
     set_flash('success', $ok);
 } catch (RuntimeException $e) {
     set_flash('error', $e->getMessage());

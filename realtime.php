@@ -295,5 +295,57 @@ if ($v === 'courses') {
     exit;
 }
 
+/* ---------------- notifications (header bell) ---------------- */
+if ($v === 'notifications') {
+    $items = array_slice(notifications_for($me, 8), 0, 8);
+    echo json_encode([
+        'ok' => true,
+        'unread' => unread_notification_count($me),
+        'chat_unread' => unread_message_total($me),
+        'items' => $items,
+        'now' => time(),
+    ]);
+    exit;
+}
+
+/* ---------------- private message conversation list ---------------- */
+if ($v === 'chatlist') {
+    echo json_encode([
+        'ok' => true,
+        'conversations' => conversations_for($me, $isTeacher ? 'teacher' : 'student'),
+        'unread_total' => unread_message_total($me),
+        'now' => time(),
+    ]);
+    exit;
+}
+
+/* ---------------- private messages of one conversation (since = last seen id) ---------------- */
+if ($v === 'chat') {
+    $cId = (int) ($_GET['c'] ?? 0);
+    $since = (int) ($_GET['since'] ?? 0);
+    if (!$cId || !user_owns_conversation($cId, $me)) {
+        echo json_encode(['ok' => false, 'error' => 'No access']);
+        exit;
+    }
+    $st = db()->prepare('SELECT m.id, m.sender_id, m.body, m.created_at FROM messages m WHERE m.conversation_id = ? AND m.id > ? ORDER BY m.id ASC LIMIT 100');
+    $st->execute([$cId, $since]);
+    $msgs = array_map(fn ($r) => [
+        'id' => (int) $r['id'],
+        'sender_id' => (int) $r['sender_id'],
+        'body' => (string) $r['body'],
+        'created_at' => (int) $r['created_at'],
+    ], $st->fetchAll());
+    $st2 = db()->prepare('SELECT MAX(id) FROM messages WHERE conversation_id = ?');
+    $st2->execute([$cId]);
+    echo json_encode([
+        'ok' => true,
+        'conversation' => $cId,
+        'messages' => $msgs,
+        'last_id' => (int) $st2->fetchColumn(),
+        'now' => time(),
+    ]);
+    exit;
+}
+
 echo json_encode(['ok' => false, 'error' => 'unknown scope']);
 exit;

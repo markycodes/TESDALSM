@@ -55,12 +55,12 @@ require __DIR__ . '/header.php';
 ?>
 
 <!-- Hero banner -->
-<section class="reveal overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-sky-500 p-6 text-white shadow-lg sm:p-8">
+<section class="reveal overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-700 via-emerald-600 to-emerald-500 p-6 text-white shadow-lg sm:p-8">
   <div class="flex flex-wrap items-center justify-between gap-4">
     <div>
-      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-100"><?= date('l, M j') ?></p>
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-100"><?= date('l, M j') ?></p>
       <h1 class="mt-1 text-2xl font-extrabold sm:text-3xl"><?= $isTeacher ? '👩‍🏫 Teacher dashboard' : '👨‍🎓 Student dashboard' ?></h1>
-      <p class="mt-1 text-sm text-indigo-100">Hi <?= e((string) $user['name']) ?>, <?= $isTeacher ? 'here is what is happening in your courses today.' : 'ready to continue learning?' ?></p>
+      <p class="mt-1 text-sm text-emerald-100">Hi <?= e((string) $user['name']) ?>, <?= $isTeacher ? 'here is what is happening in your courses today.' : 'ready to continue learning?' ?></p>
     </div>
     <?php if ($isTeacher): ?>
       <button data-modal-open="course-modal" class="rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-indigo-700 shadow-sm transition hover:bg-indigo-50">＋ New course</button>
