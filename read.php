@@ -102,6 +102,26 @@ $fileSrc = 'download.php?c=' . $courseId . '&m=' . $materialId . '&disp=inline';
   <p class="mt-6 text-center"><a href="<?= e($fileSrc) ?>" class="text-xs font-semibold text-slate-400 hover:text-indigo-600">⬇ Download original file</a></p>
 <?php endif; ?>
   <p class="mt-8 text-center text-xs text-slate-400">Reading progress is tracked automatically — reach the end at a normal pace to complete this material.</p>
+
+<?php $quizInfo = lesson_quiz($materialId); ?>
+<?php if ($quizInfo): ?>
+  <?php if ($isOwner): ?>
+  <div class="mt-6 rounded-2xl bg-white p-5 text-sm text-slate-600 ring-1 ring-slate-200">
+    🧪 <b>Quiz assigned:</b> “<?= e((string) $quizInfo['title']) ?>” · <?= count($quizInfo['questions']) ?> question(s) · pass <?= (int) $quizInfo['pass_score'] ?>%
+    · <a href="course.php?id=<?= (int) $courseId ?>" class="font-semibold text-indigo-600 hover:underline">edit on the course page</a>
+    · <a href="quiz.php?c=<?= (int) $courseId ?>&amp;m=<?= $materialId ?>" class="font-semibold text-indigo-600 hover:underline">preview quiz</a>
+  </div>
+  <?php else: ?>
+  <div id="quiz-lock-card" class="mt-6 rounded-2xl bg-white p-5 text-center ring-1 ring-slate-200 <?= $done ? 'hidden' : '' ?>">
+    <p class="text-sm font-semibold text-slate-500">🔒 A quiz is attached to this lesson (“<?= e((string) $quizInfo['title']) ?>”) — complete the lesson to unlock it.</p>
+  </div>
+  <div id="quiz-unlock-card" class="mt-6 rounded-2xl bg-white p-5 text-center ring-1 ring-emerald-200 <?= $done ? '' : 'hidden' ?>">
+    <p class="text-sm font-semibold text-emerald-700">✓ Lesson completed — the quiz is unlocked</p>
+    <a href="quiz.php?c=<?= (int) $courseId ?>&amp;m=<?= $materialId ?>"
+       class="mt-3 inline-block rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">🧪 Take the quiz (<?= count($quizInfo['questions']) ?> questions)</a>
+  </div>
+  <?php endif; ?>
+<?php endif; ?>
 </main>
 <div id="read-pill" class="fixed bottom-4 right-4 z-40 rounded-full bg-slate-900/90 px-4 py-2 text-xs font-semibold text-white shadow-lg">📖 Read <span id="read-pct"><?= $depth ?></span>% · <span id="read-time"><?= $seconds ?></span>s</div>
 <?php if ($kind === 'doc'): ?>
@@ -333,7 +353,11 @@ $fileSrc = 'download.php?c=' . $courseId . '&m=' . $materialId . '&disp=inline';
       if (data.ok && data.complete && !completed) {
         completed = true; render();
         if (badgeEl) { badgeEl.textContent = '✓ Completed'; badgeEl.className = 'shrink-0 rounded-full px-3 py-1 text-xs font-semibold bg-emerald-100 text-emerald-700'; }
-        toast('✓ Material completed — course progress ' + data.pct + '%');
+        var unlockCard = document.getElementById('quiz-unlock-card');
+        var lockCard = document.getElementById('quiz-lock-card');
+        if (unlockCard) unlockCard.classList.remove('hidden');
+        if (lockCard) lockCard.classList.add('hidden');
+        toast('✓ Material completed — quiz unlocked, course progress ' + data.pct + '%');
       }
     } catch (e) {}
   }

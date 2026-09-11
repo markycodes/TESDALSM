@@ -51,6 +51,63 @@ document.querySelectorAll('[data-toast]').forEach((t) => setTimeout(() => t.remo
   els.forEach((el) => io.observe(el));
 })();
 
+/* ---------- Lesson quizzes (unlock when the lesson completes) ---------- */
+function revealQuiz(materialId) {
+  document.querySelectorAll('[data-quiz-unlock="' + materialId + '"]').forEach((el) => el.classList.remove('hidden'));
+  document.querySelectorAll('[data-quiz-lock="' + materialId + '"]').forEach((el) => el.classList.add('hidden'));
+}
+function renumberQuizRows() {
+  document.querySelectorAll('#quiz-rows [data-q-row]').forEach((row, i) => {
+    const n = row.querySelector('[data-q-num]');
+    if (n) n.textContent = 'Q' + (i + 1);
+  });
+}
+function blankQuizRow() {
+  const tpl = document.querySelector('template[data-quiz-blank-row]');
+  return tpl ? document.importNode(tpl.content, true) : document.createDocumentFragment();
+}
+/* Populate the quiz modal for a lesson from its server-rendered <template>. */
+function fillQuizModal(btn) {
+  const mid = btn.getAttribute('data-quiz-edit') || '';
+  const tpl = document.querySelector('template[data-quiz-template="' + mid + '"]');
+  const rows = document.getElementById('quiz-rows');
+  if (!rows) return;
+  rows.innerHTML = '';
+  let added = 0;
+  if (tpl) tpl.content.querySelectorAll('[data-q-row]').forEach((r) => { rows.appendChild(document.importNode(r, true)); added++; });
+  if (!added) rows.appendChild(blankQuizRow());
+  renumberQuizRows();
+  const idInput = document.getElementById('quiz-material-id');
+  const delInput = document.getElementById('quiz-del-material-id');
+  if (idInput) idInput.value = mid;
+  if (delInput) delInput.value = mid;
+  const heading = document.getElementById('quiz-lesson-title');
+  if (heading) heading.textContent = btn.getAttribute('data-title') || '—';
+  const hasQuiz = !!tpl && tpl.getAttribute('data-has-quiz') === '1';
+  const quizTitle = document.getElementById('quiz-title');
+  if (quizTitle) quizTitle.value = hasQuiz ? (tpl.getAttribute('data-quiz-title') || '') : '';
+  const passSel = document.getElementById('quiz-pass');
+  if (passSel) passSel.value = tpl ? (tpl.getAttribute('data-pass') || '60') : '60';
+  const removeBtn = document.getElementById('quiz-remove');
+  if (removeBtn) removeBtn.classList.toggle('hidden', !hasQuiz);
+}
+document.addEventListener('click', (e) => {
+  const addBtn = e.target.closest('#quiz-add-row');
+  if (addBtn) {
+    const rows = document.getElementById('quiz-rows');
+    if (rows) { rows.appendChild(blankQuizRow()); renumberQuizRows(); }
+    return;
+  }
+  const rm = e.target.closest('[data-q-remove]');
+  if (rm) {
+    const rows = document.getElementById('quiz-rows');
+    const row = rm.closest('[data-q-row]');
+    if (row) row.remove();
+    if (rows && !rows.querySelector('[data-q-row]')) rows.appendChild(blankQuizRow());
+    renumberQuizRows();
+  }
+});
+
 /* ---------- Modals ---------- */
 function openModal(modal) {
   if (!modal) return;
@@ -68,6 +125,8 @@ function closeModal(el) {
   document.body.classList.remove('overflow-hidden');
 }
 document.addEventListener('click', (e) => {
+  const qOpener = e.target.closest('[data-quiz-edit]');
+  if (qOpener) fillQuizModal(qOpener); // populate the quiz form BEFORE the modal opens
   const opener = e.target.closest('[data-modal-open]');
   if (opener) {
     e.preventDefault();
@@ -210,7 +269,8 @@ async function sendWatch(courseId, materialId, watched, duration, position, ende
   if (data.complete) {
     setLessonState(materialId, '✓ Completed', true);
     finalizeCompletedVideo(materialId, data.watched || 0);
-    showToast('Video lesson completed 🎉');
+    revealQuiz(materialId);
+    showToast('Video lesson completed 🎉 — quiz unlocked 🧪');
     return data;
   }
   const pct = data.percent || 0;

@@ -48,6 +48,9 @@ Schema (auto-created, InnoDB, utf8mb4, foreign keys with `ON DELETE CASCADE`):
 | `read_progress` | user_id + material_id (composite PK), depth, seconds, updated_at |
 | `presence` | user_id PK, last_seen (who is online) |
 | `attendance` | id PK, user_id, course_id, entered_at, left_at, ip (every visit to a course) |
+| `quizzes` | id PK, material_id FK→materials UNIQUE (one quiz per lesson), title, pass_score, created_at |
+| `quiz_questions` | id PK, quiz_id FK→quizzes, prompt, options (JSON array), correct (option index), sort_order |
+| `quiz_attempts` | id PK, quiz_id FK→quizzes, user_id FK→users, score, correct_count, total, passed, created_at |
 
 Uploaded files themselves live in `uploads/` (filenames are stored in `materials.filename`).
 
@@ -82,6 +85,15 @@ Open a course you teach and click **＋ Add lesson**. The modal has one tab per 
 | 🎬 **Videos** | Upload **one or several video files at once** (hold Ctrl/Cmd to pick more). Each file becomes its own lesson, numbered automatically. |
 | 🔗 **Links** | Paste one **YouTube / Vimeo link per line** — several video lessons are added in one go. |
 
+## Lesson quizzes
+
+Every lesson can carry a **multiple-choice quiz**:
+
+- **Teachers** click **🧪 Assign quiz / Quiz (N)** on any lesson card (videos and materials) to open the quiz editor: title, pass score (50–100%), and up to 20 questions with 2–4 options each and a marked correct answer. Saving replaces the quiz; **🗑 Remove this quiz** deletes it.
+- **Students** see a 🔒 *“Quiz — complete the lesson to unlock”* chip while the lesson is unfinished. As soon as the lesson is completed (video watched to the end, or document read to the bottom), the chip flips to a green **🧪 Take the lesson quiz** button — even live, without a page refresh.
+- **Server-side gate**: `quiz.php` and `quiz_submit.php` both run through `require_quiz_access()` — the quiz page returns **403 “Quiz locked”** for anyone who has not completed the lesson, and a forced early POST to the grading endpoint is rejected the same way. Correct answers never reach the browser before submission; grading is server-side and every attempt is stored (`quiz_attempts`) with best/latest score and a retake option.
+- The owning teacher can **preview** the quiz any time (preview submissions are not recorded). The demo course ships with a 2-question quiz on Lesson 1, already unlocked for the demo student.
+
 ## Upload size limits
 
 The included `.htaccess` raises PHP limits to **512 MB** (works with XAMPP's default `mod_php`).
@@ -101,6 +113,10 @@ LMS/
 ├── courses.php         browse + search + category filter
 ├── course.php          course page (players, materials, progress)
 ├── lessons_section.php / lesson_modal.php / course_modal.php   partials
+├── quiz_modal.php        quiz editor modal (teacher)
+├── quiz_save.php / quiz_delete.php   assign / replace / remove a lesson quiz
+├── quiz.php              take a lesson quiz (403-gated until the lesson is completed)
+├── quiz_submit.php       server-side grading + attempt storage (same gate)
 ├── upload.php          handles document / pasted-text / multiple video(s) / multiple link(s) uploads
 ├── download.php        secure, range-aware file streaming
 ├── read.php            material reader (in-browser, scroll-tracked)

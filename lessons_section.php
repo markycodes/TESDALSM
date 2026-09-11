@@ -2,6 +2,7 @@
  * Progress is automatic: videos count watch time, materials count reading depth/time. */
 $mstates = material_user_states($userId, (int) $course['id']);
 $progressSet = $course['progress'][$userId] ?? [];
+$courseQuiz = course_quizzes((int) $course['id'], true);
 ?>
 <section class="mt-6" data-tabs>
   <div class="w-fit rounded-xl bg-white p-1.5 shadow-sm ring-1 ring-slate-200">
@@ -28,6 +29,8 @@ $progressSet = $course['progress'][$userId] ?? [];
       $ytId = $type === 'youtube' ? youtube_id((string) ($m['url'] ?? '')) : null;
       $isVimeo = $type === 'youtube' && $embed !== null && $ytId === null;
       $badge = $done ? '✓ Completed' : ($pct > 0 ? '▶ ' . $pct . '% watched' : 'Not started');
+      $quizInfo = $courseQuiz[$mid] ?? null;
+      $qCount = $quizInfo ? count($quizInfo['questions']) : 0;
     ?>
     <article class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
       <?php if ($type === 'youtube' && $ytId !== null): ?>
@@ -73,6 +76,12 @@ $progressSet = $course['progress'][$userId] ?? [];
           <div class="flex items-center gap-2">
             <span data-lesson-state="<?= e((string) $mid) ?>" class="rounded-full px-2.5 py-1 text-xs font-semibold <?= $done ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600' ?>"><?= e($badge) ?></span>
             <?php if ($isOwner): ?>
+              <button type="button" data-modal-open="quiz-modal" data-quiz-edit="<?= $mid ?>" data-title="<?= e((string) $m['title']) ?>"
+                      title="<?= $quizInfo ? 'Edit the quiz for this lesson' : 'Assign a quiz to this lesson' ?>"
+                      class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold <?= $quizInfo ? 'text-indigo-700 hover:bg-indigo-50' : 'text-slate-500 hover:bg-slate-50' ?>">🧪 <?= $quizInfo ? 'Quiz (' . $qCount . ')' : 'Assign quiz' ?></button>
+              <template data-quiz-template="<?= $mid ?>" data-has-quiz="<?= $quizInfo ? '1' : '0' ?>" data-quiz-title="<?= e((string) ($quizInfo['title'] ?? '')) ?>" data-pass="<?= $quizInfo ? (int) $quizInfo['pass_score'] : 60 ?>"><?php
+                if ($quizInfo) { foreach ($quizInfo['questions'] as $qi => $qq) { echo quiz_question_row_html(['prompt' => $qq['prompt'], 'options' => $qq['options'], 'correct' => (int) $qq['correct']], $qi + 1); } }
+              ?></template>
               <form method="post" action="delete_material.php" data-confirm="Delete this video lesson?">
                 <?= csrf_field() ?>
                 <input type="hidden" name="course_id" value="<?= e((string) $course['id']) ?>">
@@ -82,6 +91,20 @@ $progressSet = $course['progress'][$userId] ?? [];
             <?php endif; ?>
           </div>
         </div>
+        <?php if (!$isOwner && $quizInfo && $enrolled): ?>
+          <div class="mt-3">
+            <?php if ($done): ?>
+              <a href="quiz.php?c=<?= e((string) $course['id']) ?>&amp;m=<?= $mid ?>"
+                 class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">🧪 Take the lesson quiz (<?= $qCount ?>)</a>
+            <?php else: ?>
+              <span data-quiz-lock="<?= $mid ?>" class="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-500">🔒 Quiz — complete the lesson to unlock</span>
+              <div data-quiz-unlock="<?= $mid ?>" class="hidden mt-2">
+                <a href="quiz.php?c=<?= e((string) $course['id']) ?>&amp;m=<?= $mid ?>"
+                   class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">🧪 Take the lesson quiz (<?= $qCount ?>)</a>
+              </div>
+            <?php endif; ?>
+          </div>
+        <?php endif; ?>
         <?php if ($isVimeo && ($enrolled || $isOwner)): ?>
         <div class="mt-3">
           <button type="button" class="js-vimeo-done rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
@@ -108,6 +131,8 @@ $progressSet = $course['progress'][$userId] ?? [];
         $ms = $mstates[$mid] ?? [];
         $depth = (int) ($ms['depth'] ?? 0);
         $ext = ext_of((string) ($m['orig_name'] ?? ($m['filename'] ?? '')));
+        $quizInfo = $courseQuiz[$mid] ?? null;
+        $qCount = $quizInfo ? count($quizInfo['questions']) : 0;
       ?>
       <div class="flex flex-wrap items-center gap-3 p-4">
         <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-xs font-extrabold uppercase <?= ext_color($ext) ?>"><?= e($ext !== '' ? $ext : 'file') ?></span>
@@ -126,6 +151,25 @@ $progressSet = $course['progress'][$userId] ?? [];
           <?php endif; ?>
           <a href="read.php?c=<?= e((string) $course['id']) ?>&amp;m=<?= e((string) $mid) ?>"
              class="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700">📖 Read</a>
+          <?php if ($isOwner): ?>
+            <button type="button" data-modal-open="quiz-modal" data-quiz-edit="<?= $mid ?>" data-title="<?= e((string) $m['title']) ?>"
+                    title="<?= $quizInfo ? 'Edit the quiz for this lesson' : 'Assign a quiz to this lesson' ?>"
+                    class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold <?= $quizInfo ? 'text-indigo-700 hover:bg-indigo-50' : 'text-slate-500 hover:bg-slate-50' ?>">🧪 <?= $quizInfo ? 'Quiz (' . $qCount . ')' : 'Assign quiz' ?></button>
+            <template data-quiz-template="<?= $mid ?>" data-has-quiz="<?= $quizInfo ? '1' : '0' ?>" data-quiz-title="<?= e((string) ($quizInfo['title'] ?? '')) ?>" data-pass="<?= $quizInfo ? (int) $quizInfo['pass_score'] : 60 ?>"><?php
+              if ($quizInfo) { foreach ($quizInfo['questions'] as $qi => $qq) { echo quiz_question_row_html(['prompt' => $qq['prompt'], 'options' => $qq['options'], 'correct' => (int) $qq['correct']], $qi + 1); } }
+            ?></template>
+          <?php elseif ($quizInfo && $enrolled): ?>
+            <?php if ($done): ?>
+              <a href="quiz.php?c=<?= e((string) $course['id']) ?>&amp;m=<?= $mid ?>"
+                 class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">🧪 Quiz (<?= $qCount ?>)</a>
+            <?php else: ?>
+              <span data-quiz-lock="<?= $mid ?>" class="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-500">🔒 Quiz locked</span>
+              <span data-quiz-unlock="<?= $mid ?>" class="hidden">
+                <a href="quiz.php?c=<?= e((string) $course['id']) ?>&amp;m=<?= $mid ?>"
+                   class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">🧪 Quiz (<?= $qCount ?>)</a>
+              </span>
+            <?php endif; ?>
+          <?php endif; ?>
           <?php if ($isOwner): ?>
             <a href="download.php?c=<?= e((string) $course['id']) ?>&amp;m=<?= e((string) $mid) ?>"
                class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-50" title="Download original file">⬇ Original</a>

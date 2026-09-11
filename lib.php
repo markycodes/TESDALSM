@@ -178,6 +178,37 @@ function db_ensure_schema(PDO $pdo): void
             CONSTRAINT fk_ec_teacher FOREIGN KEY (teacher_id) REFERENCES users (id) ON DELETE CASCADE,
             CONSTRAINT fk_ec_user FOREIGN KEY (used_by) REFERENCES users (id) ON DELETE SET NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        "CREATE TABLE IF NOT EXISTS quizzes (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            material_id INT UNSIGNED NOT NULL UNIQUE,
+            title VARCHAR(120) NOT NULL,
+            pass_score TINYINT UNSIGNED NOT NULL DEFAULT 60,
+            created_at INT UNSIGNED NOT NULL DEFAULT 0,
+            CONSTRAINT fk_quiz_material FOREIGN KEY (material_id) REFERENCES materials (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        "CREATE TABLE IF NOT EXISTS quiz_questions (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            quiz_id INT UNSIGNED NOT NULL,
+            prompt VARCHAR(500) NOT NULL,
+            options TEXT NOT NULL,
+            correct TINYINT UNSIGNED NOT NULL DEFAULT 0,
+            sort_order SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            INDEX idx_quiz_questions_quiz (quiz_id),
+            CONSTRAINT fk_qq_quiz FOREIGN KEY (quiz_id) REFERENCES quizzes (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        "CREATE TABLE IF NOT EXISTS quiz_attempts (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            quiz_id INT UNSIGNED NOT NULL,
+            user_id INT UNSIGNED NOT NULL,
+            score TINYINT UNSIGNED NOT NULL DEFAULT 0,
+            correct_count SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            total SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+            passed TINYINT(1) NOT NULL DEFAULT 0,
+            created_at INT UNSIGNED NOT NULL DEFAULT 0,
+            INDEX idx_qa_quiz_user (quiz_id, user_id),
+            CONSTRAINT fk_qa_quiz FOREIGN KEY (quiz_id) REFERENCES quizzes (id) ON DELETE CASCADE,
+            CONSTRAINT fk_qa_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
     ];
     foreach ($tables as $sql) {
         $pdo->exec($sql);
@@ -283,6 +314,16 @@ function db_seed_if_empty(PDO $pdo): void
         ->execute([$course1, $studentId, $now]);
     $pdo->prepare('INSERT INTO progress (user_id, material_id, completed_at) VALUES (?,?,?)')
         ->execute([$studentId, $lesson1, $now]);
+
+    // Demo quiz on Lesson 1 (already completed by the demo student, so it is unlocked out of the box).
+    $pdo->prepare('INSERT INTO quizzes (material_id, title, pass_score, created_at) VALUES (?,?,?,?)')
+        ->execute([$lesson1, 'Lesson 1 check — HTML, CSS & JS basics', 60, $now]);
+    $demoQuizId = (int) $pdo->lastInsertId();
+    $addQuestion = $pdo->prepare('INSERT INTO quiz_questions (quiz_id, prompt, options, correct, sort_order) VALUES (?,?,?,?,?)');
+    $addQuestion->execute([$demoQuizId, 'What does CSS control in a web page?',
+        json_encode(['How it looks — colors, spacing, layout', 'The page structure and headings', 'Interactivity like buttons and forms', 'The database on the server'], JSON_UNESCAPED_UNICODE), 0, 0]);
+    $addQuestion->execute([$demoQuizId, 'Which technology makes a web page interactive?',
+        json_encode(['HTML', 'CSS', 'JavaScript', 'SQL'], JSON_UNESCAPED_UNICODE), 2, 1]);
 
     // Demo invitation codes so students can register into a course out of the box.
     $addCode = $pdo->prepare('INSERT INTO enroll_codes (code, course_id, teacher_id, created_at) VALUES (?,?,?,?)');
@@ -837,6 +878,205 @@ function toggle_progress(int $userId, int $materialId): bool
     }
     db()->prepare('INSERT INTO progress (user_id, material_id, completed_at) VALUES (?,?,?)')->execute([$userId, $materialId, time()]);
     return true;
+}
+
+/* ---------------- lesson quizzes (assigned by the teacher) ---------------- */
+
+const QUIZ_MAX_QUESTIONS = 20;
+
+/** Load the quiz assigned to a lesson. Correct answers are only included when $withAnswers is true. */
+function lesson_quiz(int $materialId, bool $withAnswers = false): ?array
+{
+    $st = db()->prepare('SELECT * FROM quizzes WHERE material_id = ? LIMIT 1');
+    $st->execute([$materialId]);
+    $quiz = $st->fetch();
+    if (!$quiz) return null;
+    $q = db()->prepare('SELECT * FROM quiz_questions WHERE quiz_id = ? ORDER BY sort_order, id');
+    $q->execute([(int) $quiz['id']]);
+    $questions = [];
+    foreach ($q->fetchAll() as $row) {
+        $item = ['id' => (int) $row['id'], 'prompt' => (string) $row['prompt'], 'options' => json_decode((string) $row['options'], true) ?: []];
+        if ($withAnswers) $item['correct'] = (int) $row['correct'];
+        $questions[] = $item;
+    }
+    $quiz['id'] = (int) $quiz['id'];
+    $quiz['material_id'] = (int) $quiz['material_id'];
+    $quiz['pass_score'] = (int) $quiz['pass_score'];
+    $quiz['questions'] = $questions;
+    return $quiz;
+}
+
+/** All quizzes of a course keyed by material id (batch loader for the course page). */
+function course_quizzes(int $courseId, bool $withAnswers = false): array
+{
+    $st = db()->prepare('SELECT q.* FROM quizzes q JOIN materials m ON m.id = q.material_id WHERE m.course_id = ? ORDER BY q.id');
+    $st->execute([$courseId]);
+    $quizzes = [];
+    foreach ($st->fetchAll() as $quiz) $quizzes[(int) $quiz['id']] = $quiz;
+    if (!$quizzes) return [];
+    $in = implode(',', array_fill(0, count($quizzes), '?'));
+    $q = db()->prepare("SELECT * FROM quiz_questions WHERE quiz_id IN ($in) ORDER BY sort_order, id");
+    $q->execute(array_keys($quizzes));
+    foreach ($q->fetchAll() as $row) {
+        $item = ['id' => (int) $row['id'], 'prompt' => (string) $row['prompt'], 'options' => json_decode((string) $row['options'], true) ?: []];
+        if ($withAnswers) $item['correct'] = (int) $row['correct'];
+        $quizzes[(int) $row['quiz_id']]['questions'][] = $item;
+    }
+    $out = [];
+    foreach ($quizzes as $quiz) {
+        $quiz['id'] = (int) $quiz['id'];
+        $quiz['material_id'] = (int) $quiz['material_id'];
+        $quiz['pass_score'] = (int) $quiz['pass_score'];
+        $quiz['questions'] = $quiz['questions'] ?? [];
+        $out[(int) $quiz['material_id']] = $quiz;
+    }
+    return $out;
+}
+
+/** Create or fully replace the quiz of a lesson. $questions: [['prompt','options'=>[...],'correct'=>int],...] */
+function save_quiz(int $materialId, string $title, int $passScore, array $questions): int
+{
+    $title = cut(trim($title), 120);
+    if ($title === '') throw new RuntimeException('Give the quiz a title.');
+    $passScore = max(10, min(100, $passScore));
+    if (count($questions) < 1) throw new RuntimeException('Add at least one question.');
+    if (count($questions) > QUIZ_MAX_QUESTIONS) throw new RuntimeException('A quiz can have at most ' . QUIZ_MAX_QUESTIONS . ' questions.');
+    $clean = [];
+    foreach (array_values($questions) as $i => $q) {
+        $prompt = cut(trim((string) ($q['prompt'] ?? '')), 500);
+        if ($prompt === '') throw new RuntimeException('Question #' . ($i + 1) . ' has no text.');
+        $opts = [];
+        foreach ((array) ($q['options'] ?? []) as $opt) {
+            $opt = cut(trim((string) $opt), 200);
+            if ($opt !== '') $opts[] = $opt;
+        }
+        if (count($opts) < 2) throw new RuntimeException('Question #' . ($i + 1) . ' needs at least two answer options.');
+        if (count($opts) > 4) $opts = array_slice($opts, 0, 4);
+        $correct = (int) ($q['correct'] ?? 0);
+        if ($correct < 0 || $correct >= count($opts)) throw new RuntimeException('Question #' . ($i + 1) . ': mark which option is the correct one.');
+        $clean[] = ['prompt' => $prompt, 'options' => $opts, 'correct' => $correct];
+    }
+    $db = db();
+    $db->beginTransaction();
+    try {
+        delete_quiz($materialId);
+        $db->prepare('INSERT INTO quizzes (material_id, title, pass_score, created_at) VALUES (?,?,?,?)')
+            ->execute([$materialId, $title, $passScore, time()]);
+        $quizId = (int) $db->lastInsertId();
+        $ins = $db->prepare('INSERT INTO quiz_questions (quiz_id, prompt, options, correct, sort_order) VALUES (?,?,?,?,?)');
+        foreach ($clean as $i => $q) {
+            $ins->execute([$quizId, $q['prompt'], json_encode($q['options'], JSON_UNESCAPED_UNICODE), $q['correct'], $i]);
+        }
+        $db->commit();
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) $db->rollBack();
+        throw $e;
+    }
+    return $quizId;
+}
+
+/** Remove the quiz assigned to a lesson (its questions and attempts cascade). */
+function delete_quiz(int $materialId): bool
+{
+    $st = db()->prepare('DELETE FROM quizzes WHERE material_id = ?');
+    $st->execute([$materialId]);
+    return $st->rowCount() > 0;
+}
+
+/** Grade + store an attempt. Returns [score, correct, total, passed]. */
+function record_quiz_attempt(int $quizId, int $userId, int $correct, int $total, int $passScore): array
+{
+    $score = $total > 0 ? (int) round($correct * 100 / $total) : 0;
+    $passed = $total > 0 && $score >= $passScore;
+    db()->prepare('INSERT INTO quiz_attempts (quiz_id, user_id, score, correct_count, total, passed, created_at) VALUES (?,?,?,?,?,?,?)')
+        ->execute([$quizId, $userId, $score, $correct, $total, $passed ? 1 : 0, time()]);
+    return ['score' => $score, 'correct' => $correct, 'total' => $total, 'passed' => $passed];
+}
+
+/** Attempt summary for one user: attempts count, best score, latest attempt. */
+function quiz_attempt_stats(int $quizId, int $userId): array
+{
+    $st = db()->prepare('SELECT COUNT(*) n, MAX(score) best FROM quiz_attempts WHERE quiz_id = ? AND user_id = ?');
+    $st->execute([$quizId, $userId]);
+    $row = $st->fetch() ?: [];
+    $out = ['attempts' => (int) ($row['n'] ?? 0), 'best' => (int) ($row['best'] ?? 0), 'last' => null];
+    $st = db()->prepare('SELECT score, correct_count, total, passed, created_at FROM quiz_attempts WHERE quiz_id = ? AND user_id = ? ORDER BY id DESC LIMIT 1');
+    $st->execute([$quizId, $userId]);
+    if ($last = $st->fetch()) {
+        $out['last'] = ['score' => (int) $last['score'], 'correct' => (int) $last['correct_count'], 'total' => (int) $last['total'], 'passed' => (bool) $last['passed'], 'created_at' => (int) $last['created_at']];
+    }
+    return $out;
+}
+
+/**
+ * THE quiz gate — one rule for every quiz endpoint:
+ * the owning teacher may always open a quiz (preview); everyone else must be
+ * enrolled AND have completed the lesson before the quiz is accessible.
+ * Returns [course, quiz (with answers), isOwner]; exits with a friendly page otherwise.
+ */
+function require_quiz_access(int $userId, int $courseId, int $materialId): array
+{
+    $course = course_row($courseId);
+    if (!$course) {
+        quiz_gate_page(404, '📘', 'Course not found', 'This course does not exist (or was deleted).', 'courses.php', 'Back to courses');
+    }
+    $isOwner = (int) $course['teacher_id'] === $userId;
+    if (!$isOwner && !is_enrolled_id($courseId, $userId)) {
+        quiz_gate_page(403, '🔒', 'Not enrolled', 'Enroll in this course to open its lesson quizzes.', 'course.php?id=' . $courseId, 'Back to the course');
+    }
+    if (!course_material_exists($courseId, $materialId)) {
+        quiz_gate_page(404, '🧪', 'Lesson not found', 'This lesson does not exist (or was deleted).', 'course.php?id=' . $courseId, 'Back to the course');
+    }
+    $quiz = lesson_quiz($materialId, true);
+    if (!$quiz || !$quiz['questions']) {
+        quiz_gate_page(404, '🧪', 'No quiz assigned', 'The teacher has not assigned a quiz to this lesson yet.', 'course.php?id=' . $courseId, 'Back to the course');
+    }
+    if (!$isOwner && !material_completed($userId, $materialId)) {
+        quiz_gate_page(403, '🔒', 'Quiz locked', 'Finish the lesson first — the quiz unlocks as soon as the lesson is marked completed.', 'course.php?id=' . $courseId, 'Back to the course');
+    }
+    return ['course' => $course, 'quiz' => $quiz, 'isOwner' => $isOwner];
+}
+
+/** Friendly blocked/missing page used by the quiz gate. */
+function quiz_gate_page(int $code, string $icon, string $title, string $msg, string $backHref, string $backLabel): void
+{
+    http_response_code($code);
+    echo '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+        . '<title>' . e($title) . ' · LearnHub</title><script src="https://cdn.tailwindcss.com"></script>'
+        . '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"></head>'
+        . '<body class="min-h-screen bg-slate-100 font-sans text-slate-800">'
+        . '<div class="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-4 text-center">'
+        . '<p class="text-5xl">' . $icon . '</p>'
+        . '<h1 class="mt-4 text-xl font-bold text-slate-900">' . e($title) . '</h1>'
+        . '<p class="mt-2 text-sm leading-6 text-slate-500">' . e($msg) . '</p>'
+        . '<a href="' . e($backHref) . '" class="mt-6 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">' . e($backLabel) . '</a>'
+        . '</div></body></html>';
+    exit;
+}
+
+/** Shared markup for one quiz-question editing row (teacher templates + blank master). */
+function quiz_question_row_html(?array $q, int $num): string
+{
+    $opts = (array) ($q['options'] ?? []);
+    $correct = (int) ($q['correct'] ?? 0);
+    $inp = 'mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200';
+    $h = '<div data-q-row class="rounded-xl border border-slate-200 bg-slate-50/60 p-3">';
+    $h .= '<div class="flex items-center justify-between gap-2"><span data-q-num class="text-xs font-bold uppercase tracking-wide text-slate-400">Q' . $num . '</span>';
+    $h .= '<button type="button" data-q-remove class="rounded-lg px-2 py-1 text-xs font-semibold text-slate-400 hover:bg-rose-50 hover:text-rose-600">✕ Remove</button></div>';
+    $h .= '<input name="prompt[]" required maxlength="500" placeholder="Question text (e.g. What does HTML stand for?)" value="' . e((string) ($q['prompt'] ?? '')) . '" class="' . $inp . '">';
+    $h .= '<div class="mt-2 grid gap-2 sm:grid-cols-2">';
+    for ($i = 0; $i < 4; $i++) {
+        $req = $i < 2 ? ' required' : '';
+        $ph = $i < 2 ? 'Option ' . ($i + 1) : 'Option ' . ($i + 1) . ' (optional)';
+        $h .= '<div class="flex items-center gap-1.5"><span class="w-4 shrink-0 text-center text-[11px] font-bold text-slate-400">' . ($i + 1) . '</span>'
+            . '<input name="o' . ($i + 1) . '[]" maxlength="200" placeholder="' . $ph . '" value="' . e((string) ($opts[$i] ?? '')) . '"' . $req . ' class="' . $inp . '"></div>';
+    }
+    $h .= '</div>';
+    $h .= '<label class="mt-2 flex items-center gap-2 text-xs font-medium text-slate-500">✔ Correct answer '
+        . '<select name="correct[]" class="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs outline-none focus:border-indigo-500">';
+    for ($i = 0; $i < 4; $i++) $h .= '<option value="' . $i . '"' . ($correct === $i ? ' selected' : '') . '>Option ' . ($i + 1) . '</option>';
+    $h .= '</select></label></div>';
+    return $h;
 }
 
 /* ---------------- material reader (in-browser viewing) ---------------- */

@@ -105,7 +105,7 @@ require __DIR__ . '/header.php';
 
 <?php if ($canView): ?>
 <?php require __DIR__ . '/lessons_section.php'; ?>
-<?php if ($isOwner) { require __DIR__ . '/lesson_modal.php'; } ?>
+<?php if ($isOwner) { require __DIR__ . '/lesson_modal.php'; require __DIR__ . '/quiz_modal.php'; } ?>
 <?php else: ?>
 <div class="mt-6 rounded-2xl border-2 border-dashed border-slate-300 p-12 text-center">
   <p class="text-5xl">🔒</p>
