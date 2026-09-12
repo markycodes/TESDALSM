@@ -2,33 +2,32 @@
 
 <footer class="mt-16">
   <div class="mx-auto max-w-6xl px-4">
-    <div class="relative overflow-hidden rounded-3xl border border-white/60 bg-white/70 p-8 shadow-[0_20px_50px_-24px_rgba(4,120,87,0.28)] backdrop-blur-xl">
-      <div class="pointer-events-none absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,#047857,#059669,#10b981)]"></div>
+    <div class="rounded-2xl border border-slate-200 bg-white p-8 shadow-[0_1px_2px_rgba(17,33,26,.05),0_18px_40px_-28px_rgba(17,33,26,.25)]">
       <div class="grid gap-8 sm:grid-cols-3">
         <div>
           <div class="flex items-center gap-2">
-            <span class="grid h-9 w-9 place-items-center rounded-xl bg-[linear-gradient(135deg,#047857,#059669,#10b981)] text-white shadow-lg">🎓</span>
-            <span class="font-extrabold tracking-tight text-slate-900">LearnHub <span class="text-emerald-600">LMS</span></span>
+            <span class="grid h-9 w-9 place-items-center rounded-lg bg-[linear-gradient(135deg,#047857,#059669,#10b981)] text-white">🎓</span>
+            <span class="lh-display text-lg text-slate-900">LearnHub <span class="text-emerald-700">LMS</span></span>
           </div>
           <p class="mt-3 text-sm leading-6 text-slate-500">Upload learning materials &amp; video tutorials — built for easy learning.</p>
         </div>
         <div>
-          <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Explore</p>
+          <p class="lh-kicker">Explore</p>
           <ul class="mt-3 space-y-2 text-sm">
             <?php if ($user): ?>
-            <li><a class="text-slate-600 transition hover:text-emerald-600" href="dashboard.php">Dashboard</a></li>
-            <li><a class="text-slate-600 transition hover:text-emerald-600" href="courses.php">Courses</a></li>
-            <li><a class="text-slate-600 transition hover:text-emerald-600" href="enrollments.php">Enrollments</a></li>
-            <li><a class="text-slate-600 transition hover:text-emerald-600" href="attendance_day.php">Attendance</a></li>
+            <li><a class="text-slate-600 transition hover:text-emerald-700" href="dashboard.php">Dashboard</a></li>
+            <li><a class="text-slate-600 transition hover:text-emerald-700" href="courses.php">Courses</a></li>
+            <li><a class="text-slate-600 transition hover:text-emerald-700" href="enrollments.php">Enrollments</a></li>
+            <li><a class="text-slate-600 transition hover:text-emerald-700" href="attendance_day.php">Attendance</a></li>
             <?php else: ?>
-            <li><a class="text-slate-600 transition hover:text-emerald-600" href="login.php">Log in</a></li>
-            <li><a class="text-slate-600 transition hover:text-emerald-600" href="register.php">Create free account</a></li>
-            <li><a class="text-slate-600 transition hover:text-emerald-600" href="index.php">How it works</a></li>
+            <li><a class="text-slate-600 transition hover:text-emerald-700" href="login.php">Log in</a></li>
+            <li><a class="text-slate-600 transition hover:text-emerald-700" href="register.php">Create free account</a></li>
+            <li><a class="text-slate-600 transition hover:text-emerald-700" href="index.php">How it works</a></li>
             <?php endif; ?>
           </ul>
         </div>
         <div>
-          <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Account</p>
+          <p class="lh-kicker">Account</p>
           <ul class="mt-3 space-y-2 text-sm">
             <?php if ($user): ?>
             <li><span class="text-slate-600">Signed in as <b><?= e((string) $user['name']) ?></b></span></li>
@@ -40,7 +39,7 @@
           </ul>
         </div>
       </div>
-      <p class="mt-8 border-t border-slate-200/70 pt-4 text-center text-xs text-slate-400">© <?= date('Y') ?> LearnHub LMS · v2</p>
+      <p class="mt-8 border-t border-slate-100 pt-4 text-center text-xs text-slate-400">© <?= date('Y') ?> LearnHub LMS · editorial studio edition</p>
     </div>
   </div>
 </footer>
@@ -66,6 +65,6 @@
 })();
 </script>
 
-<script src="assets/app.js?v=13"></script>
+<script src="assets/app.js?v=14"></script>
 </body>
 </html>

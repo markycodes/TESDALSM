@@ -513,6 +513,26 @@ if (dayFilter) {
   if (backdrop) backdrop.addEventListener('click', closeSide);
   window.addEventListener('resize', function () { if (window.innerWidth >= 1024) closeSide(); });
 
+  /* -------- collapsible sidebar (icon rail on desktop) -------- */
+  var collapseBtn = document.getElementById('lh-side-collapse');
+  var railBtn = document.getElementById('lh-rail-toggle');
+  function setRail(on) {
+    if (on) body.classList.add('lh-rail'); else body.classList.remove('lh-rail');
+    try { localStorage.setItem('lh-rail', on ? '1' : '0'); } catch (e) {}
+  }
+  if (document.body.classList.contains('lh-app')) {
+    try { if (localStorage.getItem('lh-rail') === '1' && window.innerWidth >= 1024) body.classList.add('lh-rail'); } catch (e) {}
+  }
+  var railToggle = function (e) {
+    if (e && e.preventDefault) e.preventDefault();
+    setRail(!body.classList.contains('lh-rail'));
+  };
+  if (collapseBtn) collapseBtn.addEventListener('click', railToggle);
+  if (railBtn) railBtn.addEventListener('click', railToggle);
+  window.addEventListener('resize', function () {
+    if (window.innerWidth < 1024) body.classList.remove('lh-rail');
+  });
+
   var csrf = (document.querySelector('meta[name="csrf"]') || {}).content || '';
   function esc(s) { return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function ago(ts) {

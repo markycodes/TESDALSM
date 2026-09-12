@@ -18,8 +18,8 @@ $ago = function (int $ts): string {
 $statCard = function (string $emoji, string $tile, string $label, string $value, string $key = ''): string {
     $live = $key !== '' ? ' data-live-stat="' . e($key) . '"' : '';
     return '<div class="reveal flex min-w-[150px] shrink-0 snap-start items-center justify-between gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:min-w-0">'
-        . '<div class="min-w-0"><span class="grid h-9 w-9 place-items-center rounded-xl text-lg ' . $tile . '">' . $emoji . '</span>'
-        . '<p class="mt-2 truncate text-2xl font-extrabold leading-7 text-slate-900"' . $live . '>' . e($value) . '</p>'
+        . '<div class="min-w-0"><span class="grid h-9 w-9 place-items-center rounded-lg text-lg ' . $tile . '">' . $emoji . '</span>'
+        . '<p class="mt-2 truncate text-2xl font-extrabold leading-7 text-slate-900 lh-num"' . $live . '>' . e($value) . '</p>'
         . '<p class="truncate text-[11px] font-semibold uppercase tracking-wide text-slate-500">' . e($label) . '</p></div>'
         . '</div>';
 };
@@ -28,8 +28,8 @@ $statCard = function (string $emoji, string $tile, string $label, string $value,
 $statWide = function (string $emoji, string $tile, string $label, string $value, string $key = ''): string {
     $live = $key !== '' ? ' data-live-stat="' . e($key) . '"' : '';
     return '<div class="reveal flex min-w-[150px] shrink-0 snap-start items-center gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:col-span-2 sm:min-w-0">'
-        . '<span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-xl ' . $tile . '">' . $emoji . '</span>'
-        . '<div class="min-w-0"><p class="truncate text-2xl font-extrabold leading-7 text-slate-900"' . $live . '>' . e($value) . '</p>'
+        . '<span class="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-xl ' . $tile . '">' . $emoji . '</span>'
+        . '<div class="min-w-0"><p class="truncate text-2xl font-extrabold leading-7 text-slate-900 lh-num"' . $live . '>' . e($value) . '</p>'
         . '<p class="truncate text-[11px] font-semibold uppercase tracking-wide text-slate-500">' . e($label) . '</p></div>'
         . '</div>';
 };
@@ -55,15 +55,15 @@ require __DIR__ . '/header.php';
 ?>
 
 <!-- Hero banner -->
-<section class="reveal overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-700 via-emerald-600 to-emerald-500 p-6 text-white shadow-lg sm:p-8">
+<section class="reveal lh-hero overflow-hidden rounded-3xl p-6 text-white sm:p-8">
   <div class="flex flex-wrap items-center justify-between gap-4">
     <div>
-      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-100"><?= date('l, M j') ?></p>
-      <h1 class="mt-1 text-2xl font-extrabold sm:text-3xl"><?= $isTeacher ? '👩‍🏫 Teacher dashboard' : '👨‍🎓 Student dashboard' ?></h1>
-      <p class="mt-1 text-sm text-emerald-100">Hi <?= e((string) $user['name']) ?>, <?= $isTeacher ? 'here is what is happening in your courses today.' : 'ready to continue learning?' ?></p>
+      <p class="lh-kicker text-emerald-200"><?= date('l, M j') ?></p>
+      <h1 class="mt-2 text-2xl sm:text-3xl"><?= $isTeacher ? 'Teacher dashboard' : 'Student dashboard' ?></h1>
+      <p class="mt-1.5 max-w-2xl text-sm text-emerald-50/90">Hi <?= e((string) $user['name']) ?>, <?= $isTeacher ? 'here is what is happening in your courses today.' : 'ready to continue learning?' ?></p>
     </div>
     <?php if ($isTeacher): ?>
-      <button data-modal-open="course-modal" class="rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-indigo-700 shadow-sm transition hover:bg-indigo-50">＋ New course</button>
+      <button data-modal-open="course-modal" class="lh-hero-cta rounded-lg bg-white px-4 py-2.5 text-sm font-bold text-emerald-800 transition hover:bg-emerald-50">＋ New course</button>
     <?php endif; ?>
   </div>
 </section>
@@ -78,14 +78,14 @@ require __DIR__ . '/header.php';
   <!-- Left 1/3 — Students hero card, the only stat card with a graph -->
   <div class="reveal flex min-w-[190px] shrink-0 snap-start flex-col justify-between rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:row-span-3 sm:min-w-0 sm:p-5">
     <div class="flex items-center justify-between gap-3">
-      <span class="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 text-xl">👥</span>
-      <span class="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-600">Total</span>
+      <span class="grid h-10 w-10 place-items-center rounded-lg bg-emerald-50 text-xl">👥</span>
+      <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">Total</span>
     </div>
     <div class="mt-3">
-      <p class="text-4xl font-extrabold leading-10 text-slate-900" data-live-stat="students"><?= (int) $tc['students'] ?></p>
+      <p class="lh-num text-4xl font-semibold leading-10 text-slate-900" data-live-stat="students"><?= (int) $tc['students'] ?></p>
       <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Students enrolled</p>
     </div>
-    <div class="mt-4 h-16 sm:h-24" data-live-svg="students"><?= zigzag_svg($ts['enrollments'], '#4f46e5', 'rgba(79,70,229,0.16)') ?></div>
+    <div class="mt-4 h-16 sm:h-24" data-live-svg="students"><?= zigzag_svg($ts['enrollments'], '#047857', 'rgba(4,120,87,0.14)') ?></div>
     <p class="mt-2 text-[10px] font-medium text-slate-400">New enrollments · last 14 days</p>
   </div>
   <!-- Right 2/3 — three compact cards, no graphs -->
@@ -107,8 +107,8 @@ require __DIR__ . '/header.php';
     <div class="flex flex-wrap items-center justify-between gap-2">
       <h2 class="text-base font-bold text-slate-900">Last 14 days</h2>
       <div class="flex items-center gap-4 text-xs font-semibold text-slate-500">
-        <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-indigo-600"></span> Course visits</span>
-        <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-emerald-500"></span> Completions</span>
+        <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-emerald-600"></span> Course visits</span>
+        <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-emerald-400"></span> Completions</span>
       </div>
     </div>
     <div class="mt-3" data-live-svg="activity"><?= activity_chart_svg($ts['visits'], $ts['completions']) ?></div>
@@ -125,7 +125,7 @@ require __DIR__ . '/header.php';
     <ul class="mt-3 space-y-2.5" data-live-list="online">
       <?php foreach ($online as $o): ?>
       <li class="flex items-center gap-2.5">
-        <span class="relative grid h-8 w-8 shrink-0 place-items-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700"><?= e(mb_substr((string) $o['name'], 0, 1)) ?><span class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white"></span></span>
+        <span class="relative grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700"><?= e(mb_substr((string) $o['name'], 0, 1)) ?><span class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white"></span></span>
         <span class="min-w-0 flex-1 truncate text-sm font-medium text-slate-700"><?= e((string) $o['name']) ?></span>
         <span class="shrink-0 text-[11px] text-slate-400"><?= $ago((int) $o['last_seen']) ?></span>
       </li>
@@ -151,7 +151,7 @@ require __DIR__ . '/header.php';
       <?php endforeach; ?>
       <?php if (!$todayVisits): ?><li class="px-4 py-4 text-center text-sm text-slate-400">No visits recorded yet today.</li><?php endif; ?>
     </ul>
-    <a href="attendance_day.php" class="mt-3 inline-block text-xs font-semibold text-indigo-600 hover:underline">Full attendance →</a>
+    <a href="attendance_day.php" class="mt-3 inline-block text-xs font-semibold text-emerald-700 hover:underline">Full attendance →</a>
   </div>
   <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
     <h2 class="text-base font-bold text-slate-900">🎯 Needs attention</h2>
@@ -177,7 +177,7 @@ require __DIR__ . '/header.php';
     <ul class="mt-3 space-y-2.5" data-live-list="activity">
       <?php foreach ($activity as $act): ?>
       <li class="flex items-start gap-2.5 text-sm">
-        <span class="grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs <?= $act['kind'] === 'enrolled' ? 'bg-indigo-100 text-indigo-600' : 'bg-emerald-100 text-emerald-600' ?>"><?= $act['kind'] === 'enrolled' ? '👥' : '✅' ?></span>
+        <span class="grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs <?= $act['kind'] === 'enrolled' ? 'bg-emerald-100 text-emerald-700' : 'bg-emerald-100 text-emerald-600' ?>"><?= $act['kind'] === 'enrolled' ? '👥' : '✅' ?></span>
         <span class="min-w-0 flex-1">
           <span class="block truncate text-slate-700"><b class="font-semibold"><?= e((string) $act['who']) ?></b> <?= $act['kind'] === 'enrolled' ? 'enrolled in' : 'completed' ?> <?= $act['kind'] === 'completed' ? '<b class="font-semibold">' . e((string) $act['lesson']) . '</b> · ' : '' ?><span class="text-slate-500"><?= e((string) $act['course']) ?></span></span>
           <span class="text-[11px] text-slate-400"><?= $ago((int) $act['ts']) ?></span>

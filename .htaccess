@@ -13,3 +13,29 @@ php_value memory_limit 256M
 <FilesMatch "\.(json|ini|log|md|txt)$">
     Require all denied
 </FilesMatch>
+
+# ------------------------------------------------------------
+# Clean URLs — hide the .php extension in the browser address bar.
+# 1) /dashboard            -> internally serves dashboard.php
+# 2) /dashboard.php (GET)  -> 301 redirect to /dashboard
+# POST requests are NOT redirected, so every form / CSRF flow keeps working.
+# ------------------------------------------------------------
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /LMS/
+
+    # 1) map the extensionless path to the real .php file (internal, no URL change)
+    RewriteCond %{REQUEST_FILENAME}.php -f
+    RewriteCond %{REQUEST_URI} !\.php$
+    RewriteRule ^(.+)$ $1.php [L]
+
+    # 2) external redirect: /dashboard.php (GET) -> /dashboard (directory-relative)
+    RewriteCond %{THE_REQUEST} \s/([^\s?]+)\.php[\s?] [NC]
+    RewriteCond %{REQUEST_METHOD} =GET
+    RewriteRule ^(.+)\.php$ $1 [R=301,L,NE]
+
+    # 3) directories first (e.g. /uploads) and real files (css/js/images) pass through untouched
+    RewriteCond %{REQUEST_FILENAME} -d [OR]
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
+</IfModule>

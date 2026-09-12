@@ -16,11 +16,15 @@ if ($user) { touch_presence((int) $user['id']); } // keep the heartbeat fresh on
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   tailwind.config = {
-    theme: { extend: { fontFamily: { sans: ['Inter','ui-sans-serif','system-ui','sans-serif'] } } }
+    theme: { extend: { fontFamily: {
+      sans: ['Inter','ui-sans-serif','system-ui','sans-serif'],
+      display: ['Fraunces','Georgia','Times New Roman','serif']
+    } } }
   };
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 
 /* ============================================================
@@ -219,6 +223,133 @@ body.lh-app{padding-left:0}
 .lh-side-link::after{content:attr(data-tip);position:absolute;left:calc(100% + 10px);top:50%;transform:translateY(-50%);white-space:nowrap;background:#0f172a;color:#fff;font-size:11px;font-weight:700;padding:5px 9px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .15s;box-shadow:0 8px 20px -8px rgba(15,23,42,.4);z-index:80}
 @media(min-width:1024px){body.lh-rail .lh-side-link:hover::after{opacity:1}}
 
+
+/* ============================================================
+   LearnHub v3 — editorial studio · deep forest green
+   Appended overrides. Functional rules above are preserved;
+   these only re-skin surfaces, type and motion.
+   ============================================================ */
+:root{
+  --lh-ink:#12211a;          /* primary editorial ink */
+  --lh-body:#42534a;         /* body text */
+  --lh-mut:#7d8a82;          /* muted text */
+  --lh-line:#e3e9e4;         /* hairline */
+  --lh-paper:#f4f7f4;        /* page canvas */
+  --lh-deep:#065f46;         /* deep forest green */
+  --lh-brand:#047857;        /* emerald-700 */
+  --lh-mint:#10b981;         /* emerald-500 */
+  --lh-tint:#ecfdf5;         /* soft green tint */
+  --lh-grad:linear-gradient(135deg,#065f46 0%,#047857 52%,#10b981 100%);
+  --lh-display:'Fraunces',Georgia,'Times New Roman',serif;
+  --lh-shadow:0 1px 2px rgba(17,33,26,.05),0 14px 30px -22px rgba(17,33,26,.18);
+}
+
+/* ---- type with personality ---- */
+main h1{font-family:var(--lh-display);font-weight:600;letter-spacing:-.02em;line-height:1.12;color:var(--lh-ink)}
+.lh-display{font-family:var(--lh-display)!important;font-weight:600;letter-spacing:-.02em;color:var(--lh-ink)}
+.lh-kicker{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--lh-brand)}
+.lh-num{font-family:var(--lh-display);font-weight:650;letter-spacing:-.02em}
+
+/* ---- canvas: calm paper, one restrained top glow ---- */
+body{
+  background:radial-gradient(900px 420px at 82% -120px,rgba(4,120,87,.09),transparent 62%),var(--lh-paper)!important;
+}
+.lh-app{background:var(--lh-paper)}
+
+/* ---- topbar: clean hairline, soft blur ---- */
+nav.glass{background:rgba(255,255,255,.82)!important;backdrop-filter:blur(10px) saturate(1.2);-webkit-backdrop-filter:blur(10px) saturate(1.2);box-shadow:0 1px 0 var(--lh-line),0 12px 30px -24px rgba(17,33,26,.22)!important}
+nav.glass::after{height:1px;background:linear-gradient(90deg,transparent,rgba(4,120,87,.35),transparent);opacity:.7}
+.lh-topbar{background:rgba(255,255,255,.82)!important;border-bottom:1px solid var(--lh-line)}
+
+/* ---- logo: keep brand mark, calm pulse ---- */
+.lh-logo{background:var(--lh-grad);box-shadow:0 6px 16px -8px rgba(4,120,87,.5);transition:transform .2s}
+.lh-logo::before{filter:blur(12px);opacity:.28;animation:logoPulse 4s ease-in-out infinite}
+
+/* ---- sidebar: warm white, editorial spacing ---- */
+.lh-sidebar{background:#fcfdfb!important;border-right:1px solid var(--lh-line);box-shadow:none}
+.lh-side-head{border-bottom:1px solid var(--lh-line);padding:1rem 1.1rem .95rem}
+.lh-side-sec{color:var(--lh-mut)}
+.lh-side-link{color:var(--lh-body);padding:.56rem .8rem;border-radius:10px}
+.lh-side-link:hover{background:var(--lh-tint);color:var(--lh-deep)}
+.lh-side-link.active{background:var(--lh-tint);color:var(--lh-deep);box-shadow:inset 0 0 0 1px rgba(4,120,87,.14)}
+.lh-side-link.active::before{left:-.65rem;top:18%;bottom:18%;width:3px;border-radius:99px;background:var(--lh-deep)}
+.lh-side-ico{width:22px;height:20px;display:grid;place-items:center}
+.lh-side-ico svg{width:20px;height:20px}
+.lh-side-foot{border-top:1px solid var(--lh-line)}
+
+/* ---- buttons: solid deep green, 1px ring, quiet depth ---- */
+main a.bg-indigo-600,main button.bg-indigo-600,nav a.px-4.bg-indigo-600{
+  background:var(--lh-deep)!important;background-image:none!important;
+  box-shadow:0 0 0 1px rgba(4,120,87,.55),0 10px 22px -16px rgba(4,120,87,.55)!important;
+  border-radius:10px;
+}
+main a.bg-indigo-600:hover,main button.bg-indigo-600:hover,nav a.px-4.bg-indigo-600:hover{
+  background:#074f3c!important;filter:none!important;transform:translateY(-1px);
+  box-shadow:0 0 0 1px rgba(4,120,87,.5),0 14px 26px -16px rgba(4,120,87,.6)!important;
+}
+
+/* ---- cards: flat paper + hairline, not glassy rings ---- */
+main .bg-white.ring-1,main .rounded-2xl.bg-white,main .rounded-3xl.bg-white{
+  background:#fff!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+  box-shadow:var(--lh-shadow)!important;
+}
+main .rounded-2xl.bg-white.ring-1:hover,main .rounded-3xl.bg-white.ring-1:hover{box-shadow:0 2px 3px rgba(17,33,26,.05),0 20px 38px -24px rgba(4,120,87,.28)!important}
+
+/* ---- progress bars: calm gradient, no shimmer ---- */
+main .h-2>.h-full,main .h-2\.5>.h-full,main .h-3>.h-full{background:linear-gradient(90deg,var(--lh-deep),var(--lh-mint))!important}
+main .h-2>.h-full::after,main .h-2\.5>.h-full::after,main .h-3>.h-full::after{content:'';background:linear-gradient(180deg,rgba(255,255,255,.35),transparent 60%);animation:none}
+
+/* ---- hero panels: static layered green, no floating blobs ---- */
+main>section.bg-gradient-to-r{background-size:100% 100%!important;animation:none!important}
+main>section.bg-gradient-to-r::before{display:none!important}
+
+/* ---- tables: hairline rows, small-caps headers ---- */
+main table{width:100%;border-collapse:collapse}
+main table thead th{font-size:10px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--lh-mut);text-align:left}
+main table tbody tr{border-bottom:1px solid #edf1ee}
+main table tbody tr:last-child{border-bottom:none}
+main table tbody tr:hover{background:#f7faf7}
+
+/* ---- form controls: calmer focus ---- */
+main input:focus,main select:focus,main textarea:focus{border-color:var(--lh-mint);box-shadow:0 0 0 3px rgba(16,185,129,.16)}
+
+@media (prefers-reduced-motion:reduce){
+  main>section.bg-gradient-to-r{animation:none!important}
+  main>section.bg-gradient-to-r::before{display:none!important}
+  .lh-logo::before{animation:none}
+}
+
+/* ============================================================
+   LearnHub v3 addendum — indigo→green remap + hero texture
+   ============================================================ */
+main .bg-indigo-50{background:#ecfdf5!important}
+main .bg-indigo-100{background:#d1fae5!important}
+main .bg-indigo-200,main .bg-indigo-200\/20{background:#a7f3d0!important}
+main .bg-indigo-600,main .bg-indigo-700{background:var(--lh-deep)!important;background-image:none!important}
+main .text-indigo-400,main .text-indigo-500,main .text-indigo-600,main .text-indigo-700,main .text-indigo-800{color:var(--lh-brand)!important}
+main .ring-indigo-200,main .ring-indigo-300{border-color:#a7f3d0!important}
+
+/* Hero panel: layered deep-green with a quiet paper texture */
+.lh-hero{
+  background:
+    linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px),
+    linear-gradient(135deg,#043f2e 0%,#065f46 55%,#0a7a58 100%);
+  background-size:26px 26px,26px 26px,100% 100%;
+  position:relative;isolation:isolate;
+  box-shadow:0 1px 2px rgba(17,33,26,.08),0 24px 44px -30px rgba(4,120,87,.6);
+}
+main>section.lh-hero{animation:none!important}
+main>section.lh-hero::before{display:none!important}
+.lh-hero-cta{box-shadow:0 0 0 1px rgba(255,255,255,.35),0 12px 24px -12px rgba(4,120,87,.5)}
+
+/* Landing feature rows: hairline dividers, quiet hover */
+.lh-feature-row{transition:background-color .18s}
+.lh-feature-row:hover{background:#f7faf7}
+
+/* Stats band: hairline separators */
+.lh-band{border-left:1px solid #edf1ee}
+.lh-band:first-child{border-left:none}
 </style>
 </head>
 <body class="flex min-h-screen flex-col font-sans text-slate-800<?= $user ? ' lh-app' : '' ?>"<?= $user ? ' data-heartbeat="1"' : '' ?>>
@@ -236,20 +367,20 @@ body.lh-app{padding-left:0}
 
   <div class="lh-side-sec">Menu</div>
   <nav class="lh-side-nav">
-    <a href="dashboard.php" class="lh-side-link <?= $nav_active === 'dashboard' ? 'active' : '' ?>" data-tip="Dashboard"><span class="lh-side-ico">🏠</span><span class="lh-side-label">Dashboard</span></a>
-    <a href="courses.php" class="lh-side-link <?= $nav_active === 'courses' ? 'active' : '' ?>" data-tip="My Courses"><span class="lh-side-ico">📚</span><span class="lh-side-label">My Courses</span></a>
-    <a href="enrollments.php" class="lh-side-link <?= $nav_active === 'enrollments' ? 'active' : '' ?>" data-tip="Enrollments"><span class="lh-side-ico">👥</span><span class="lh-side-label">Enrollments</span></a>
-    <a href="attendance_day.php" class="lh-side-link <?= $nav_active === 'attendance' ? 'active' : '' ?>" data-tip="Attendance"><span class="lh-side-ico">🕒</span><span class="lh-side-label">Attendance</span></a>
+    <a href="dashboard.php" class="lh-side-link <?= $nav_active === 'dashboard' ? 'active' : '' ?>" data-tip="Dashboard"><span class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="10" rx="1.6"/><rect x="13.5" y="3" width="7.5" height="6" rx="1.6"/><rect x="3" y="16" width="7.5" height="5" rx="1.6"/><rect x="13.5" y="12" width="7.5" height="9" rx="1.6"/></svg></span><span class="lh-side-label">Dashboard</span></a>
+    <a href="courses.php" class="lh-side-link <?= $nav_active === 'courses' ? 'active' : '' ?>" data-tip="My Courses"><span class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5c-1.6-1.3-3.7-1.75-5.5-1.75H3.75v14h2.75c1.8 0 3.9.45 5.5 1.75 1.6-1.3 3.7-1.75 5.5-1.75h2.75v-14H17.5c-1.8 0-3.9.45-5.5 1.75zM12 6.5v14"/></svg></span><span class="lh-side-label">My Courses</span></a>
+    <a href="enrollments.php" class="lh-side-link <?= $nav_active === 'enrollments' ? 'active' : '' ?>" data-tip="Enrollments"><span class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-1.5a3.75 3.75 0 0 0-3.75-3.75h-4.5A3.75 3.75 0 0 0 4 19.5V21"/><circle cx="8.25" cy="8.25" r="3"/><path d="M16 11.25a3 3 0 1 0-1.35 5.64"/></svg></span><span class="lh-side-label">Enrollments</span></a>
+    <a href="attendance_day.php" class="lh-side-link <?= $nav_active === 'attendance' ? 'active' : '' ?>" data-tip="Attendance"><span class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16.5" rx="2"/><path d="M3 9.5h18M8 3v4M16 3v4"/><path d="M9 14.25l2 2 4-3.75"/></svg></span><span class="lh-side-label">Attendance</span></a>
     <?php if (($user['role'] ?? '') === 'teacher'): ?>
-    <a href="codes.php" class="lh-side-link <?= $nav_active === 'codes' ? 'active' : '' ?>" data-tip="Invite codes"><span class="lh-side-ico">🔑</span><span class="lh-side-label">Invite codes</span></a>
+    <a href="codes.php" class="lh-side-link <?= $nav_active === 'codes' ? 'active' : '' ?>" data-tip="Invite codes"><span class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 3.5a7 7 0 0 0-6.7 9.3L3.5 17v3.5H7L15 12.5a7 7 0 1 0-.5-9z"/><circle cx="16.5" cy="7.5" r="1.8"/></svg></span><span class="lh-side-label">Invite codes</span></a>
     <?php endif; ?>
-    <a href="<?= ($user['role'] ?? '') === 'teacher' ? 'quiz_records.php' : 'my_records.php' ?>" class="lh-side-link <?= $nav_active === 'records' ? 'active' : '' ?>" data-tip="Quiz Records"><span class="lh-side-ico">📊</span><span class="lh-side-label"><?= ($user['role'] ?? '') === 'teacher' ? 'Student Records' : 'My Progress' ?></span></a>
+    <a href="<?= ($user['role'] ?? '') === 'teacher' ? 'quiz_records.php' : 'my_records.php' ?>" class="lh-side-link <?= $nav_active === 'records' ? 'active' : '' ?>" data-tip="Quiz Records"><span class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7"/></svg></span><span class="lh-side-label"><?= ($user['role'] ?? '') === 'teacher' ? 'Student Records' : 'My Progress' ?></span></a>
   </nav>
 
   <div class="lh-side-sec">Communication</div>
   <nav class="lh-side-nav">
     <a href="messages.php" class="lh-side-link <?= $nav_active === 'messages' ? 'active' : '' ?>" data-tip="Messages" id="lh-side-chat">
-      <span class="lh-side-ico">💬</span><span class="lh-side-label flex-1">Messages</span>
+      <span class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.5L3 21l2-5.6A8.5 8.5 0 1 1 21 11.5z"/></svg></span><span class="lh-side-label flex-1">Messages</span>
       <span id="lh-chat-badge-side" class="lh-badge hidden">0</span>
     </a>
   </nav>
