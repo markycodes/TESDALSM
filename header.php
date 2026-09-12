@@ -1468,6 +1468,38 @@ if ($user) {
         transition: none
       }
     }
+
+    /* plain-white opt-out (lh-plain): no paper tint, no tape, no card or row hover */
+    main .rounded-2xl.bg-white.lh-plain {
+      background: #fff !important;
+      border-color: #e2e8f0 !important;
+      border-radius: 1rem !important;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, .05), 0 0 0 1px #e2e8f0 !important;
+      rotate: none;
+      transition: none;
+    }
+
+    main .rounded-2xl.bg-white.lh-plain::before {
+      display: none;
+    }
+
+    main .rounded-2xl.bg-white.lh-plain:hover,
+    main .rounded-2xl.bg-white.lh-plain.ring-1:hover {
+      rotate: none;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, .05), 0 0 0 1px #e2e8f0 !important;
+    }
+
+    main .rounded-2xl.bg-white.lh-plain .text-slate-400 {
+      color: #94a3b8 !important
+    }
+
+    main .rounded-2xl.bg-white.lh-plain .text-slate-500 {
+      color: #64748b !important
+    }
+
+    main .rounded-2xl.bg-white.lh-plain table tbody tr:hover {
+      background: transparent;
+    }
   
         /* ============================================================
            torn paper buttons (brand colors kept, edges hand-torn)

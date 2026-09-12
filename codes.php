@@ -56,7 +56,7 @@ require __DIR__ . '/header.php';
   <div class="reveal mt-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
     <h2 class="text-base font-bold text-slate-900">Generate a code</h2>
 <!-- List -->
-  <div class="reveal mt-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+  <div class="reveal lh-plain mt-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
     <div class="flex items-center justify-between">
       <h2 class="text-base font-bold text-slate-900">Your codes</h2>
       <span class="text-xs text-slate-400"><?= count($codes) ?> total</span>
