@@ -82,20 +82,20 @@ if ($user) {
       border-radius: 99px
     }
 
-    /* page enter animation */
+    /* page enter animation — OPACITY ONLY on purpose: keyframing transform here
+       keeps `main` a containing block for position:fixed modals (fill-mode: both)
+       and knocks every modal off the center of the screen */
     main {
       animation: pageIn .45s cubic-bezier(.22, .61, .36, 1) both
     }
 
     @keyframes pageIn {
       from {
-        opacity: 0;
-        transform: translateY(12px)
+        opacity: 0
       }
 
       to {
-        opacity: 1;
-        transform: none
+        opacity: 1
       }
     }
 

@@ -54,6 +54,10 @@ document.querySelectorAll('[data-toast]').forEach((t) => setTimeout(() => t.remo
 /* ---------- Modals ---------- */
 function openModal(modal) {
   if (!modal) return;
+  /* guarantee true viewport centering: an ancestor with a transform/rotate/filter
+     (paper-card rotate, reveal, …) would otherwise become the containing block
+     for this position:fixed backdrop — re-parent to <body> before showing */
+  if (modal.parentElement && modal.parentElement !== document.body) document.body.appendChild(modal);
   modal.classList.remove('hidden');
   modal.classList.add('flex');
   document.body.classList.add('overflow-hidden');
