@@ -329,19 +329,64 @@ main .bg-indigo-600,main .bg-indigo-700{background:var(--lh-deep)!important;back
 main .text-indigo-400,main .text-indigo-500,main .text-indigo-600,main .text-indigo-700,main .text-indigo-800{color:var(--lh-brand)!important}
 main .ring-indigo-200,main .ring-indigo-300{border-color:#a7f3d0!important}
 
-/* Hero panel: layered deep-green with a quiet paper texture */
+/* Hero panel: a paper sheet taped to the wall (green kept on tape + CTA) */
 .lh-hero{
+  position:relative;
   background:
-    linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px),
-    linear-gradient(135deg,#043f2e 0%,#065f46 55%,#0a7a58 100%);
-  background-size:26px 26px,26px 26px,100% 100%;
-  position:relative;isolation:isolate;
-  box-shadow:0 1px 2px rgba(17,33,26,.08),0 24px 44px -30px rgba(4,120,87,.6);
+    radial-gradient(130% 100% at 18% 0%,rgba(255,255,255,.55),transparent 55%),
+    repeating-linear-gradient(0deg,rgba(23,52,40,.035) 0 1px,transparent 1px 3px),
+    repeating-linear-gradient(90deg,rgba(23,52,40,.026) 0 1px,transparent 1px 4px),
+    linear-gradient(180deg,#eef3ee 0%,#e2ebe3 100%);
+  border:1px solid #d3e0d4;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.65),0 20px 44px -26px rgba(23,46,36,.4);
 }
 main>section.lh-hero{animation:none!important}
 main>section.lh-hero::before{display:none!important}
-.lh-hero-cta{box-shadow:0 0 0 1px rgba(255,255,255,.35),0 12px 24px -12px rgba(4,120,87,.5)}
+
+/* the paper sheet: cream, faint rules, slight tilt, floats off the wall */
+.lh-hero-paper{
+  background:
+    linear-gradient(rgba(4,63,46,.045) 1px,transparent 1px) 0 0/100% 30px,
+    linear-gradient(180deg,#fdfbf5 0%,#f7f3e8 100%);
+  border:1px solid #e6dfcd;
+  border-radius:3px;
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 1px 2px rgba(31,41,33,.1),
+    0 3px 6px rgba(31,41,33,.08),
+    0 24px 40px -18px rgba(31,41,33,.38);
+  transform:rotate(-1.1deg);
+  transition:transform .25s ease;
+}
+.lh-hero-paper::after{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(45deg,rgba(31,61,48,.02) 0 2px,transparent 2px 6px);
+}
+.lh-hero:hover .lh-hero-paper{transform:rotate(-.35deg)}
+
+/* tape strips: torn-ended washi tape in the brand green */
+.lh-tape{
+  position:absolute;width:104px;height:27px;z-index:2;
+  background:linear-gradient(180deg,rgba(209,244,227,.85),rgba(154,222,190,.68) 55%,rgba(129,209,175,.72));
+  box-shadow:0 1px 3px rgba(31,41,33,.22),inset 0 0 0 1px rgba(255,255,255,.25);
+  clip-path:polygon(3% 8%,97% 0,100% 92%,1% 100%);
+  opacity:.92;
+}
+.lh-tape-l{top:-14px;left:30px;transform:rotate(-7deg)}
+.lh-tape-r{top:-12px;right:34px;transform:rotate(5deg)}
+.lh-tape-b{bottom:-14px;left:50%;margin-left:-52px;transform:rotate(1.6deg)}
+
+.lh-hero-cta{box-shadow:0 10px 22px -10px rgba(4,120,87,.55)}
+@media (max-width:640px){
+  .lh-hero-paper{transform:rotate(-.7deg)}
+  .lh-tape{width:78px;height:22px}
+  .lh-tape-l{top:-12px;left:18px}
+  .lh-tape-r{top:-10px;right:20px}
+  .lh-tape-b{bottom:-12px;margin-left:-39px}
+}
+@media (prefers-reduced-motion:reduce){
+  .lh-hero-paper,.lh-hero:hover .lh-hero-paper{transition:none;transform:rotate(-.7deg)}
+}
 
 /* Landing feature rows: hairline dividers, quiet hover */
 .lh-feature-row{transition:background-color .18s}

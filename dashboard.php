@@ -54,17 +54,22 @@ $page_title = 'Dashboard';
 require __DIR__ . '/header.php';
 ?>
 
-<!-- Hero banner -->
-<section class="reveal lh-hero overflow-hidden rounded-3xl p-6 text-white sm:p-8">
-  <div class="flex flex-wrap items-center justify-between gap-4">
-    <div>
-      <p class="lh-kicker text-emerald-200"><?= date('l, M j') ?></p>
-      <h1 class="mt-2 text-2xl sm:text-3xl"><?= $isTeacher ? 'Teacher dashboard' : 'Student dashboard' ?></h1>
-      <p class="mt-1.5 max-w-2xl text-sm text-emerald-50/90">Hi <?= e((string) $user['name']) ?>, <?= $isTeacher ? 'here is what is happening in your courses today.' : 'ready to continue learning?' ?></p>
+<!-- Hero banner: paper pinned to the wall -->
+<section class="reveal lh-hero overflow-hidden rounded-3xl p-5 text-slate-800 sm:p-8">
+  <div class="lh-hero-paper relative px-5 py-6 sm:px-9 sm:py-7">
+    <span class="lh-tape lh-tape-l" aria-hidden="true"></span>
+    <span class="lh-tape lh-tape-r" aria-hidden="true"></span>
+    <span class="lh-tape lh-tape-b" aria-hidden="true"></span>
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <p class="lh-kicker text-emerald-700"><?= date('l, M j') ?></p>
+        <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl"><?= $isTeacher ? 'Teacher dashboard' : 'Student dashboard' ?></h1>
+        <p class="mt-1.5 max-w-2xl text-sm text-slate-600">Hi <?= e((string) $user['name']) ?>, <?= $isTeacher ? 'here is what is happening in your courses today.' : 'ready to continue learning?' ?></p>
+      </div>
+      <?php if ($isTeacher): ?>
+        <button data-modal-open="course-modal" class="lh-hero-cta rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-800">＋ New course</button>
+      <?php endif; ?>
     </div>
-    <?php if ($isTeacher): ?>
-      <button data-modal-open="course-modal" class="lh-hero-cta rounded-lg bg-white px-4 py-2.5 text-sm font-bold text-emerald-800 transition hover:bg-emerald-50">＋ New course</button>
-    <?php endif; ?>
   </div>
 </section>
 
