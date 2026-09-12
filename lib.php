@@ -2058,6 +2058,14 @@ function unread_notification_count(int $userId): int
     return (int) $st->fetchColumn();
 }
 
+/** Total notifications (read + unread) — used by the red bell badge. */
+function total_notification_count(int $userId): int
+{
+    $st = db()->prepare('SELECT COUNT(*) FROM notifications WHERE user_id = ?');
+    $st->execute([$userId]);
+    return (int) $st->fetchColumn();
+}
+
 function mark_one_notification_read(int $notifId, int $userId): void
 {
     db()->prepare('UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?')->execute([$notifId, $userId]);

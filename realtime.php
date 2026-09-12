@@ -301,6 +301,7 @@ if ($v === 'notifications') {
     echo json_encode([
         'ok' => true,
         'unread' => unread_notification_count($me),
+        'total' => total_notification_count($me),
         'chat_unread' => unread_message_total($me),
         'items' => $items,
         'now' => time(),

@@ -193,6 +193,33 @@ if ($user) {
       background: #ecfdf5 !important
     }
 
+    /* notification / chat badges: red circle pinned to the top-right of the icon */
+    .lh-badge {
+      position: absolute;
+      top: -5px;
+      right: -7px;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      display: grid;
+      place-items: center;
+      border-radius: 9999px;
+      background: #dc2626;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: .02em;
+      box-shadow: 0 0 0 2px #fff;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    /* the bell is a torn-paper button — the badge must not be clipped by its tear */
+    #lh-notif-btn {
+      clip-path: none;
+    }
+
     /* avatar with gradient ring + online dot */
     .lh-avatar {
       background: var(--lh-grad);

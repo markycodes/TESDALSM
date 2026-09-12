@@ -215,10 +215,24 @@ function trackUploadedVideo(video) {
   let last = -1;
   let duration = 0;
   let lastSent = Math.floor(watched);
-  const done = video.getAttribute('data-done') === '1';
-  if (resume > 3) video.addEventListener('loadedmetadata', () => {
-    try { if (resume < (video.duration || Infinity) - 3) video.currentTime = resume; } catch (e) { }
-  }, { once: true });
+  let done = video.getAttribute('data-done') === '1';
+  const overlay = document.querySelector('[data-overlay-for="' + materialId + '"]');
+  const overlayOn = () => !!(overlay && !overlay.classList.contains('hidden'));
+  const park = () => { try { if (!video.paused) video.pause(); } catch (e) { } };
+
+  if (done) {
+    /* completed lesson: stay parked at 0 under the completed overlay — never auto-resume/auto-play */
+    video.addEventListener('loadedmetadata', () => {
+      park();
+      try { if (video.currentTime > 0.25) video.currentTime = 0; } catch (e) { }
+    }, { once: true });
+    window.addEventListener('pageshow', park);
+    document.addEventListener('visibilitychange', () => { if (overlayOn()) park(); });
+  } else if (resume > 3) {
+    video.addEventListener('loadedmetadata', () => {
+      try { if (resume < (video.duration || Infinity) - 3) video.currentTime = resume; } catch (e) { }
+    }, { once: true });
+  }
   video.addEventListener('timeupdate', () => {
     const t = video.currentTime || 0;
     if (last >= 0) { const d = t - last; if (d > 0 && d <= 1.5) watched += d; }
@@ -247,20 +261,31 @@ function trackUploadedVideo(video) {
   window.addEventListener('pageshow', (e) => {
     if (!e.persisted) return;
     suppressReplay = true;
-    try { video.pause(); } catch (err) { }
+    park();
     setTimeout(() => {
       suppressReplay = false;
-      try { if (!video.paused) video.pause(); } catch (err) { }
+      park();
     }, 800);
   });
   video.addEventListener('play', () => {
-    if (suppressReplay) { try { video.pause(); } catch (err) { } }
+    if (overlayOn()) { park(); return; }
+    if (suppressReplay) { park(); }
   });
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden' && !video.paused) { try { video.pause(); } catch (err) { } }
+    if (document.visibilityState === 'hidden') { park(); }
     else {
-      setTimeout(() => { try { if (!video.paused) video.pause(); } catch (err) { } }, 120);
+      setTimeout(() => { if (overlayOn()) park(); }, 120);
     }
+  });
+  /* --- Replay button: clear the completed overlay, reset tracking, restart from 0 --- */
+  const replayBtn = overlay ? overlay.querySelector('.js-video-replay') : null;
+  if (replayBtn) replayBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    done = false; watched = 0; last = -1; lastSent = 0;
+    if (overlay) overlay.classList.add('hidden');
+    try { video.currentTime = 0; } catch (err) { }
+    const p = video.play();
+    if (p && p.catch) p.catch(() => { });
   });
 }
 function trackYouTube(el) {
@@ -271,6 +296,9 @@ function trackYouTube(el) {
   let duration = 0;
   let lastSent = Math.floor(watched);
   let lastTime = -1;
+  let done = el.getAttribute('data-done') === '1';
+  const overlay = document.querySelector('[data-overlay-for="' + materialId + '"]');
+  const overlayOn = () => !!(overlay && !overlay.classList.contains('hidden'));
   let player = null;
   function ytReady() {
     if (window.YT && window.YT.Player) return Promise.resolve();
@@ -310,12 +338,22 @@ function trackYouTube(el) {
         onReady: (e) => {
           try {
             duration = e.target.getDuration() || 0;
-            if (resume > 3 && resume < duration - 3) e.target.seekTo(resume, true);
+            if (done) {
+              /* completed lesson: parked at 0 under the overlay — never auto-resume */
+              e.target.pauseVideo();
+              e.target.seekTo(0, true);
+            } else if (resume > 3 && resume < duration - 3) {
+              e.target.seekTo(resume, true);
+            }
           } catch (err) { }
           if (e.target.getIframe) e.target.getIframe().classList.add('h-full', 'w-full');
           setInterval(tick, 1000);
         },
         onStateChange: (e) => {
+          if (e.data === YT.PlayerState.PLAYING && overlayOn()) {
+            try { player.pauseVideo(); } catch (err) { }
+            return;
+          }
           if (e.data === YT.PlayerState.ENDED || e.data === YT.PlayerState.PAUSED) {
             const t = player.getCurrentTime ? player.getCurrentTime() : 0;
             sendWatch(courseId, materialId, Math.round(watched), Math.round(duration), Math.round(t || 0));
@@ -323,6 +361,15 @@ function trackYouTube(el) {
         },
       },
     });
+  });
+  /* Replay button on the completed overlay: reset tracking and restart from 0 */
+  const replayBtn = overlay ? overlay.querySelector('.js-video-replay') : null;
+  if (replayBtn) replayBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    done = false; watched = 0; lastSent = 0; lastTime = -1;
+    if (overlay) overlay.classList.add('hidden');
+    if (!player) return;
+    try { player.seekTo(0, true); player.playVideo(); } catch (err) { }
   });
   setTimeout(() => {
     if (!el.getAttribute('data-api')) {
@@ -576,7 +623,7 @@ if (dayFilter) {
       .then(function (r) { return r.json(); })
       .then(function (d) {
         if (!d || !d.ok) return;
-        setBadge('lh-notif-badge', d.unread || 0);
+        setBadge('lh-notif-badge', (typeof d.total === 'number' ? d.total : (d.unread || 0)));
         setBadge('lh-chat-badge', d.chat_unread || 0);
         setBadge('lh-chat-badge-side', d.chat_unread || 0);
         if (!list) return;
