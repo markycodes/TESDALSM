@@ -37,8 +37,15 @@ $disposition = 'inline';
 if ($isTeacher && ($_GET['disp'] ?? '') !== 'inline' && !in_array($ext, INLINE_EXTS, true)) {
     $disposition = 'attachment';
 }
-$mime = trim((string) ($material['mime'] ?? ''));
-if ($mime === '') $mime = guess_mime((string) $material['filename']);
+/* the stored file keeps its original extension (enforced on upload), so the
+   extension decides the type — never re-wrap or convert the bytes; this makes
+   every material come back in exactly the format it was uploaded in, even for
+   older rows whose DB mime was mislabeled by mime_content_type() */
+$mime = mime_for_ext($ext);
+if ($mime === '') {
+    $mime = trim((string) ($material['mime'] ?? ''));
+    if ($mime === '') $mime = guess_mime((string) $material['filename']);
+}
 $name = (string) ($material['orig_name'] ?? basename($path));
 
 serve_file_with_range($path, $mime, $name, $disposition);

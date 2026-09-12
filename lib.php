@@ -717,18 +717,49 @@ function handle_uploads(string $field, array $allowedExts): array
     return $rows;
 }
 
+function mime_for_ext(string $ext): string
+{
+    /* authoritative type by the file's real extension — mime_content_type() mislabels
+       zip-based Office files (docx/xlsx/pptx) and several others on Windows/XAMPP,
+       which would break inline viewing with X-Content-Type-Options: nosniff */
+    return match (strtolower($ext)) {
+        'pdf'                  => 'application/pdf',
+        'doc'                  => 'application/msword',
+        'docx'                 => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'ppt'                  => 'application/vnd.ms-powerpoint',
+        'pptx'                 => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'xls'                  => 'application/vnd.ms-excel',
+        'xlsx'                 => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'csv'                  => 'text/csv',
+        'txt'                  => 'text/plain',
+        'md'                   => 'text/markdown',
+        'png'                  => 'image/png',
+        'jpg', 'jpeg'          => 'image/jpeg',
+        'gif'                  => 'image/gif',
+        'webp'                 => 'image/webp',
+        'mp4', 'm4v'           => 'video/mp4',
+        'webm'                 => 'video/webm',
+        'ogg'                  => 'audio/ogg',
+        'ogv'                  => 'video/ogg',
+        'mov'                  => 'video/quicktime',
+        'mp3'                  => 'audio/mpeg',
+        'wav'                  => 'audio/wav',
+        default                => '',
+    };
+}
+
 function guess_mime(string $stored): string
 {
+    /* the stored file keeps its original extension, so the extension map is the
+       truth — magic sniffing is only a fallback for unknown types */
+    $m = mime_for_ext(ext_of($stored));
+    if ($m !== '') return $m;
     $path = UPLOAD_DIR . '/' . basename($stored);
     if (function_exists('mime_content_type')) {
         $m = @mime_content_type($path);
         if (is_string($m) && $m !== '') return $m;
     }
-    return match (ext_of($stored)) {
-        'pdf' => 'application/pdf', 'mp4' => 'video/mp4', 'webm' => 'video/webm',
-        'png' => 'image/png', 'jpg', 'jpeg' => 'image/jpeg', 'txt' => 'text/plain',
-        default => 'application/octet-stream',
-    };
+    return 'application/octet-stream';
 }
 
 /** Stream a file with HTTP Range support so uploaded videos can be seeked. */
@@ -757,7 +788,11 @@ function serve_file_with_range(string $path, string $mime, string $name, string 
     header('Accept-Ranges: bytes');
     header('Content-Length: ' . ($end - $start + 1));
     if ($partial) header('Content-Range: bytes ' . $start . '-' . $end . '/' . $size);
-    header('Content-Disposition: ' . $disposition . '; filename="' . rawurlencode($name) . '"');
+    /* keep the file exactly as uploaded: original name (RFC 5987 for
+       non-ASCII names + a printable fallback) so saving keeps the true
+       filename and extension instead of a sanitized or mangled one */
+    $fallback = preg_replace('~[^\x20-\x7E]~', '_', str_replace(['"', "\\", "\r", "\n"], ['\'', '_', '', ''], $name));
+    header('Content-Disposition: ' . $disposition . '; filename="' . $fallback . '"; filename*=UTF-8\'\'' . rawurlencode($name));
     header('X-Content-Type-Options: nosniff');
     header('Cache-Control: private, max-age=0');
     while (ob_get_level() > 0) { ob_end_flush(); }
