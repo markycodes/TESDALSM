@@ -1473,28 +1473,34 @@ if ($user) {
            torn paper buttons (brand colors kept, edges hand-torn)
            ============================================================ */
         button,
-        a[class*="bg-indigo-600"] {
+        a[class*="bg-indigo-600"],
+        a[class*="bg-emerald-"] {
           clip-path: polygon(0% 4.9%,7.1% 2.8%,14.3% 2%,21.4% 7.5%,28.6% 8.2%,35.7% 7.8%,42.9% 4.4%,50% 9.2%,57.1% 4.3%,64.3% 9.5%,71.4% 2.9%,78.6% 7.5%,85.7% 4.7%,92.9% 0.2%,100% 2.9%,97.1% 0%,98% 20%,98.2% 40%,99.8% 60%,96% 80%,98.5% 100%,100% 94.5%,92.9% 94.8%,85.7% 99.9%,78.6% 99.6%,71.4% 97.9%,64.3% 96.2%,57.1% 98.9%,50% 99.7%,42.9% 92.9%,35.7% 99.4%,28.6% 95.6%,21.4% 97.4%,14.3% 93.8%,7.1% 90.7%,0% 97.9%,1% 100%,0.5% 80%,4% 60%,2.6% 40%,1.7% 20%,3.8% 0%);
           transition: rotate .18s ease, transform .18s ease;
         }
     
         button:hover,
-        a[class*="bg-indigo-600"]:hover {
+        a[class*="bg-indigo-600"]:hover,
+        a[class*="bg-emerald-"]:hover {
           rotate: .4deg;
         }
     
         button:active,
-        a[class*="bg-indigo-600"]:active {
+        a[class*="bg-indigo-600"]:active,
+        a[class*="bg-emerald-"]:active {
           scale: .97;
         }
     
         button:focus-visible,
-        a[class*="bg-indigo-600"]:focus-visible {
+        a[class*="bg-indigo-600"]:focus-visible,
+        a[class*="bg-emerald-"]:focus-visible {
           box-shadow: inset 0 0 0 2px rgba(4, 63, 46, .55) !important;
         }
 
         button[class*="bg-indigo-600"]:focus-visible,
-        a[class*="bg-indigo-600"]:focus-visible {
+        a[class*="bg-indigo-600"]:focus-visible,
+        button[class*="bg-emerald-"]:focus-visible,
+        a[class*="bg-emerald-"]:focus-visible {
           box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .85) !important;
         }
     
@@ -1513,9 +1519,42 @@ if ($user) {
         a[class*="bg-indigo-600"]:hover {
           rotate: .15deg;
         }
+
+        /* primary (emerald, landing CTAs): paper grain + resting tilt */
+        button[class*="bg-emerald-7"],
+        a[class*="bg-emerald-7"] {
+          background-image:
+            repeating-linear-gradient(0deg, rgba(255, 255, 255, .07) 0 1px, transparent 1px 3px),
+            repeating-linear-gradient(90deg, rgba(255, 255, 255, .05) 0 1px, transparent 1px 4px),
+            linear-gradient(180deg, #047857, #065f46) !important;
+          box-shadow: 0 1px 2px rgba(31, 41, 33, .18) !important;
+          rotate: -.35deg;
+        }
+
+        button[class*="bg-emerald-7"]:hover,
+        a[class*="bg-emerald-7"]:hover {
+          rotate: .15deg;
+        }
+
+        /* primary (emerald-600 shade): paper grain + resting tilt */
+        button[class*="bg-emerald-6"],
+        a[class*="bg-emerald-6"] {
+          background-image:
+            repeating-linear-gradient(0deg, rgba(255, 255, 255, .07) 0 1px, transparent 1px 3px),
+            repeating-linear-gradient(90deg, rgba(255, 255, 255, .05) 0 1px, transparent 1px 4px),
+            linear-gradient(180deg, #059669, #047857) !important;
+          box-shadow: 0 1px 2px rgba(31, 41, 33, .18) !important;
+          rotate: -.35deg;
+        }
+
+        button[class*="bg-emerald-6"]:hover,
+        a[class*="bg-emerald-6"]:hover {
+          rotate: .15deg;
+        }
     
         /* ghost: small cream paper scrap */
-        main button[class*="border-slate-200"] {
+        main button[class*="border-slate-200"],
+        a[class*="border-slate-300"] {
           background: linear-gradient(180deg, #fdfbf5, #f8f4e9) !important;
           border-color: #e6dfcd !important;
           box-shadow: 0 1px 2px rgba(31, 41, 33, .12);
@@ -1524,7 +1563,8 @@ if ($user) {
         @media (prefers-reduced-motion:reduce) {
     
           button,
-          a[class*="bg-indigo-600"] {
+          a[class*="bg-indigo-600"],
+          a[class*="bg-emerald-"] {
             transition: none
           }
         }
