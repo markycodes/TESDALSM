@@ -768,7 +768,7 @@ if ($user) {
       height: 17px;
       padding: 0 3px;
       border-radius: 9999px;
-      background: linear-gradient(135deg, #047857, #10b981);
+      background: #dc2626;
       color: #fff;
       font-size: 10px;
       font-weight: 800;
