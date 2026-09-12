@@ -82,6 +82,91 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop').forEach((m) => closeModal(m));
 });
 
+/* ---------- Lesson quiz modal: prefill per lesson + add/remove question rows ---------- */
+/* Rows are [data-q-row] blocks rendered by quiz_question_row_html(): inputs prompt[], o1[]..o4[],
+   correct[] are parallel arrays (DOM order = server order). Blank master: template[data-quiz-blank-row];
+   saved questions live in per-lesson template[data-quiz-template="<mid>"]. Server caps at 20 questions. */
+const QUIZ_MAX_QUESTIONS = 20;
+function quizRowCount() {
+  const rows = document.getElementById('quiz-rows');
+  return rows ? rows.querySelectorAll('[data-q-row]').length : 0;
+}
+function quizRenumber() {
+  document.querySelectorAll('#quiz-rows [data-q-row]').forEach((row, i) => {
+    const num = row.querySelector('[data-q-num]');
+    if (num) num.textContent = 'Q' + (i + 1);
+  });
+  const addBtn = document.getElementById('quiz-add-row');
+  if (addBtn) {
+    const full = quizRowCount() >= QUIZ_MAX_QUESTIONS;
+    addBtn.disabled = full;
+    addBtn.classList.toggle('opacity-40', full);
+    addBtn.classList.toggle('cursor-not-allowed', full);
+    addBtn.classList.toggle('hover:border-indigo-300', !full);
+    addBtn.classList.toggle('hover:text-indigo-600', !full);
+  }
+}
+function quizLoadRows(mid) {
+  const rows = document.getElementById('quiz-rows');
+  if (!rows) return;
+  rows.innerHTML = '';
+  const tpl = document.querySelector('template[data-quiz-template="' + mid + '"]');
+  if (tpl) rows.appendChild(tpl.content.cloneNode(true));
+  if (!rows.querySelector('[data-q-row]')) {
+    const blank = document.querySelector('template[data-quiz-blank-row]');
+    if (blank) rows.appendChild(blank.content.cloneNode(true));
+  }
+  quizRenumber();
+}
+document.addEventListener('click', (e) => {
+  const editBtn = e.target.closest('[data-modal-open="quiz-modal"][data-quiz-edit]');
+  if (editBtn) {
+    /* runs after the generic opener (registered earlier) has shown the modal */
+    const mid = editBtn.getAttribute('data-quiz-edit') || '';
+    const matInput = document.getElementById('quiz-material-id');
+    if (matInput) matInput.value = mid;
+    const lessonTitle = document.getElementById('quiz-lesson-title');
+    if (lessonTitle) lessonTitle.textContent = editBtn.getAttribute('data-title') || '—';
+    const tpl = document.querySelector('template[data-quiz-template="' + mid + '"]');
+    const has = !!(tpl && tpl.getAttribute('data-has-quiz') === '1');
+    const title = document.getElementById('quiz-title');
+    if (title) title.value = has ? (tpl.getAttribute('data-quiz-title') || '') : '';
+    const pass = document.getElementById('quiz-pass');
+    if (pass) pass.value = has ? (tpl.getAttribute('data-pass') || '60') : '60';
+    quizLoadRows(mid);
+    return;
+  }
+  if (e.target.closest('#quiz-add-row')) {
+    e.preventDefault();
+    if (quizRowCount() >= QUIZ_MAX_QUESTIONS) return;
+    const blank = document.querySelector('template[data-quiz-blank-row]');
+    const rows = document.getElementById('quiz-rows');
+    if (blank && rows) {
+      rows.appendChild(blank.content.cloneNode(true));
+      quizRenumber();
+      const firstInput = rows.querySelector('[data-q-row]:last-child input[name="prompt[]"]');
+      if (firstInput) firstInput.focus();
+    }
+    return;
+  }
+  const removeBtn = e.target.closest('[data-q-remove]');
+  if (removeBtn) {
+    e.preventDefault();
+    const row = removeBtn.closest('[data-q-row]');
+    if (!row) return;
+    if (quizRowCount() <= 1) {
+      /* never leave zero rows — clear the last one instead */
+      row.querySelectorAll('input:not([type="hidden"])').forEach((i) => { i.value = ''; });
+      const sel = row.querySelector('select');
+      if (sel) sel.selectedIndex = 0;
+    } else {
+      row.remove();
+    }
+    quizRenumber();
+    return;
+  }
+});
+
 /* ---------- Tabs (lesson modal, videos/materials) ---------- */
 function findTabButton(target) {
   // Fast path: target is an Element
