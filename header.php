@@ -1530,42 +1530,69 @@ if ($user) {
   
         /* ============================================================
            torn paper buttons (brand colors kept, edges hand-torn)
+           — token-exact class selectors so Tailwind *variant* classes
+           (aria-selected:bg-indigo-600, hover:bg-emerald-700, …) never match
            ============================================================ */
         button,
-        a[class*="bg-indigo-600"],
-        a[class*="bg-emerald-"] {
+        a.bg-indigo-600,
+        a.bg-emerald-600,
+        a.bg-emerald-700 {
           clip-path: polygon(0% 5%,7% 2%,14% 8%,21% 3%,29% 9%,36% 2%,43% 7%,50% 1%,57% 8%,64% 4%,71% 9%,79% 3%,86% 7%,93% 2%,100% 4%,calc(100% - 1px) 20%,calc(100% - 3px) 40%,calc(100% - 1px) 60%,calc(100% - 2px) 80%,99% 100%,93% 95%,86% 99%,79% 93%,71% 98%,64% 92%,57% 97%,50% 91%,43% 98%,36% 93%,29% 99%,21% 92%,14% 97%,7% 94%,0% 96%,1px 80%,3px 60%,1px 40%,2px 20%);
           transition: rotate .18s ease, transform .18s ease;
         }
-    
+
         button:hover,
-        a[class*="bg-indigo-600"]:hover,
-        a[class*="bg-emerald-"]:hover {
+        a.bg-indigo-600:hover,
+        a.bg-emerald-600:hover,
+        a.bg-emerald-700:hover {
           rotate: .4deg;
         }
-    
+
         button:active,
-        a[class*="bg-indigo-600"]:active,
-        a[class*="bg-emerald-"]:active {
+        a.bg-indigo-600:active,
+        a.bg-emerald-600:active,
+        a.bg-emerald-700:active {
           scale: .97;
         }
-    
+
         button:focus-visible,
-        a[class*="bg-indigo-600"]:focus-visible,
-        a[class*="bg-emerald-"]:focus-visible {
+        a.bg-indigo-600:focus-visible,
+        a.bg-emerald-600:focus-visible,
+        a.bg-emerald-700:focus-visible {
           box-shadow: inset 0 0 0 2px rgba(4, 63, 46, .55) !important;
         }
 
-        button[class*="bg-indigo-600"]:focus-visible,
-        a[class*="bg-indigo-600"]:focus-visible,
-        button[class*="bg-emerald-"]:focus-visible,
-        a[class*="bg-emerald-"]:focus-visible {
+        button.bg-indigo-600:focus-visible,
+        a.bg-indigo-600:focus-visible,
+        button.bg-emerald-600:focus-visible,
+        a.bg-emerald-600:focus-visible,
+        button.bg-emerald-700:focus-visible,
+        a.bg-emerald-700:focus-visible {
           box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .85) !important;
         }
-    
+
+        /* lesson tab chips (🎬 Videos / 📄 Materials): plain tabs — no tear, no tilt */
+        main button[data-tab-btn] {
+          clip-path: none;
+          rotate: none;
+          background-image: none !important;
+          background-color: transparent;
+          box-shadow: none !important;
+        }
+
+        main button[data-tab-btn]:hover {
+          rotate: none;
+          background-color: #f1f5f9;
+        }
+
+        main button[data-tab-btn][aria-selected="true"] {
+          background-color: #4f46e5 !important;
+          color: #fff !important;
+        }
+
         /* primary: indigo with paper grain + resting tilt */
-        button[class*="bg-indigo-600"],
-        a[class*="bg-indigo-600"] {
+        button.bg-indigo-600,
+        a.bg-indigo-600 {
           background-image:
             repeating-linear-gradient(0deg, rgba(255, 255, 255, .07) 0 1px, transparent 1px 3px),
             repeating-linear-gradient(90deg, rgba(255, 255, 255, .05) 0 1px, transparent 1px 4px),
@@ -1573,15 +1600,15 @@ if ($user) {
           box-shadow: 0 1px 2px rgba(31, 41, 33, .18) !important;
           rotate: -.35deg;
         }
-    
-        button[class*="bg-indigo-600"]:hover,
-        a[class*="bg-indigo-600"]:hover {
+
+        button.bg-indigo-600:hover,
+        a.bg-indigo-600:hover {
           rotate: .15deg;
         }
 
         /* primary (emerald, landing CTAs): paper grain + resting tilt */
-        button[class*="bg-emerald-7"],
-        a[class*="bg-emerald-7"] {
+        button.bg-emerald-700,
+        a.bg-emerald-700 {
           background-image:
             repeating-linear-gradient(0deg, rgba(255, 255, 255, .07) 0 1px, transparent 1px 3px),
             repeating-linear-gradient(90deg, rgba(255, 255, 255, .05) 0 1px, transparent 1px 4px),
@@ -1590,14 +1617,14 @@ if ($user) {
           rotate: -.35deg;
         }
 
-        button[class*="bg-emerald-7"]:hover,
-        a[class*="bg-emerald-7"]:hover {
+        button.bg-emerald-700:hover,
+        a.bg-emerald-700:hover {
           rotate: .15deg;
         }
 
         /* primary (emerald-600 shade): paper grain + resting tilt */
-        button[class*="bg-emerald-6"],
-        a[class*="bg-emerald-6"] {
+        button.bg-emerald-600,
+        a.bg-emerald-600 {
           background-image:
             repeating-linear-gradient(0deg, rgba(255, 255, 255, .07) 0 1px, transparent 1px 3px),
             repeating-linear-gradient(90deg, rgba(255, 255, 255, .05) 0 1px, transparent 1px 4px),
@@ -1606,24 +1633,25 @@ if ($user) {
           rotate: -.35deg;
         }
 
-        button[class*="bg-emerald-6"]:hover,
-        a[class*="bg-emerald-6"]:hover {
+        button.bg-emerald-600:hover,
+        a.bg-emerald-600:hover {
           rotate: .15deg;
         }
-    
+
         /* ghost: small cream paper scrap */
-        main button[class*="border-slate-200"],
-        a[class*="border-slate-300"] {
+        main button.border-slate-200,
+        a.border-slate-300 {
           background: linear-gradient(180deg, #fdfbf5, #f8f4e9) !important;
           border-color: #e6dfcd !important;
           box-shadow: 0 1px 2px rgba(31, 41, 33, .12);
         }
-    
+
         @media (prefers-reduced-motion:reduce) {
-    
+
           button,
-          a[class*="bg-indigo-600"],
-          a[class*="bg-emerald-"] {
+          a.bg-indigo-600,
+          a.bg-emerald-600,
+          a.bg-emerald-700 {
             transition: none
           }
         }
@@ -1756,10 +1784,36 @@ if ($user) {
               aria-label="Notifications">
               <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round"
-                  d="M18.37 4.6L12.9 5.8a4.6 4.6 0 002.6-2.6M15.5 3.5l1.2 9m.5 0v3.6M15.5 15.5h6M9.75 4.75V21m6-6.75M9.75 9.5h6M9.75 15.5h6M9.75 21h6" />
+                  d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
               </svg>
               <span id="lh-notif-badge" class="lh-badge hidden">0</span>
             </button>
+            <div id="lh-notif-panel" class="lh-panel hidden" aria-label="Notifications">
+              <div class="lx-panel-head flex items-center justify-between gap-2 border-b border-slate-200 px-3.5 py-2.5">
+                <span class="text-sm font-bold text-slate-800">🔔 Notifications</span>
+                <button id="lh-notif-read-all" type="button" class="text-xs font-semibold text-emerald-600 hover:underline">Mark
+                  all as read</button>
+              </div>
+              <div id="lh-notif-list" class="lx-panel-list">
+                <?php $lh_notifs = notifications_for((int) $user['id'], 8); ?>
+                <?php if (!$lh_notifs): ?>
+                  <p class="px-3.5 py-6 text-center text-xs text-slate-400">No notifications yet.<br>New lessons, quizzes, results
+                    and messages will show up here.</p>
+                <?php else:
+                  foreach ($lh_notifs as $n):
+                    $lh_ago = time() - (int) $n['created_at'];
+                    $lh_agoTxt = $lh_ago < 60 ? 'just now' : ($lh_ago < 3600 ? (int) floor($lh_ago / 60) . 'm ago' : ($lh_ago < 86400 ? (int) floor($lh_ago / 3600) . 'h ago' : (int) floor($lh_ago / 86400) . 'd ago')); ?>
+                    <a href="<?= e((string) $n['link']) ?>" data-notif-id="<?= (int) $n['id'] ?>"
+                      data-notif-link="<?= e((string) $n['link']) ?>"
+                      class="lx-panel-item lh-notif-item <?= $n['is_read'] ? '' : 'lh-notif-unread' ?>">
+                      <span class="lx-panel-item-title text-[13px] font-semibold text-slate-800"><?= e((string) $n['title']) ?></span>
+                      <?php if ($n['body']): ?><span
+                          class="text-xs text-slate-500"><?= e((string) $n['body']) ?></span><?php endif; ?>
+                      <span class="text-[10px] text-slate-400"><?= e($lh_agoTxt) ?></span>
+                    </a>
+                  <?php endforeach; endif; ?>
+              </div>
+            </div>
           </div>
           <a href="messages.php" id="lh-chat-link"
             class="lh-ico grid h-9 w-9 place-items-center rounded-lg text-slate-600" aria-label="Messages">
@@ -1791,34 +1845,6 @@ if ($user) {
       </div>
     </div>
   </nav>
-  <?php if ($user): ?>
-    <div id="lh-notif-panel" class="lh-panel hidden" aria-label="Notifications">
-      <div class="lx-panel-head flex items-center justify-between gap-2 border-b border-slate-200 px-3.5 py-2.5">
-        <span class="text-sm font-bold text-slate-800">🔔 Notifications</span>
-        <button id="lh-notif-read-all" type="button" class="text-xs font-semibold text-emerald-600 hover:underline">Mark
-          all as read</button>
-      </div>
-      <div id="lh-notif-list" class="lx-panel-list">
-        <?php $lh_notifs = notifications_for((int) $user['id'], 8); ?>
-        <?php if (!$lh_notifs): ?>
-          <p class="px-3.5 py-6 text-center text-xs text-slate-400">No notifications yet.<br>New lessons, quizzes, results
-            and messages will show up here.</p>
-        <?php else:
-          foreach ($lh_notifs as $n):
-            $lh_ago = time() - (int) $n['created_at'];
-            $lh_agoTxt = $lh_ago < 60 ? 'just now' : ($lh_ago < 3600 ? (int) floor($lh_ago / 60) . 'm ago' : ($lh_ago < 86400 ? (int) floor($lh_ago / 3600) . 'h ago' : (int) floor($lh_ago / 86400) . 'd ago')); ?>
-            <a href="<?= e((string) $n['link']) ?>" data-notif-id="<?= (int) $n['id'] ?>"
-              data-notif-link="<?= e((string) $n['link']) ?>"
-              class="lx-panel-item lh-notif-item <?= $n['is_read'] ? '' : 'lh-notif-unread' ?>">
-              <span class="lx-panel-item-title text-[13px] font-semibold text-slate-800"><?= e((string) $n['title']) ?></span>
-              <?php if ($n['body']): ?><span
-                  class="text-xs text-slate-500"><?= e((string) $n['body']) ?></span><?php endif; ?>
-              <span class="text-[10px] text-slate-400"><?= e($lh_agoTxt) ?></span>
-            </a>
-          <?php endforeach; endif; ?>
-      </div>
-    </div>
-  <?php endif; ?>
 
   <?php foreach ($flashes as $f): ?>
     <div data-toast
