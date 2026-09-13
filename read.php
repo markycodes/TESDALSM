@@ -158,37 +158,6 @@ $fileSrc = 'download.php?c=' . $courseId . '&m=' . $materialId . '&disp=inline';
   }
   function num(n) { var m = String(n).match(/(\d+)\.\w+$/); return m ? parseInt(m[1], 10) : 0; }
   function renderZip(z) {
-    if (viewer === 'docx') {
-      /* Mammoth converts the original DOCX to semantic HTML — headings, bold,
-         italic, lists, tables, alignment and inline images all preserved from
-         the real file (no text extraction). */
-      if (!window.mammoth) return fail('The DOCX viewer failed to load — check your connection and refresh.');
-      return fetch(src, { credentials: 'same-origin' })
-        .then(function (res) {
-          if (!res.ok) throw new Error('http ' + res.status);
-          return res.arrayBuffer();
-        })
-        .then(function (buf) {
-          return window.mammoth.convertToHtml({ arrayBuffer: buf });
-        })
-        .then(function (result) {
-          var html = result && result.value ? result.value : '';
-          if (!html.trim()) return fail('(no readable content found in this document)');
-          box.innerHTML = '<div class="docx-rendered mx-auto max-w-2xl space-y-3 text-[15px] leading-7 text-slate-700">' + html + '</div>';
-          /* images inside the docx are base64 data URIs from mammoth — give them a sane layout */
-          box.querySelectorAll('img').forEach(function (img) {
-            img.className = 'my-3 max-w-full rounded-lg';
-          });
-          box.querySelectorAll('table').forEach(function (t) {
-            t.className = 'mt-3 w-full border-collapse text-sm';
-            t.querySelectorAll('td, th').forEach(function (c) {
-              c.className = 'border border-slate-200 px-2 py-1 align-top';
-            });
-          });
-        })
-        .catch(function () { fail('Could not render this DOCX in the browser.'); });
-    }
-
     if (viewer === 'pptx') {
       var slides = Object.keys(z.files).filter(function (n) { return /^ppt\/slides\/slide\d+\.xml$/.test(n); })
         .sort(function (a, b) { return num(a) - num(b); });
@@ -243,7 +212,34 @@ $fileSrc = 'download.php?c=' . $courseId . '&m=' . $materialId . '&disp=inline';
     }
     fail('Unsupported document type.');
   }
-  if (viewer === 'docx') return; /* docx renders above via Mammoth (own fetch) */
+  /* DOCX renders here via Mammoth (own fetch) — full Word formatting preserved. */
+  if (viewer === 'docx') {
+    if (!window.mammoth) return fail('The DOCX viewer failed to load — check your connection and refresh.');
+    return fetch(src, { credentials: 'same-origin' })
+      .then(function (res) {
+        if (!res.ok) throw new Error('http ' + res.status);
+        return res.arrayBuffer();
+      })
+      .then(function (buf) {
+        return window.mammoth.convertToHtml({ arrayBuffer: buf });
+      })
+      .then(function (result) {
+        var html = result && result.value ? result.value : '';
+        if (!html.trim()) return fail('(no readable content found in this document)');
+        box.innerHTML = '<div class="docx-rendered mx-auto max-w-2xl space-y-3 text-[15px] leading-7 text-slate-700">' + html + '</div>';
+        /* images inside the docx are base64 data URIs from mammoth — give them a sane layout */
+        box.querySelectorAll('img').forEach(function (img) {
+          img.className = 'my-3 max-w-full rounded-lg';
+        });
+        box.querySelectorAll('table').forEach(function (t) {
+          t.className = 'mt-3 w-full border-collapse text-sm';
+          t.querySelectorAll('td, th').forEach(function (c) {
+            c.className = 'border border-slate-200 px-2 py-1 align-top';
+          });
+        });
+      })
+      .catch(function () { fail('Could not render this DOCX in the browser.'); });
+  }
   fetch(src, { credentials: 'same-origin' }).then(function (res) {
     if (!res.ok) throw new Error('http ' + res.status);
     if (viewer === 'text') return res.text().then(renderText);
