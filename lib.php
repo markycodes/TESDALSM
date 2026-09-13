@@ -14,12 +14,21 @@ define('DATA_DIR', LMS_ROOT . '/data');        // legacy JSON storage location (
 define('UPLOAD_DIR', LMS_ROOT . '/uploads');
 define('MAX_UPLOAD_BYTES', 512 * 1024 * 1024); // 512 MB (php.ini may cap lower)
 
-/* ---- MySQL connection settings (XAMPP defaults — edit if yours differ) ---- */
-const DB_HOST = '127.0.0.1';
-const DB_PORT = '3306';
-const DB_NAME = 'learnhub';
-const DB_USER = 'root';
-const DB_PASS = '';
+/* ---- MySQL connection settings --------------------------------------------
+ * Defaults are the XAMPP ones. For other hosts (InfinityFree, etc.) create a
+ * config.php next to this file — copy config.sample.php and fill in the
+ * values from your hosting control panel. config.php is git-ignored, so
+ * credentials are never committed.
+ * ------------------------------------------------------------------------- */
+if (is_file(__DIR__ . '/config.php')) {
+    require_once __DIR__ . '/config.php';
+}
+
+if (!defined('DB_HOST')) define('DB_HOST', '127.0.0.1');
+if (!defined('DB_PORT')) define('DB_PORT', '3306');
+if (!defined('DB_NAME')) define('DB_NAME', 'learnhub');
+if (!defined('DB_USER')) define('DB_USER', 'root');
+if (!defined('DB_PASS')) define('DB_PASS', '');
 
 const DOC_EXTS    = ['pdf','docx','pptx','xlsx','txt','md','csv','png','jpg','jpeg','gif','webp'];
 const VIDEO_EXTS  = ['mp4','webm','ogg','ogv','mov','m4v'];
@@ -62,9 +71,16 @@ function db(): PDO
     }
     try {
         $pdo->exec('CREATE DATABASE IF NOT EXISTS `' . DB_NAME . '` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
+    } catch (PDOException $e) {
+        /* Shared hosts (InfinityFree etc.) forbid CREATE DATABASE from PHP and
+           the database must be created in their control panel first. That's
+           fine — the database already exists there, so just select it below. */
+    }
+    try {
         $pdo->exec('USE `' . DB_NAME . '`');
     } catch (PDOException $e) {
-        db_error_page('Could not open the `' . DB_NAME . '` database. (' . $e->getMessage() . ')');
+        db_error_page('Could not open the `' . DB_NAME . '` database. (' . $e->getMessage() . ') '
+            . 'On shared hosting, create the database in the control panel and set DB_NAME / DB_USER / DB_PASS / DB_HOST in config.php (see config.sample.php).');
     }
     db_ensure_schema($pdo);
     db_migrate_legacy_json($pdo);

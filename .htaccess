@@ -1,13 +1,23 @@
-# LearnHub LMS — Apache config (XAMPP)
+# LearnHub LMS — Apache config (portable: XAMPP subfolder or shared hosts like InfinityFree)
 
-# Raise upload limits for video lessons (works with XAMPP's default mod_php).
-# If pages return HTTP 500 after this file is present, your PHP runs as CGI/FastCGI:
-# delete the php_value lines below and edit php.ini instead (see README.md).
-php_value upload_max_filesize 512M
-php_value post_max_size 512M
-php_value max_execution_time 300
-php_value max_input_time 300
-php_value memory_limit 256M
+# Raise upload limits for video lessons.
+# Only applied when PHP runs as mod_php (XAMPP). On CGI/FastCGI hosts
+# (InfinityFree and most shared hosting) php_value is not supported and
+# would trigger an HTTP 500 — these blocks are simply skipped there.
+<IfModule mod_php8.c>
+    php_value upload_max_filesize 512M
+    php_value post_max_size 512M
+    php_value max_execution_time 300
+    php_value max_input_time 300
+    php_value memory_limit 256M
+</IfModule>
+<IfModule mod_php7.c>
+    php_value upload_max_filesize 512M
+    php_value post_max_size 512M
+    php_value max_execution_time 300
+    php_value max_input_time 300
+    php_value memory_limit 256M
+</IfModule>
 
 # Never serve raw app data or docs
 <FilesMatch "\.(json|ini|log|md|txt)$">
@@ -19,10 +29,14 @@ php_value memory_limit 256M
 # 1) /dashboard            -> internally serves dashboard.php
 # 2) /dashboard.php (GET)  -> 301 redirect to /dashboard
 # POST requests are NOT redirected, so every form / CSRF flow keeps working.
+# NOTE: no RewriteBase on purpose — without it mod_rewrite resolves the
+# redirect against the directory containing this .htaccess, so the same file
+# works in a subfolder (XAMPP: /LMS/) AND at a domain root (InfinityFree).
+# A hard-coded RewriteBase (e.g. /LMS/) redirects every .php request to
+# /LMS/... on hosts that serve the app from the domain root -> 404.
 # ------------------------------------------------------------
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteBase /LMS/
 
     # 1) map the extensionless path to the real .php file (internal, no URL change)
     RewriteCond %{REQUEST_FILENAME}.php -f

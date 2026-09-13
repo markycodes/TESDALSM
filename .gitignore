@@ -3,6 +3,9 @@ _*
 *.log
 *.ps1.bak
 
+# --- per-environment database settings (never commit credentials) ---
+config.php
+
 # --- user uploads: keep folder blockers + demo seed only ---
 uploads/*
 !uploads/.htaccess
