@@ -257,10 +257,79 @@ if (videoFilesInput) {
   });
 }
 
-/* ---------- Confirm dialogs ---------- */
+/* ---------- Confirm dialogs (styled modal, replaces window.confirm) ---------- */
+/* Every form/link marked [data-confirm] opens this modal instead of the native
+   dialog. Confirming re-submits the original form; ESC / backdrop / Cancel
+   dismiss it. Works with the global modal system (openModal/closeModal). */
+let lhConfirmState = null; // { resolve, done }
+
+function lhConfirmModal() {
+  let m = document.getElementById('lh-confirm-modal');
+  if (m) return m;
+  m = document.createElement('div');
+  m.id = 'lh-confirm-modal';
+  m.className = 'modal-backdrop fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 p-4';
+  m.innerHTML =
+    '<div class="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">'
+    + '<div class="flex items-start gap-3">'
+    + '<span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-rose-100 text-lg">⚠️</span>'
+    + '<div class="min-w-0">'
+    + '<h3 data-lh-confirm-title class="text-base font-bold text-slate-900">Please confirm</h3>'
+    + '<p data-lh-confirm-text class="mt-1 text-sm leading-6 text-slate-600"></p>'
+    + '</div></div>'
+    + '<div class="mt-5 flex justify-end gap-2">'
+    + '<button type="button" data-lh-confirm-cancel class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel</button>'
+    + '<button type="button" data-lh-confirm-ok class="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700">Delete</button>'
+    + '</div></div>';
+  document.body.appendChild(m);
+  m.querySelector('[data-lh-confirm-cancel]').addEventListener('click', () => lhSettle(false));
+  m.querySelector('[data-lh-confirm-ok]').addEventListener('click', () => lhSettle(true));
+  /* closed by ESC / backdrop click (global modal handlers) => treat as cancel */
+  new MutationObserver(() => {
+    if (m.classList.contains('hidden')) lhSettle(false);
+  }).observe(m, { attributes: true, attributeFilter: ['class'] });
+  return m;
+}
+
+function lhSettle(result) {
+  const s = lhConfirmState;
+  if (!s || s.done) return;
+  s.done = true;
+  lhConfirmState = null;
+  closeModal(document.getElementById('lh-confirm-modal'));
+  s.resolve(result);
+}
+
+function lhConfirm(opts) {
+  const m = lhConfirmModal();
+  const text = String((opts && opts.message) || 'Are you sure?');
+  m.querySelector('[data-lh-confirm-text]').textContent = text;
+  m.querySelector('[data-lh-confirm-title]').textContent = (opts && opts.title) || 'Please confirm';
+  const ok = m.querySelector('[data-lh-confirm-ok]');
+  const verb = (/delete|remove|revoke|leave/i.exec(text) || [''])[0];
+  ok.textContent = verb ? verb[0].toUpperCase() + verb.slice(1) : 'Yes, continue';
+  /* a pending confirm is cancelled if a new one opens */
+  if (lhConfirmState && !lhConfirmState.done) {
+    const old = lhConfirmState;
+    lhConfirmState = null; old.done = true; old.resolve(false);
+  }
+  return new Promise((resolve) => {
+    lhConfirmState = { resolve, done: false };
+    openModal(m);
+    setTimeout(() => ok.focus(), 30);
+  });
+}
+
 document.addEventListener('submit', (e) => {
   const f = e.target;
-  if (f.matches('[data-confirm]') && !window.confirm(f.getAttribute('data-confirm'))) e.preventDefault();
+  if (!f.matches('form[data-confirm]')) return;
+  if (f.dataset.lhConfirmed === '1') { delete f.dataset.lhConfirmed; return; } /* confirmed pass-through */
+  e.preventDefault();
+  lhConfirm({ message: f.getAttribute('data-confirm') || '' }).then((ok) => {
+    if (!ok) return;
+    f.dataset.lhConfirmed = '1';
+    if (typeof f.requestSubmit === 'function') f.requestSubmit(); else f.submit();
+  });
 });
 
 /* ---------- Course search + category filter ---------- */
