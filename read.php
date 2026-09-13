@@ -126,6 +126,7 @@ $fileSrc = 'download.php?c=' . $courseId . '&m=' . $materialId . '&disp=inline';
 <div id="read-pill" class="fixed bottom-4 right-4 z-40 rounded-full bg-slate-900/90 px-4 py-2 text-xs font-semibold text-white shadow-lg">📖 Read <span id="read-pct"><?= $depth ?></span>% · <span id="read-time"><?= $seconds ?></span>s</div>
 <?php if ($kind === 'doc'): ?>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<?php if ($viewer === 'docx'): ?><script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script><?php endif; ?>
 <script>
 (function () {
   var box = document.getElementById('doc-viewer');
@@ -158,22 +159,34 @@ $fileSrc = 'download.php?c=' . $courseId . '&m=' . $materialId . '&disp=inline';
   function num(n) { var m = String(n).match(/(\d+)\.\w+$/); return m ? parseInt(m[1], 10) : 0; }
   function renderZip(z) {
     if (viewer === 'docx') {
-      return z.file('word/document.xml').async('string').then(function (xml) {
-        var paras = xml.match(/<w:p(?:>| [^>]*>)[\s\S]*?<\/w:p>/g) || [];
-        if (!paras.length) return fail('(no readable text found in this document)');
-        var html = '';
-        paras.forEach(function (p) {
-          var runs = p.match(/<w:t[^>]*>[\s\S]*?<\/w:t>/g) || [];
-          var line = runs.map(function (t) { return t.replace(/^<w:t[^>]*>/, '').replace(/<\/w:t>$/, ''); }).join('');
-          if (!line.trim()) { html += '<div class="h-3"></div>'; return; }
-          var tag = 'p', cls = 'leading-7 text-slate-700';
-          if (/<w:pStyle[^>]*w:val="(?:Heading1|Title)"/.test(p)) { tag = 'h2'; cls = 'mt-6 mb-2 text-2xl font-bold text-slate-900'; }
-          else if (/<w:pStyle[^>]*w:val="Heading2"/.test(p)) { tag = 'h2'; cls = 'mt-5 mb-2 text-xl font-bold text-slate-900'; }
-          else if (/<w:pStyle[^>]*w:val="Heading3"/.test(p)) { tag = 'h3'; cls = 'mt-4 mb-1 text-lg font-semibold text-slate-900'; }
-          html += '<' + tag + ' class="' + cls + '">' + line + '</' + tag + '>';
-        });
-        box.innerHTML = html;
-      });
+      /* Mammoth converts the original DOCX to semantic HTML — headings, bold,
+         italic, lists, tables, alignment and inline images all preserved from
+         the real file (no text extraction). */
+      if (!window.mammoth) return fail('The DOCX viewer failed to load — check your connection and refresh.');
+      return fetch(src, { credentials: 'same-origin' })
+        .then(function (res) {
+          if (!res.ok) throw new Error('http ' + res.status);
+          return res.arrayBuffer();
+        })
+        .then(function (buf) {
+          return window.mammoth.convertToHtml({ arrayBuffer: buf });
+        })
+        .then(function (result) {
+          var html = result && result.value ? result.value : '';
+          if (!html.trim()) return fail('(no readable content found in this document)');
+          box.innerHTML = '<div class="docx-rendered mx-auto max-w-2xl space-y-3 text-[15px] leading-7 text-slate-700">' + html + '</div>';
+          /* images inside the docx are base64 data URIs from mammoth — give them a sane layout */
+          box.querySelectorAll('img').forEach(function (img) {
+            img.className = 'my-3 max-w-full rounded-lg';
+          });
+          box.querySelectorAll('table').forEach(function (t) {
+            t.className = 'mt-3 w-full border-collapse text-sm';
+            t.querySelectorAll('td, th').forEach(function (c) {
+              c.className = 'border border-slate-200 px-2 py-1 align-top';
+            });
+          });
+        })
+        .catch(function () { fail('Could not render this DOCX in the browser.'); });
     }
 
     if (viewer === 'pptx') {
@@ -230,6 +243,7 @@ $fileSrc = 'download.php?c=' . $courseId . '&m=' . $materialId . '&disp=inline';
     }
     fail('Unsupported document type.');
   }
+  if (viewer === 'docx') return; /* docx renders above via Mammoth (own fetch) */
   fetch(src, { credentials: 'same-origin' }).then(function (res) {
     if (!res.ok) throw new Error('http ' + res.status);
     if (viewer === 'text') return res.text().then(renderText);
