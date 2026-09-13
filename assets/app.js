@@ -185,7 +185,9 @@ function findTabButton(target) {
 function switchLessonTab(btn) {
   // NOTE: panes are SIBLINGS of the [data-tabs] bar (not children of it),
   // so scope the lookup to the modal/root — never to the [data-tabs] bar itself.
-  const root = btn.closest('#lesson-modal') || btn.closest('.modal-backdrop') || document;
+  // For the course lessons tabs, scope to their own section so the lesson-modal
+  // panes (doc/paste/vid/link) are never toggled by course tab clicks.
+  const root = btn.closest('#lesson-modal') || btn.closest('.modal-backdrop') || btn.closest('section[data-tabs]') || document;
   const key = btn.getAttribute('data-tab-btn');
   root.querySelectorAll('[data-tab-btn]').forEach((b) => {
     b.setAttribute('aria-selected', b === btn ? 'true' : 'false');
@@ -206,6 +208,44 @@ document.addEventListener('click', (e) => {
     console.error('[TAB] error:', err);
   }
 });
+
+/* ---------- lessons tabs: return to the tab that matches the last action ---------- */
+/* upload.php redirects with ?tab=docs|videos after an upload; otherwise the last
+   tab the teacher was viewing is restored (sessionStorage) — so a materials upload
+   no longer reloads onto the Videos tab */
+(function () {
+  const bar = document.querySelector('section[data-tabs]');
+  if (!bar || !bar.querySelector('[data-tab-btn="videos"]')) return;
+  const valid = (t) => t === 'videos' || t === 'docs';
+  let want = null;
+  let fromUrl = false;
+  try {
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.has('tab')) { want = sp.get('tab'); fromUrl = true; }
+  } catch (e) { /* very old browser: fall through */ }
+  if (!valid(want)) {
+    try { want = sessionStorage.getItem('lh-lessons-tab'); } catch (e) { /* private mode */ }
+  }
+  if (valid(want)) {
+    const btn = bar.querySelector('[data-tab-btn="' + want + '"]');
+    if (btn && btn.getAttribute('aria-selected') !== 'true') {
+      try { switchLessonTab(btn); } catch (e) { /* leave the default tab */ }
+    }
+  }
+  if (fromUrl) {
+    /* consume the param so a manual reload follows the tab you clicked last */
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.delete('tab');
+      window.history.replaceState({}, '', u.pathname + (u.searchParams.toString() ? '?' + u.searchParams.toString() : '') + u.hash);
+    } catch (e) { /* ignore */ }
+  }
+  bar.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-tab-btn]');
+    if (!btn) return;
+    try { sessionStorage.setItem('lh-lessons-tab', btn.getAttribute('data-tab-btn')); } catch (err) { /* ignore */ }
+  });
+})();
 
 /* ---------- Multi-file video input: live "N selected" hint ---------- */
 const videoFilesInput = document.getElementById('video-files');

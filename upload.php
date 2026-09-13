@@ -15,7 +15,9 @@ $courseId = (string) ($_POST['course_id'] ?? '');
 $type     = (string) ($_POST['lesson_type'] ?? '');
 $title    = trim((string) ($_POST['title'] ?? ''));
 $desc     = trim((string) ($_POST['description'] ?? ''));
-$back     = 'course.php?id=' . urlencode($courseId);
+// send the teacher back to the tab matching what they just uploaded
+// (documents/pasted text -> Materials; videos/links -> Videos)
+$back     = 'course.php?id=' . urlencode($courseId) . '&tab=' . (in_array($type, ['document', 'text'], true) ? 'docs' : 'videos');
 
 $ownerId = course_owner_id((int) $courseId);
 if ($ownerId === null) {
