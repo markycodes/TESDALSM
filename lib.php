@@ -2299,7 +2299,8 @@ function maybe_send_digest(int $userId): void
 function user_meta_set(int $uid, string $k, string $v): void
 {
     user_meta_ensure();
-    db()->prepare('INSERT INTO user_meta (user_id, k, v) VALUES (?,?,?) ON DUPLICATE KEY UPDATE v = VALUES(v)')->execute([$uid, $k, $v]);
+    /* portable upsert — VALUES(col) is MySQL ≥ 8.0.19 only, so repeat the param */
+    db()->prepare('INSERT INTO user_meta (user_id, k, v) VALUES (?,?,?) ON DUPLICATE KEY UPDATE v = ?')->execute([$uid, $k, $v, $v]);
 }
 function user_meta_get(int $uid, string $k): string
 {
