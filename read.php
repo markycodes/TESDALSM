@@ -39,6 +39,21 @@ $seconds = (int) ($state['seconds'] ?? 0);
 $done = material_completed($userId, $materialId);
 $ext = strtolower(ext_of((string) ($material['orig_name'] ?? $material['filename'] ?? '')));
 $fileSrc = 'download.php?c=' . $courseId . '&m=' . $materialId . '&disp=inline';
+
+/* Inline the file bytes into the page when the file is small enough. The
+   viewer then needs NO extra HTTP request at all — which sidesteps shared-host
+   anti-bot systems (InfinityFree) that can answer fetch() with an HTML
+   challenge instead of the file. Larger files fall back to a guarded fetch. */
+$absFile = UPLOAD_DIR . '/' . basename((string) ($material['filename'] ?? ''));
+$fileB64 = '';
+$fileMime = (string) ($material['mime'] ?? '');
+if ($fileMime === '') $fileMime = mime_for_ext($ext);
+if (is_file($absFile)) {
+    $fbytes = @file_get_contents($absFile);
+    if ($fbytes !== false && strlen($fbytes) <= 8 * 1024 * 1024) {
+        $fileB64 = base64_encode($fbytes);
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -82,13 +97,11 @@ $fileSrc = 'download.php?c=' . $courseId . '&m=' . $materialId . '&disp=inline';
   </div>
 <?php elseif ($kind === 'pdf'): ?>
   <p class="mb-3 rounded-xl bg-indigo-50 px-4 py-3 text-sm text-indigo-800 ring-1 ring-indigo-100">📖 The document opens below — go through it at a normal pace. Progress is tracked automatically.</p>
-  <embed id="pdf-embed" data-src="<?= e($fileSrc) ?>" type="application/pdf" class="h-[85vh] w-full rounded-2xl bg-white ring-1 ring-slate-200">
+  <embed id="pdf-embed" data-src="<?= e($fileSrc) ?>" data-b64="<?= $fileB64 ?>" data-mime="<?= e($fileMime) ?>" type="application/pdf" class="h-[85vh] w-full rounded-2xl bg-white ring-1 ring-slate-200">
   <script>
-  /* Shared hosts (InfinityFree etc.) can answer a request with their anti-bot
-     HTML challenge instead of the file, which would render as a blank PDF
-     viewer. Load the bytes here, detect that case, reload once (the page load
-     runs the challenge JS and earns the clearance cookies), and serve the file
-     from a blob URL. Falls back to the direct URL if anything else fails. */
+  /* Preferred: the document bytes are already in the page (data-b64) — no
+     extra request, nothing for shared-host anti-bot systems to intercept.
+     Fallback: guarded fetch, then the direct URL. */
   function lhChallengeRecovery() {
     try {
       var last = parseInt(sessionStorage.getItem('lh-challenge-reload') || '0', 10);
@@ -98,10 +111,19 @@ $fileSrc = 'download.php?c=' . $courseId . '&m=' . $materialId . '&disp=inline';
       }
     } catch (e) { /* storage unavailable — skip */ }
   }
+  function lhBytesToBlob(b64, mime) {
+    var bin = atob(b64);
+    var u8 = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    return new Blob([u8], { type: mime || 'application/octet-stream' });
+  }
   (function () {
     var em = document.getElementById('pdf-embed');
     if (!em) return;
     var src = em.getAttribute('data-src');
+    var b64 = em.getAttribute('data-b64') || '';
+    var mime = em.getAttribute('data-mime') || 'application/pdf';
+    if (b64) { em.src = URL.createObjectURL(lhBytesToBlob(b64, mime)); return; }
     fetch(src, { credentials: 'same-origin' }).then(function (res) {
       var ct = (res.headers.get('content-type') || '').toLowerCase();
       if (!res.ok || ct.indexOf('text/html') !== -1) { lhChallengeRecovery(); return; }
@@ -113,21 +135,33 @@ $fileSrc = 'download.php?c=' . $courseId . '&m=' . $materialId . '&disp=inline';
   </script>
 <?php elseif ($kind === 'image'): ?>
   <p class="mb-3 rounded-xl bg-indigo-50 px-4 py-3 text-sm text-indigo-800 ring-1 ring-indigo-100">🖼 Scroll through the image below — progress is tracked automatically.</p>
-  <img src="<?= e($fileSrc) ?>" alt="<?= e((string) $material['title']) ?>" class="mx-auto max-w-full rounded-2xl bg-white ring-1 ring-slate-200">
+  <img id="mat-img" src="<?= e($fileSrc) ?>" data-b64="<?= $fileB64 ?>" data-mime="<?= e($fileMime) ?>" alt="<?= e((string) $material['title']) ?>" class="mx-auto max-w-full rounded-2xl bg-white ring-1 ring-slate-200">
   <script>
-  /* if the <img> request got a challenge page instead of the image, reload once */
+  /* bytes inline -> objectURL (no extra request); onerror = one-shot reload */
+  function lhChallengeRecovery() {
+    try {
+      var last = parseInt(sessionStorage.getItem('lh-challenge-reload') || '0', 10);
+      if (Date.now() - last > 45000) {
+        sessionStorage.setItem('lh-challenge-reload', String(Date.now()));
+        window.location.reload();
+      }
+    } catch (e) { /* skip */ }
+  }
+  function lhBytesToBlob(b64, mime) {
+    var bin = atob(b64);
+    var u8 = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    return new Blob([u8], { type: mime || 'application/octet-stream' });
+  }
   (function () {
-    var im = document.querySelector('main > img');
+    var im = document.getElementById('mat-img');
     if (!im) return;
-    im.addEventListener('error', function () {
-      try {
-        var last = parseInt(sessionStorage.getItem('lh-challenge-reload') || '0', 10);
-        if (Date.now() - last > 45000) {
-          sessionStorage.setItem('lh-challenge-reload', String(Date.now()));
-          window.location.reload();
-        }
-      } catch (e) { /* skip */ }
-    }, { once: true });
+    var b64 = im.getAttribute('data-b64') || '';
+    if (b64) {
+      im.src = URL.createObjectURL(lhBytesToBlob(b64, im.getAttribute('data-mime') || 'image/png'));
+      return;
+    }
+    im.addEventListener('error', function () { lhChallengeRecovery(); }, { once: true });
   })();
   </script>
 <?php elseif ($kind === 'text'): ?>
@@ -177,7 +211,19 @@ $fileSrc = 'download.php?c=' . $courseId . '&m=' . $materialId . '&disp=inline';
   if (!box) return;
   var viewer = box.getAttribute('data-viewer');
   var src = box.getAttribute('data-src');
+  var fileB64 = '<?= $fileB64 ?>'; /* document bytes inlined by PHP when small enough — no fetch needed */
   var ext = box.getAttribute('data-ext');
+  function lhBytesToBlob(b64, mime) {
+    var bin = atob(b64);
+    var u8 = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    return new Blob([u8], { type: mime || 'application/octet-stream' });
+  }
+  /* file bytes: inlined base64 first (challenge-proof), guarded fetch as fallback */
+  function fileBytes() {
+    if (fileB64) return Promise.resolve(lhBytesToBlob(fileB64, 'application/octet-stream'));
+    return fetch(src, { credentials: 'same-origin' }).then(guardRes).then(function (res) { return res.blob(); });
+  }
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function fail(msg) {
     box.innerHTML = '<div class="py-12 text-center"><p class="text-3xl">😕</p><p class="mt-2 text-sm font-semibold text-slate-700">' + msg + '</p><p class="mt-1 text-xs text-slate-400">Ask your teacher to also provide a PDF version for the smoothest in-browser reading.</p></div>';
@@ -276,11 +322,8 @@ $fileSrc = 'download.php?c=' . $courseId . '&m=' . $materialId . '&disp=inline';
   /* DOCX renders here via Mammoth (own fetch) — full Word formatting preserved. */
   if (viewer === 'docx') {
     if (!window.mammoth) return fail('The DOCX viewer failed to load — check your connection and refresh.');
-    return fetch(src, { credentials: 'same-origin' }).then(guardRes)
-      .then(function (res) {
-        if (!res.ok) throw new Error('http ' + res.status);
-        return res.arrayBuffer();
-      })
+    return fileBytes()
+      .then(function (blob) { return blob.arrayBuffer(); })
       .then(function (buf) {
         return window.mammoth.convertToHtml({ arrayBuffer: buf });
       })
@@ -301,10 +344,9 @@ $fileSrc = 'download.php?c=' . $courseId . '&m=' . $materialId . '&disp=inline';
       })
       .catch(function () { fail('Could not render this DOCX in the browser.'); });
   }
-  fetch(src, { credentials: 'same-origin' }).then(guardRes).then(function (res) {
-    if (!res.ok) throw new Error('http ' + res.status);
-    if (viewer === 'text') return res.text().then(renderText);
-    return res.arrayBuffer().then(function (buf) { return JSZip.loadAsync(buf); }).then(renderZip);
+  fileBytes().then(function (blob) {
+    if (viewer === 'text') return blob.text().then(renderText);
+    return blob.arrayBuffer().then(function (buf) { return JSZip.loadAsync(buf); }).then(renderZip);
   }).catch(function () { fail('Could not open this document in the browser.'); });
 })();
 </script>
