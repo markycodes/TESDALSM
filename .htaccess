@@ -44,9 +44,12 @@
     RewriteRule ^(.+)$ $1.php [L]
 
     # 2) external redirect: /dashboard.php (GET) -> /dashboard (directory-relative)
+    # 302 (not 301) on purpose: browsers cache 301s permanently, so a later
+    # RewriteBase change would keep sending users to the OLD target until they
+    # clear their browser cache. A 302 is always re-evaluated.
     RewriteCond %{THE_REQUEST} \s/([^\s?]+)\.php[\s?] [NC]
     RewriteCond %{REQUEST_METHOD} =GET
-    RewriteRule ^(.+)\.php$ $1 [R=301,L,NE]
+    RewriteRule ^(.+)\.php$ $1 [R=302,L,NE]
 
     # 3) directories first (e.g. /uploads) and real files (css/js/images) pass through untouched
     RewriteCond %{REQUEST_FILENAME} -d [OR]
