@@ -97,16 +97,18 @@ if (is_file($absFile)) {
   </div>
 <?php elseif ($kind === 'pdf'): ?>
   <p class="mb-3 rounded-xl bg-indigo-50 px-4 py-3 text-sm text-indigo-800 ring-1 ring-indigo-100">📖 The document opens below — go through it at a normal pace. Progress is tracked automatically.</p>
-  <div class="relative h-[85vh] w-full overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
-    <div id="pdf-loading" class="absolute inset-0 grid place-items-center text-sm font-medium text-slate-400">Opening PDF…</div>
-    <iframe id="pdf-frame" title="<?= e((string) $material['title']) ?>" class="absolute inset-0 h-full w-full"></iframe>
+  <div id="pdf-wrap" class="h-[85vh] w-full overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
+    <iframe id="pdf-frame" title="<?= e((string) $material['title']) ?>" class="h-full w-full"></iframe>
   </div>
-  <p class="mt-2 text-center"><a href="<?= e($fileSrc) ?>" target="_blank" rel="noopener" class="text-xs font-semibold text-indigo-600 hover:underline">Having trouble? Open the PDF in a new tab ⧉</a></p>
+  <a id="pdf-open" href="<?= e($fileSrc) ?>" target="_blank" rel="noopener" class="mt-4 hidden w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white hover:bg-indigo-700">📄 Tap to open the PDF</a>
+  <p class="mt-2 text-center text-xs text-slate-400"><span id="pdf-status">Loading PDF…</span> · <a href="<?= e($fileSrc) ?>" target="_blank" rel="noopener" class="font-semibold text-indigo-600 hover:underline">Open in a new tab ⧉</a></p>
   <script>
   /* Preferred: the document bytes are already in the page (inline base64) — no
      extra request, nothing for shared-host anti-bot systems to intercept.
-     Fallback: guarded fetch, then the direct URL. A permanent "open in a new
-     tab" link above is the guaranteed way to read the file. */
+     Mobile browsers (Chrome Android/iOS) cannot render PDFs inside iframes, so
+     there we show a big "tap to open" button instead of a blank frame. The
+     status line never blocks the viewer, and the "open in a new tab" link is
+     the guaranteed way to read the file. */
   function lhChallengeRecovery() {
     try {
       var last = parseInt(sessionStorage.getItem('lh-challenge-reload') || '0', 10);
@@ -124,20 +126,37 @@ if (is_file($absFile)) {
   }
   (function () {
     var fr = document.getElementById('pdf-frame');
+    var st = document.getElementById('pdf-status');
     if (!fr) return;
     var src = '<?= e($fileSrc) ?>';
     var b64 = '<?= $fileB64 ?>';
     var mime = '<?= e($fileMime) ?>';
-    fr.addEventListener('load', function () {
-      var l = document.getElementById('pdf-loading');
-      if (l) l.remove();
-    });
+    var isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    function ok() { if (st) st.textContent = ''; }
+    fr.addEventListener('load', ok);   /* best effort — not all engines fire it for PDFs */
+    setTimeout(ok, 2500);              /* never leave the status stuck on screen */
+    if (isMobile) {
+      /* no in-frame PDF support on mobile browsers: hand the file to the OS viewer */
+      var wrap = document.getElementById('pdf-wrap');
+      var btn = document.getElementById('pdf-open');
+      if (wrap) wrap.classList.add('hidden');
+      if (btn) {
+        btn.classList.remove('hidden');
+        btn.classList.add('flex');
+        if (b64) btn.href = URL.createObjectURL(lhBytesToBlob(b64, mime));
+      }
+      if (st) st.textContent = 'PDFs open in a separate viewer on phones.';
+      return;
+    }
     if (b64) { fr.src = URL.createObjectURL(lhBytesToBlob(b64, mime)); return; }
+    if (st) st.textContent = 'Large PDF — opening directly…';
+    fr.src = src;
     fetch(src, { credentials: 'same-origin' }).then(function (res) {
       var ct = (res.headers.get('content-type') || '').toLowerCase();
       if (!res.ok || ct.indexOf('text/html') !== -1) { lhChallengeRecovery(); return; }
       return res.blob().then(function (b) {
         fr.src = URL.createObjectURL(new Blob([b], { type: 'application/pdf' }));
+        ok();
       });
     }).catch(function () { fr.src = src; /* last resort: direct URL */ });
   })();
