@@ -9,7 +9,6 @@
  */
 require_once __DIR__ . '/lib.php';
 $user = require_teacher();
-verify_csrf();
 
 $courseId = (string) ($_POST['course_id'] ?? '');
 $type     = (string) ($_POST['lesson_type'] ?? '');
@@ -18,6 +17,16 @@ $desc     = trim((string) ($_POST['description'] ?? ''));
 // send the teacher back to the tab matching what they just uploaded
 // (documents/pasted text -> Materials; videos/links -> Videos)
 $back     = 'course.php?id=' . urlencode($courseId) . '&tab=' . (in_array($type, ['document', 'text'], true) ? 'docs' : 'videos');
+
+/* If the request body exceeds the host's post_max_size, PHP empties $_POST and
+   $_FILES entirely — free hosts like InfinityFree cap it at ~10MB. Answer with
+   a clear explanation instead of the confusing CSRF failure. */
+if (empty($_POST) && empty($_FILES)) {
+    $limit = (string) (ini_get('post_max_size') ?: 'the server limit');
+    set_flash('error', 'The upload was too large for the server to accept (request limit: ' . $limit . '). On free hosting (InfinityFree) uploads are capped at about 10 MB — upload smaller documents, or add big videos as a YouTube/Vimeo link instead.');
+    header('Location: ' . $back); exit;
+}
+verify_csrf();
 
 $ownerId = course_owner_id((int) $courseId);
 if ($ownerId === null) {

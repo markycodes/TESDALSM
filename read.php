@@ -82,10 +82,54 @@ $fileSrc = 'download.php?c=' . $courseId . '&m=' . $materialId . '&disp=inline';
   </div>
 <?php elseif ($kind === 'pdf'): ?>
   <p class="mb-3 rounded-xl bg-indigo-50 px-4 py-3 text-sm text-indigo-800 ring-1 ring-indigo-100">📖 The document opens below — go through it at a normal pace. Progress is tracked automatically.</p>
-  <embed src="<?= e($fileSrc) ?>" type="application/pdf" class="h-[85vh] w-full rounded-2xl bg-white ring-1 ring-slate-200">
+  <embed id="pdf-embed" data-src="<?= e($fileSrc) ?>" type="application/pdf" class="h-[85vh] w-full rounded-2xl bg-white ring-1 ring-slate-200">
+  <script>
+  /* Shared hosts (InfinityFree etc.) can answer a request with their anti-bot
+     HTML challenge instead of the file, which would render as a blank PDF
+     viewer. Load the bytes here, detect that case, reload once (the page load
+     runs the challenge JS and earns the clearance cookies), and serve the file
+     from a blob URL. Falls back to the direct URL if anything else fails. */
+  function lhChallengeRecovery() {
+    try {
+      var last = parseInt(sessionStorage.getItem('lh-challenge-reload') || '0', 10);
+      if (Date.now() - last > 45000) {
+        sessionStorage.setItem('lh-challenge-reload', String(Date.now()));
+        window.location.reload();
+      }
+    } catch (e) { /* storage unavailable — skip */ }
+  }
+  (function () {
+    var em = document.getElementById('pdf-embed');
+    if (!em) return;
+    var src = em.getAttribute('data-src');
+    fetch(src, { credentials: 'same-origin' }).then(function (res) {
+      var ct = (res.headers.get('content-type') || '').toLowerCase();
+      if (!res.ok || ct.indexOf('text/html') !== -1) { lhChallengeRecovery(); return; }
+      return res.blob().then(function (b) {
+        em.src = URL.createObjectURL(new Blob([b], { type: 'application/pdf' }));
+      });
+    }).catch(function () { em.src = src; /* fall back to the direct embed */ });
+  })();
+  </script>
 <?php elseif ($kind === 'image'): ?>
   <p class="mb-3 rounded-xl bg-indigo-50 px-4 py-3 text-sm text-indigo-800 ring-1 ring-indigo-100">🖼 Scroll through the image below — progress is tracked automatically.</p>
   <img src="<?= e($fileSrc) ?>" alt="<?= e((string) $material['title']) ?>" class="mx-auto max-w-full rounded-2xl bg-white ring-1 ring-slate-200">
+  <script>
+  /* if the <img> request got a challenge page instead of the image, reload once */
+  (function () {
+    var im = document.querySelector('main > img');
+    if (!im) return;
+    im.addEventListener('error', function () {
+      try {
+        var last = parseInt(sessionStorage.getItem('lh-challenge-reload') || '0', 10);
+        if (Date.now() - last > 45000) {
+          sessionStorage.setItem('lh-challenge-reload', String(Date.now()));
+          window.location.reload();
+        }
+      } catch (e) { /* skip */ }
+    }, { once: true });
+  })();
+  </script>
 <?php elseif ($kind === 'text'): ?>
   <article class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 sm:p-10">
     <div class="mx-auto max-w-2xl space-y-4 text-[15px] leading-7 text-slate-700"><?= $payload['html'] ?></div>
@@ -137,6 +181,23 @@ $fileSrc = 'download.php?c=' . $courseId . '&m=' . $materialId . '&disp=inline';
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function fail(msg) {
     box.innerHTML = '<div class="py-12 text-center"><p class="text-3xl">😕</p><p class="mt-2 text-sm font-semibold text-slate-700">' + msg + '</p><p class="mt-1 text-xs text-slate-400">Ask your teacher to also provide a PDF version for the smoothest in-browser reading.</p></div>';
+  }
+  /* shared-host anti-bot challenge: non-JSON HTML answers break the viewers.
+     One rate-limited reload makes the browser run the challenge and earn the
+     clearance cookies, after which the file bytes flow normally. */
+  function lhChallengeRecovery() {
+    try {
+      var last = parseInt(sessionStorage.getItem('lh-challenge-reload') || '0', 10);
+      if (Date.now() - last > 45000) {
+        sessionStorage.setItem('lh-challenge-reload', String(Date.now()));
+        window.location.reload();
+      }
+    } catch (e) { /* skip */ }
+  }
+  function guardRes(res) {
+    var ct = (res.headers.get('content-type') || '').toLowerCase();
+    if (ct.indexOf('text/html') !== -1) { lhChallengeRecovery(); throw new Error('host-challenge'); }
+    return res;
   }
   function sheetTable(rows) {
     var t = '<table class="mt-2 w-full border-collapse text-xs"><tbody>';
@@ -215,7 +276,7 @@ $fileSrc = 'download.php?c=' . $courseId . '&m=' . $materialId . '&disp=inline';
   /* DOCX renders here via Mammoth (own fetch) — full Word formatting preserved. */
   if (viewer === 'docx') {
     if (!window.mammoth) return fail('The DOCX viewer failed to load — check your connection and refresh.');
-    return fetch(src, { credentials: 'same-origin' })
+    return fetch(src, { credentials: 'same-origin' }).then(guardRes)
       .then(function (res) {
         if (!res.ok) throw new Error('http ' + res.status);
         return res.arrayBuffer();
@@ -240,7 +301,7 @@ $fileSrc = 'download.php?c=' . $courseId . '&m=' . $materialId . '&disp=inline';
       })
       .catch(function () { fail('Could not render this DOCX in the browser.'); });
   }
-  fetch(src, { credentials: 'same-origin' }).then(function (res) {
+  fetch(src, { credentials: 'same-origin' }).then(guardRes).then(function (res) {
     if (!res.ok) throw new Error('http ' + res.status);
     if (viewer === 'text') return res.text().then(renderText);
     return res.arrayBuffer().then(function (buf) { return JSZip.loadAsync(buf); }).then(renderZip);
