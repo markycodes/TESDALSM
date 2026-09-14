@@ -1823,6 +1823,34 @@ if ($user) {
             </svg>
             <span id="lh-chat-badge" class="lh-badge hidden">0</span>
           </a>
+          <?php if (($user['role'] ?? '') === 'teacher'): ?>
+            <button type="button" id="lh-mailtest" title="Send a test e-mail to your address" aria-label="Test e-mail"
+              class="lh-ico grid h-9 w-9 place-items-center rounded-lg text-slate-600 hover:bg-slate-100">✉️</button>
+            <script>
+            /* one-click mail test: sends to YOUR address and shows the provider reply */
+            (function () {
+              var btn = document.getElementById('lh-mailtest');
+              if (!btn) return;
+              var csrf = (document.querySelector('meta[name="csrf"]') || {}).content || '';
+              btn.addEventListener('click', function () {
+                btn.disabled = true;
+                btn.textContent = '…';
+                fetch('mailtest.php', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'fetch' },
+                  body: 'csrf=' + encodeURIComponent(csrf),
+                }).then(function (r) { return r.json(); }).then(function (d) {
+                  btn.disabled = false; btn.textContent = '✉️';
+                  var msg = d.ok
+                    ? '✅ E-mail accepted — check your inbox: ' + d.to
+                    : '❌ E-mail was rejected — see mail.log below:';
+                  if (d.tail && d.tail.length) msg += '\n\n' + d.tail.join('\n');
+                  alert(msg);
+                }).catch(function () { btn.disabled = false; btn.textContent = '✉️'; alert('Could not reach the mail test endpoint.'); });
+              });
+            })();
+            </script>
+          <?php endif; ?>
           <span class="hidden text-right sm:flex sm:flex-col sm:items-start leading-tight">
             <span class="text-sm font-semibold leading-4 text-slate-800"><?= e((string) $user['name']) ?></span>
             <span
