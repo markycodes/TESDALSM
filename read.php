@@ -50,7 +50,7 @@ $fileMime = (string) ($material['mime'] ?? '');
 if ($fileMime === '') $fileMime = mime_for_ext($ext);
 if (is_file($absFile)) {
     $fbytes = @file_get_contents($absFile);
-    if ($fbytes !== false && strlen($fbytes) <= 4 * 1024 * 1024) {
+    if ($fbytes !== false && strlen($fbytes) <= 16 * 1024 * 1024) {
         $fileB64 = base64_encode($fbytes);
     }
 }
@@ -122,7 +122,7 @@ if (is_file($absFile)) {
     function fail(msg) {
       holder.innerHTML = '<div class="py-12 text-center"><p class="text-3xl">😕</p><p class="mt-2 text-sm font-semibold text-slate-700">' + msg + '</p><p class="mt-3"><a href="' + src + '" target="_blank" rel="noopener" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">⬇ Open the PDF in a new tab</a></p></div>';
     }
-    if (!b64) { fail('This PDF is larger than 4 MB and cannot be previewed in-page on this host.'); return; }
+    if (!b64) { fail('This file is too large to preview in-page — open it in a new tab instead.'); return; }
     if (!window.pdfjsLib) { fail('The PDF renderer failed to load — check your connection and refresh.'); return; }
     window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
     var bin = atob(b64);
