@@ -45,11 +45,11 @@ define('DB_USER', 'epiz_XXXXXXXX');
  * mail(), so use a key there. Every attempt is logged to data/mail.log.
  *
  * 1. Create a free account at https://resend.com  → "API Keys" → new key.
- * 2. Without your own domain, use onramp@resend.dev as the sender and keep
- *    EMAIL_FROM exactly "LearnHub LMS <onramp@resend.dev>".
+ * 2. Without your own domain, use onboarding@resend.dev as the sender and keep
+ *    EMAIL_FROM exactly "LearnHub LMS <onboarding@resend.dev>".
  * 3. Uncomment and fill in:
  */
-// define('EMAIL_FROM',    'LearnHub LMS <onramp@resend.dev>');
+// define('EMAIL_FROM',    'LearnHub LMS <onboarding@resend.dev>');
 // define('EMAIL_API_URL', 'https://api.resend.com/emails');
 // define('EMAIL_API_KEY', 're_xxxxxxxxxxxxxxxxxxxx');
 // define('APP_URL',       'https://learninghublms.wuaze.com'); // used for links inside e-mails
