@@ -97,27 +97,17 @@ if (is_file($absFile)) {
   </div>
 <?php elseif ($kind === 'pdf'): ?>
   <p class="mb-3 rounded-xl bg-indigo-50 px-4 py-3 text-sm text-indigo-800 ring-1 ring-indigo-100">📖 The document opens below — go through it at a normal pace. Progress is tracked automatically.</p>
-  <div id="pdf-wrap" class="h-[85vh] w-full overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
-    <iframe id="pdf-frame" title="<?= e((string) $material['title']) ?>" class="h-full w-full"></iframe>
+  <div class="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 sm:p-4">
+    <div id="pdf-viewer" class="mx-auto max-w-3xl space-y-4">
+      <div id="pdf-status" class="py-16 text-center text-sm font-medium text-slate-400">Rendering PDF…</div>
+    </div>
   </div>
-  <a id="pdf-open" href="<?= e($fileSrc) ?>" target="_blank" rel="noopener" class="mt-4 hidden w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white hover:bg-indigo-700">📄 Tap to open the PDF</a>
-  <p class="mt-2 text-center text-xs text-slate-400"><span id="pdf-status">Loading PDF…</span> · <a href="<?= e($fileSrc) ?>" target="_blank" rel="noopener" class="font-semibold text-indigo-600 hover:underline">Open in a new tab ⧉</a></p>
+  <p class="mt-2 text-center text-xs text-slate-400">Reading progress is tracked automatically · <a href="<?= e($fileSrc) ?>" target="_blank" rel="noopener" class="font-semibold text-indigo-600 hover:underline">Open in a new tab ⧉</a></p>
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
   <script>
-  /* Preferred: the document bytes are already in the page (inline base64) — no
-     extra request, nothing for shared-host anti-bot systems to intercept.
-     Mobile browsers (Chrome Android/iOS) cannot render PDFs inside iframes, so
-     there we show a big "tap to open" button instead of a blank frame. The
-     status line never blocks the viewer, and the "open in a new tab" link is
-     the guaranteed way to read the file. */
-  function lhChallengeRecovery() {
-    try {
-      var last = parseInt(sessionStorage.getItem('lh-challenge-reload') || '0', 10);
-      if (Date.now() - last > 45000) {
-        sessionStorage.setItem('lh-challenge-reload', String(Date.now()));
-        window.location.reload();
-      }
-    } catch (e) { /* storage unavailable — skip */ }
-  }
+  /* The PDF bytes are inlined in this page (base64) — pdf.js renders them onto
+     canvases right here, on desktop AND phones, with no extra network request.
+     Nothing for shared-host anti-bot systems to intercept. */
   function lhBytesToBlob(b64, mime) {
     var bin = atob(b64);
     var u8 = new Uint8Array(bin.length);
@@ -125,40 +115,44 @@ if (is_file($absFile)) {
     return new Blob([u8], { type: mime || 'application/octet-stream' });
   }
   (function () {
-    var fr = document.getElementById('pdf-frame');
-    var st = document.getElementById('pdf-status');
-    if (!fr) return;
-    var src = '<?= e($fileSrc) ?>';
+    var holder = document.getElementById('pdf-viewer');
+    if (!holder) return;
     var b64 = '<?= $fileB64 ?>';
-    var mime = '<?= e($fileMime) ?>';
-    var isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-    function ok() { if (st) st.textContent = ''; }
-    fr.addEventListener('load', ok);   /* best effort — not all engines fire it for PDFs */
-    setTimeout(ok, 2500);              /* never leave the status stuck on screen */
-    if (isMobile) {
-      /* no in-frame PDF support on mobile browsers: hand the file to the OS viewer */
-      var wrap = document.getElementById('pdf-wrap');
-      var btn = document.getElementById('pdf-open');
-      if (wrap) wrap.classList.add('hidden');
-      if (btn) {
-        btn.classList.remove('hidden');
-        btn.classList.add('flex');
-        if (b64) btn.href = URL.createObjectURL(lhBytesToBlob(b64, mime));
-      }
-      if (st) st.textContent = 'PDFs open in a separate viewer on phones.';
-      return;
+    var src = '<?= e($fileSrc) ?>';
+    function fail(msg) {
+      holder.innerHTML = '<div class="py-12 text-center"><p class="text-3xl">😕</p><p class="mt-2 text-sm font-semibold text-slate-700">' + msg + '</p><p class="mt-3"><a href="' + src + '" target="_blank" rel="noopener" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">⬇ Open the PDF in a new tab</a></p></div>';
     }
-    if (b64) { fr.src = URL.createObjectURL(lhBytesToBlob(b64, mime)); return; }
-    if (st) st.textContent = 'Large PDF — opening directly…';
-    fr.src = src;
-    fetch(src, { credentials: 'same-origin' }).then(function (res) {
-      var ct = (res.headers.get('content-type') || '').toLowerCase();
-      if (!res.ok || ct.indexOf('text/html') !== -1) { lhChallengeRecovery(); return; }
-      return res.blob().then(function (b) {
-        fr.src = URL.createObjectURL(new Blob([b], { type: 'application/pdf' }));
-        ok();
-      });
-    }).catch(function () { fr.src = src; /* last resort: direct URL */ });
+    if (!b64) { fail('This PDF is larger than 4 MB and cannot be previewed in-page on this host.'); return; }
+    if (!window.pdfjsLib) { fail('The PDF renderer failed to load — check your connection and refresh.'); return; }
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+    var bin = atob(b64);
+    var u8 = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    window.pdfjsLib.getDocument({ data: u8 }).promise.then(function (pdf) {
+      var width = Math.max(320, (holder.clientWidth || 760) - 8);
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+      var first = true;
+      var chain = Promise.resolve();
+      var renderPage = function (n) {
+        return chain = chain.then(function () {
+          return pdf.getPage(n).then(function (page) {
+            var base = page.getViewport({ scale: 1 });
+            var vp = page.getViewport({ scale: (width / base.width) * dpr });
+            var canvas = document.createElement('canvas');
+            canvas.className = 'block w-full rounded-lg shadow-sm ring-1 ring-slate-200';
+            canvas.width = Math.round(vp.width);
+            canvas.height = Math.round(vp.height);
+            canvas.style.width = '100%';
+            holder.appendChild(canvas);
+            return page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise.then(function () {
+              if (first) { first = false; var s = document.getElementById('pdf-status'); if (s) s.remove(); }
+            });
+          });
+        });
+      };
+      for (var n = 1; n <= pdf.numPages; n++) renderPage(n);
+      chain.catch(function () { fail('Could not render this PDF.'); });
+    }).catch(function () { fail('Could not render this PDF.'); });
   })();
   </script>
 <?php elseif ($kind === 'image'): ?>
