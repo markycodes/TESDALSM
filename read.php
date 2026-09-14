@@ -268,13 +268,16 @@ if (is_file($absFile)) {
     return res;
   }
   function sheetTable(rows) {
-    var t = '<table class="mt-2 w-full border-collapse text-xs"><tbody>';
+    /* natural width: the table adopts the file's own width; the box scrolls
+       horizontally when the sheet is wider than the screen, so columns are
+       never squeezed into unreadable slivers */
+    var t = '<div class="mt-2 overflow-x-auto"><table class="min-w-full border-collapse text-xs whitespace-nowrap"><tbody>';
     rows.forEach(function (r, i) {
       t += '<tr' + (i === 0 ? ' class="bg-slate-50 font-semibold"' : '') + '>';
       r.forEach(function (c) { t += '<td class="border border-slate-200 px-2 py-1 align-top">' + (c === '' ? '&nbsp;' : c) + '</td>'; });
       t += '</tr>';
     });
-    return t + '</tbody></table>';
+    return t + '</tbody></table></div>';
   }
   function renderText(raw) {
     if (ext === 'csv') {
