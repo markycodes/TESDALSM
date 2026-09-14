@@ -63,7 +63,7 @@ require __DIR__ . '/header.php';
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div>
         <p class="lh-kicker text-emerald-700"><?= date('l, M j') ?></p>
-        <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl"><?= $isTeacher ? 'Teacher dashboard' : 'Student dashboard' ?></h1>
+        <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl"><?= $isTeacher ? 'Trainer\'s dashboard' : 'Student dashboard' ?></h1>
         <p class="mt-1.5 max-w-2xl text-sm text-slate-600">Hi <?= e((string) $user['name']) ?>, <?= $isTeacher ? 'here is what is happening in your courses today.' : 'ready to continue learning?' ?></p>
       </div>
       <?php if ($isTeacher): ?>
@@ -141,12 +141,13 @@ require __DIR__ . '/header.php';
 </section>
 
 <!-- Attendance today · needs attention · recent activity -->
-<section class="reveal mt-4 grid gap-4 lg:grid-cols-3">
-  <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+<!-- Responsive: 1 column on phones, 2 on small tablets (activity spans both), 3 on desktop -->
+<section class="reveal mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5">
     <h2 class="flex items-center gap-2 text-base font-bold text-slate-900">📍 Attendance today
       <span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700" data-live-visits-count><?= count($todayVisits) ?></span>
     </h2>
-    <ul class="mt-3 space-y-2" data-live-list="visits">
+    <ul class="mt-3 space-y-2 lg:max-h-72 lg:overflow-y-auto lg:pr-1" data-live-list="visits">
       <?php foreach ($todayVisits as $v): ?>
       <li class="flex items-center gap-2 text-sm">
         <span class="min-w-0 flex-1 truncate font-medium text-slate-700"><?= e((string) $v['student_name']) ?></span>
@@ -158,9 +159,9 @@ require __DIR__ . '/header.php';
     </ul>
     <a href="attendance_day.php" class="mt-3 inline-block text-xs font-semibold text-emerald-700 hover:underline">Full attendance →</a>
   </div>
-  <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+  <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5">
     <h2 class="text-base font-bold text-slate-900">🎯 Needs attention</h2>
-    <ul class="mt-3 space-y-3" data-live-list="attention">
+    <ul class="mt-3 space-y-3 lg:max-h-72 lg:overflow-y-auto lg:pr-1" data-live-list="attention">
       <?php foreach ($attention as $a): ?>
       <li>
         <div class="flex items-center gap-2 text-sm">
@@ -177,9 +178,9 @@ require __DIR__ . '/header.php';
       <?php if (!$attention): ?><li class="px-4 py-4 text-center text-sm text-slate-400">🎉 Everyone is on track!</li><?php endif; ?>
     </ul>
   </div>
-  <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+  <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:col-span-2 sm:p-5 lg:col-span-1">
     <h2 class="text-base font-bold text-slate-900">🕒 Recent activity</h2>
-    <ul class="mt-3 space-y-2.5" data-live-list="activity">
+    <ul class="mt-3 space-y-2.5 lg:max-h-72 lg:overflow-y-auto lg:pr-1" data-live-list="activity">
       <?php foreach ($activity as $act): ?>
       <li class="flex items-start gap-2.5 text-sm">
         <span class="grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs <?= $act['kind'] === 'enrolled' ? 'bg-emerald-100 text-emerald-700' : 'bg-emerald-100 text-emerald-600' ?>"><?= $act['kind'] === 'enrolled' ? '👥' : '✅' ?></span>
