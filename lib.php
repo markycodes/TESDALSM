@@ -30,6 +30,19 @@ if (!defined('DB_NAME')) define('DB_NAME', 'learnhub');
 if (!defined('DB_USER')) define('DB_USER', 'root');
 if (!defined('DB_PASS')) define('DB_PASS', '');
 
+/* ---- e-mail (greeting / updates / reminders) -------------------------------
+ * Set EMAIL_API_URL + EMAIL_API_KEY in config.php to deliver through a
+ * Resend-style HTTP API (free tier ≈ 100/day — plenty for a classroom).
+ * Without a key, PHP mail() is used on dev machines (XAMPP). InfinityFree free
+ * hosting disables PHP mail(), so an API key is required there. All attempts
+ * are logged to data/mail.log. APP_URL (https://yoursite) builds clickable
+ * links inside e-mails. The app never breaks when e-mail is not configured.
+ * -------------------------------------------------------------------------- */
+if (!defined('EMAIL_FROM'))    define('EMAIL_FROM', 'LearnHub LMS <no-reply@localhost>');
+if (!defined('EMAIL_API_URL')) define('EMAIL_API_URL', '');
+if (!defined('EMAIL_API_KEY')) define('EMAIL_API_KEY', '');
+if (!defined('APP_URL'))       define('APP_URL', '');
+
 const DOC_EXTS    = ['pdf','docx','pptx','xlsx','txt','md','csv','png','jpg','jpeg','gif','webp'];
 const VIDEO_EXTS  = ['mp4','webm','ogg','ogv','mov','m4v'];
 const INLINE_EXTS = ['pdf','png','jpg','jpeg','gif','webp','txt','mp4','webm','ogg','ogv','mov','m4v','mp3','wav'];
@@ -1224,6 +1237,7 @@ function finalize_quiz(int $quizId, int $userId): ?array
         $status === 'PASSED' ? '🏆 Quiz passed: ' . (string) $quiz['title'] : '📝 Quiz result: ' . (string) $quiz['title'],
         "You scored {$correct}/{$total} ({$pctTxt}%) — " . ($status === 'PASSED' ? 'passed!' : 'not passed yet.'),
         'my_records.php');
+    send_quiz_result_email($userId, (string) ($quiz['title'] ?? 'the quiz'), $result); // e-mail the student their result
     return quiz_result_for($quizId, $userId);
 }
 
@@ -1969,6 +1983,7 @@ function send_private_message(int $fromId, int $toId, int $conversationId, strin
             '💬 New message from ' . ((string) ($peer['name'] ?? 'a user')),
             cut($body, 140),
             'messages.php?with=' . $fromId);
+        send_message_email($toId, $fromId, $body); // e-mail copy of the new message
     }
     return $id;
 }
@@ -2076,13 +2091,19 @@ function add_notification(int $userId, string $type, string $title, string $body
         ->execute([$userId, cut($type, 40), cut($title, 200), cut($body, 500), cut($link, 500), time()]);
 }
 
-/** Notify every student enrolled in a course (used for real events like new lessons/quizzes). */
+/** Notify every student enrolled in a course (used for real events like new lessons/quizzes).
+ *  Every notified student ALSO gets an e-mail copy (same content + link). */
 function notify_course_students(int $courseId, string $type, string $title, string $body = '', string $link = ''): void
 {
-    $st = db()->prepare('SELECT e.user_id FROM enrollments e WHERE e.course_id = ?');
+    $st = db()->prepare('SELECT e.user_id, u.email FROM enrollments e JOIN users u ON u.id = e.user_id WHERE e.course_id = ?');
     $st->execute([$courseId]);
-    foreach ($st->fetchAll(PDO::FETCH_COLUMN) as $uid) {
-        add_notification((int) $uid, $type, $title, $body, $link);
+    foreach ($st->fetchAll() as $r) {
+        add_notification((int) $r['user_id'], $type, $title, $body, $link);
+        $mail = (string) ($r['email'] ?? '');
+        if (!filter_var($mail, FILTER_VALIDATE_EMAIL)) continue;
+        $inner = '<p style="font-size:14px;line-height:1.6;color:#334155">' . e($body) . '</p>'
+            . ($link !== '' ? email_button(APP_URL !== '' ? app_link($link) : $link, 'Open it now') : '');
+        send_email($mail, $title, email_shell('LearnHub update', $inner));
     }
 }
 
@@ -2125,6 +2146,174 @@ function mark_one_notification_read(int $notifId, int $userId): void
 function mark_all_notifications_read(int $userId): void
 {
     db()->prepare('UPDATE notifications SET is_read = 1 WHERE user_id = ?')->execute([$userId]);
+}
+
+/* ---------------- e-mail delivery ---------------- */
+
+function email_plain(string $html): string
+{
+    $t = preg_replace('/<[^>]+>/', ' ', $html);
+    $t = preg_replace('/&amp;/', '&', $t);
+    $t = preg_replace('/&lt;/', '<', $t);
+    $t = preg_replace('/&gt;/', '>', $t);
+    $t = preg_replace('/&quot;/', '"', $t);
+    $t = preg_replace('/&#39;/', "'", $t);
+    return preg_replace('/[ \t\r\n]+/', ' ', $t);
+}
+
+function email_log(string $to, string $subject, bool $ok, string $err = ''): void
+{
+    $line = date('Y-m-d H:i:s') . ' | ' . ($ok ? 'OK  ' : 'FAIL') . ' | ' . $to . ' | ' . cut($subject, 70) . ($err !== '' ? ' | ' . $err : '') . "\n";
+    $path = DATA_DIR . '/mail.log';
+    @mkdir(DATA_DIR, 0777, true);
+    $old = is_file($path) ? (string) (@file_get_contents($path) ?? '') : '';
+    @file_put_contents($path, $old . $line);
+}
+
+/** Deliver one e-mail. Returns true when a transport accepted it.
+ *  Not-configured transports are a silent no-op (false), so e-mail is optional. */
+function send_email(string $to, string $subject, string $html, string $text = ''): bool
+{
+    if (!filter_var($to, FILTER_VALIDATE_EMAIL)) return false;
+    $subject = cut($subject, 120);
+    if ($text === '') $text = email_plain($html);
+    if (EMAIL_API_URL !== '' && EMAIL_API_KEY !== '') {
+        $ok = false; $err = '';
+        try {
+            $ctx = stream_context_create(['http' => [
+                'method'   => 'POST',
+                'header'   => 'Content-Type: application/json\r\nAuthorization: Bearer ' . EMAIL_API_KEY . '\r\n',
+                'content'  => json_encode(['from' => EMAIL_FROM, 'to' => [$to], 'subject' => $subject, 'html' => $html, 'text' => $text]),
+                'follow_location' => 1, 'max_redirects' => 2, 'ignore_errors' => true,
+            ]]);
+            $body = (string) (@file_get_contents(EMAIL_API_URL, false, $ctx) ?? '');
+            $ok = stripos($body, '"id"') !== false || stripos($body, '"ok"') !== false;
+            if (!$ok) $err = 'API: ' . substr($body, 0, 180);
+        } catch (RuntimeException $e) {
+            $err = 'API exception: ' . $e->getMessage();
+        }
+        email_log($to, $subject, $ok, $err);
+        return $ok;
+    }
+    if (function_exists('mail')) {
+        $res = @mail($to, $subject, $text, $html);
+        $ok = (bool) $res;
+        $err = $ok ? '' : 'PHP mail() returned false';
+        email_log($to, $subject, $ok, $err);
+        return $ok;
+    }
+    /* no transport configured — silently skip, the app keeps working */
+    return false;
+}
+
+/* ---- small HTML builders for the e-mail bodies ---- */
+
+function email_shell(string $title, string $inner): string
+{
+    return '<div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;margin:24px auto;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:28px">'
+        . '<h2 style="margin:0 0 14px;font-size:19px;color:#0f172a">' . $title . '</h2>'
+        . $inner
+        . '<p style="margin:18px 0 0;font-size:12px;color:#94a3b8">— LearnHub LMS</p>'
+        . '</div>';
+}
+
+function email_button(string $href, string $label): string
+{
+    return '<a href="' . e($href) . '" style="display:inline-block;margin-top:14px;border-radius:8px;background:#0f766e;color:#fff;font-weight:600;font-size:13px;padding:10px 18px;text-decoration:none">' . e($label) . '</a>';
+}
+
+function app_link(string $path): string
+{
+    return trim(APP_URL, '/') . '/' . $path;
+}
+
+/* ---------------- event e-mails ---------------- */
+
+/** Greeting for a brand-new student enrolling with an invitation code. */
+function send_welcome_email(int $studentId, int $courseId): void
+{
+    $u = find_user_by_id($studentId);
+    $c = course_row($courseId);
+    if (!$u || !$c) return;
+    $inner = '<p style="font-size:14px;color:#334155">Hi ' . e((string) $u['name']) . ',</p>'
+        . '<p style="font-size:14px;line-height:1.6;color:#334155">You are now enrolled in <b style="color:#0f172a">' . e((string) $c['title']) . '</b> · taught by ' . e((string) ($c['teacher_name'] ?? 'your teacher')) . '. New lessons, quizzes and messages will land here in your inbox.</p>'
+        . '<p style="font-size:14px;color:#334155">Log in anytime with <b>' . e((string) $u['email']) . '</b>.</p>'
+        . email_button(APP_URL !== '' ? app_link('login.php') : 'login.php', 'Go to LearnHub');
+    send_email((string) $u['email'], 'Welcome to ' . cut((string) $c['title'], 60) . ' 🎉', email_shell('Welcome! 🎉', $inner));
+}
+
+/** Quiz result pushed to the student's inbox. */
+function send_quiz_result_email(int $studentId, string $quizTitle, array $result): void
+{
+    $u = find_user_by_id($studentId);
+    if (!$u) return;
+    $passed = ($result['status'] ?? '') === 'PASSED';
+    $pct = rtrim(rtrim(number_format((float) ($result['percentage'] ?? 0), 2), '0'), '.');
+    $inner = '<p style="font-size:14px;color:#334155">You scored <b>' . (int) ($result['correct'] ?? 0) . '/' . (int) ($result['total'] ?? 0)
+        . '</b> (' . $pct . '%) on “' . e(cut($quizTitle, 80)) . '”.</p>'
+        . '<p style="font-size:14px;' . ($passed ? 'color:#047857' : 'color:#b91c1c') . '">' . ($passed ? '✅ Passed — great job!' : '❌ Not passed — review your answers and ask your teacher if you need help.') . '</p>'
+        . email_button(APP_URL !== '' ? app_link('my_records.php') : 'my_records.php', 'View your records');
+    send_email((string) $u['email'], ($passed ? '✅ ' : '📝 ') . 'Quiz result: ' . cut($quizTitle, 60), email_shell('Quiz result', $inner));
+}
+
+/** A private message lands in the recipient's inbox. */
+function send_message_email(int $toId, int $fromId, string $body): void
+{
+    $dst = find_user_by_id($toId);
+    $src = find_user_by_id($fromId);
+    if (!$dst || !$src) return;
+    if (!filter_var((string) ($dst['email'] ?? ''), FILTER_VALIDATE_EMAIL)) return;
+    $inner = '<p style="font-size:14px;color:#334155"><b>' . e((string) $src['name']) . '</b> sent you a message:</p>'
+        . '<p style="font-size:14px;color:#0f172a;white-space:pre-wrap">' . e(cut($body, 220)) . '</p>'
+        . email_button(APP_URL !== '' ? app_link('messages.php?with=' . $fromId) : 'messages.php', 'Open messages');
+    send_email((string) $dst['email'], '💬 New message from ' . cut((string) $src['name'], 40), email_shell('New message', $inner));
+}
+
+/** Daily catch-up reminder — piggybacks on the presence heartbeat, max 1/day,
+ *  only when the student actually has unread updates (never spam). */
+function maybe_send_digest(int $userId): void
+{
+    $now = time();
+    $last = (int) user_meta_get($userId, 'digest_at');
+    if ($now - $last < 86400) return;
+    $n = unread_notification_count($userId);
+    $m = unread_message_total($userId);
+    if ($n === 0 && $m === 0) return;
+    $u = find_user_by_id($userId);
+    if (!$u || !filter_var((string) ($u['email'] ?? ''), FILTER_VALIDATE_EMAIL)) return;
+    $bits = [];
+    if ($n > 0) $bits[] = $n . ' new ' . ($n === 1 ? 'update' : 'updates');
+    if ($m > 0) $bits[] = $m . ' unread ' . ($m === 1 ? 'message' : 'messages');
+    $inner = '<p style="font-size:14px;color:#334155">Hi ' . e((string) $u['name']) . ',</p>'
+        . '<p style="font-size:14px;color:#334155">Since your last visit you have:</p><ul>'
+        . ($n > 0 ? '<li style="font-size:14px;color:#334155">' . $n . ' new update' . ($n === 1 ? '' : 's') . ' in your courses</li>' : '')
+        . ($m > 0 ? '<li style="font-size:14px;color:#334155">' . $m . ' unread message' . ($m === 1 ? '' : 's') . '</li>' : '')
+        . '</ul>'
+        . email_button(APP_URL !== '' ? app_link('dashboard.php') : 'dashboard.php', 'See what is new')
+        . '<p style="font-size:12px;color:#94a3b8;margin-top:6px">One reminder per day at most — log in to clear it.</p>';
+    send_email((string) $u['email'], 'LearnHub: ' . implode(' and ', $bits) . ' waiting for you', email_shell('You have updates 👋', $inner));
+    user_meta_set($userId, 'digest_at', (string) $now);
+}
+
+/* small per-user settings store (digest_at, …) — auto-created table */
+function user_meta_set(int $uid, string $k, string $v): void
+{
+    user_meta_ensure();
+    db()->prepare('INSERT INTO user_meta (user_id, k, v) VALUES (?,?,?) ON DUPLICATE KEY UPDATE v = VALUES(v)')->execute([$uid, $k, $v]);
+}
+function user_meta_get(int $uid, string $k): string
+{
+    user_meta_ensure();
+    $st = db()->prepare('SELECT v FROM user_meta WHERE user_id = ? AND k = ?');
+    $st->execute([$uid, $k]);
+    return (string) ($st->fetchColumn() ?? '');
+}
+function user_meta_ensure(): void
+{
+    static $done = false;
+    if ($done) return;
+    db()->exec('CREATE TABLE IF NOT EXISTS user_meta (user_id INT UNSIGNED NOT NULL, k VARCHAR(40) NOT NULL, v VARCHAR(255) NOT NULL DEFAULT "", PRIMARY KEY (user_id, k)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+    $done = true;
 }
 
 ensure_storage();

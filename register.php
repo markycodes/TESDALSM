@@ -41,6 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['user_id'] = $newUserId;
                 set_flash('success', 'Account created! You are enrolled in "'
                     . (string) ($c['title'] ?? 'the course') . '". Happy learning! 🎉');
+                send_welcome_email($newUserId, $courseId); // greeting e-mail to the new student
                 header('Location: dashboard.php');
                 exit;
             }

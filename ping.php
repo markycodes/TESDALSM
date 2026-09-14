@@ -5,6 +5,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') { header('Location: dashboard.php'); 
 verify_csrf();
 $user = require_login();
 touch_presence((int) $user['id']);
+maybe_send_digest((int) $user['id']); // daily catch-up e-mail when there is something unread
 header('Content-Type: application/json');
 echo json_encode(['ok' => true]);
 exit;

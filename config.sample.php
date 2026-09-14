@@ -34,4 +34,22 @@ define('DB_HOST', 'sqlXXX.infinityfree.com');
 define('DB_PORT', '3306');
 define('DB_NAME', 'epiz_XXXXXXXX_learnhub');
 define('DB_USER', 'epiz_XXXXXXXX');
-define('DB_PASS', 'your-mysql-password');
+/* ---- E-mail delivery (greeting / new-lesson / quiz-result / messages / daily reminders) ----
+ * The app sends e-mail automatically:
+ *   - a welcome e-mail when a student registers with an invitation code
+ *   - "new lesson" / "new quiz" to every enrolled student (upload.php, quiz_save.php)
+ *   - quiz results, new private messages
+ *   - a daily catch-up reminder when something unread is waiting (max 1/day)
+ * It uses a Resend-style HTTP API when a key is set (free tier ≈ 100/day), and
+ * falls back to PHP mail() elsewhere. InfinityFree free hosting disables PHP
+ * mail(), so use a key there. Every attempt is logged to data/mail.log.
+ *
+ * 1. Create a free account at https://resend.com  → "API Keys" → new key.
+ * 2. Without your own domain, use onramp@resend.dev as the sender and keep
+ *    EMAIL_FROM exactly "LearnHub LMS <onramp@resend.dev>".
+ * 3. Uncomment and fill in:
+ */
+// define('EMAIL_FROM',    'LearnHub LMS <onramp@resend.dev>');
+// define('EMAIL_API_URL', 'https://api.resend.com/emails');
+// define('EMAIL_API_KEY', 're_xxxxxxxxxxxxxxxxxxxx');
+// define('APP_URL',       'https://learninghublms.wuaze.com'); // used for links inside e-mails
