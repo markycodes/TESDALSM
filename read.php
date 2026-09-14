@@ -79,7 +79,7 @@ if (is_file($absFile)) {
   </div>
   <div class="h-1 w-full bg-slate-200"><div id="read-bar" class="h-full bg-indigo-600 transition-all duration-300" style="width: <?= $depth ?>%"></div></div>
 </header>
-<main class="mx-auto max-w-4xl px-4 py-8">
+<main class="mx-auto max-w-4xl px-0 py-8 sm:px-4">
 <?php if ($kind === 'missing'): ?>
   <div class="rounded-2xl bg-white p-8 text-center ring-1 ring-slate-200">
     <p class="text-4xl">🕳️</p>
@@ -97,7 +97,7 @@ if (is_file($absFile)) {
   </div>
 <?php elseif ($kind === 'pdf'): ?>
   <p class="mb-3 rounded-xl bg-indigo-50 px-4 py-3 text-sm text-indigo-800 ring-1 ring-indigo-100">📖 The document opens below — go through it at a normal pace. Progress is tracked automatically.</p>
-  <div class="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200 sm:p-4">
+  <div class="rounded-2xl bg-white p-0 ring-1 ring-slate-200 shadow-sm sm:p-4">
     <div id="pdf-viewer" class="mx-auto max-w-3xl space-y-4">
       <div id="pdf-status" class="py-16 text-center text-sm font-medium text-slate-400">Rendering PDF…</div>
     </div>
@@ -192,7 +192,7 @@ if (is_file($absFile)) {
   </article>
 <?php else: ?>
   <p class="mb-3 rounded-xl bg-indigo-50 px-4 py-3 text-sm text-indigo-800 ring-1 ring-indigo-100">📄 The document opens right here on the website — nothing to download. Go through it at a normal pace; progress is tracked automatically.</p>
-  <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-8">
+  <div class="rounded-2xl bg-white p-0 shadow-sm ring-1 ring-slate-200 sm:p-8">
     <div id="doc-viewer" data-viewer="<?= e($viewer) ?>" data-ext="<?= e($ext) ?>" data-src="<?= e($fileSrc) ?>">
       <p class="py-16 text-center text-sm font-medium text-slate-400">Opening document…</p>
     </div>
