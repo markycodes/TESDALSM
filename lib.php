@@ -39,8 +39,8 @@ if (!defined('DB_PASS')) define('DB_PASS', '');
  * links inside e-mails. The app never breaks when e-mail is not configured.
  * -------------------------------------------------------------------------- */
 if (!defined('EMAIL_FROM'))    define('EMAIL_FROM', 'LearnHub LMS <no-reply@localhost>');
-if (!defined('EMAIL_API_URL')) define('EMAIL_API_URL', '');
-if (!defined('EMAIL_API_KEY')) define('EMAIL_API_KEY', '');
+if (!defined('EMAIL_API_URL')) define('EMAIL_API_URL', 'https://api.resend.com/emails');
+if (!defined('EMAIL_API_KEY')) define('EMAIL_API_KEY', ''); /* real key lives in config.php (git-ignored) */
 if (!defined('APP_URL'))       define('APP_URL', '');
 
 const DOC_EXTS    = ['pdf','docx','pptx','xlsx','txt','md','csv','png','jpg','jpeg','gif','webp'];
@@ -2171,39 +2171,62 @@ function email_log(string $to, string $subject, bool $ok, string $err = ''): voi
 }
 
 /** Deliver one e-mail. Returns true when a transport accepted it.
- *  Not-configured transports are a silent no-op (false), so e-mail is optional. */
+ *  Not-configured transports are a silent no-op (false), so e-mail is optional.
+ *  Provider is detected from EMAIL_API_URL: brevo | sendgrid | resend (default). */
+function email_from_parts(): array
+{
+    $from = trim(EMAIL_FROM);
+    $name = 'LearnHub LMS'; $addr = $from;
+    if (preg_match('/^(.*?)\s*<([^>]+)>\s*$/', $from, $m)) { $name = trim((string) $m[1]); $addr = trim((string) $m[2]); }
+    if ($name === '') $name = $addr;
+    return ['name' => $name, 'email' => $addr];
+}
+
+function email_via_php_mail(string $to, string $subject, string $html, string $text): bool
+{
+    $res = @mail($to, $subject, $text, $html);
+    $ok = (bool) $res;
+    email_log($to, $subject, $ok, $ok ? '' : 'PHP mail() returned false');
+    return $ok;
+}
+
 function send_email(string $to, string $subject, string $html, string $text = ''): bool
 {
     if (!filter_var($to, FILTER_VALIDATE_EMAIL)) return false;
     $subject = cut($subject, 120);
     if ($text === '') $text = email_plain($html);
-    if (EMAIL_API_URL !== '' && EMAIL_API_KEY !== '') {
-        $ok = false; $err = '';
-        try {
-            $ctx = stream_context_create(['http' => [
-                'method'   => 'POST',
-                'header'   => 'Content-Type: application/json\r\nAuthorization: Bearer ' . EMAIL_API_KEY . '\r\n',
-                'content'  => json_encode(['from' => EMAIL_FROM, 'to' => [$to], 'subject' => $subject, 'html' => $html, 'text' => $text]),
-                'follow_location' => 1, 'max_redirects' => 2, 'ignore_errors' => true,
-            ]]);
-            $body = (string) (@file_get_contents(EMAIL_API_URL, false, $ctx) ?? '');
-            $ok = stripos($body, '"id"') !== false || stripos($body, '"ok"') !== false;
-            if (!$ok) $err = 'API: ' . substr($body, 0, 180);
-        } catch (RuntimeException $e) {
-            $err = 'API exception: ' . $e->getMessage();
-        }
-        email_log($to, $subject, $ok, $err);
-        return $ok;
+    if (EMAIL_API_URL === '' || EMAIL_API_KEY === '') return email_via_php_mail($to, $subject, $html, $text);
+
+    $from = email_from_parts();
+    $url = EMAIL_API_URL;
+    $headers = "Content-Type: application/json\r\n";
+    if (stripos($url, 'brevo') !== false) {
+        $headers .= "api-key: " . EMAIL_API_KEY . "\r\n";
+        $payload = json_encode(['sender' => ['name' => $from['name'], 'email' => $from['email']], 'to' => [['email' => $to]], 'subject' => $subject, 'htmlContent' => $html, 'textContent' => $text]);
+    } elseif (stripos($url, 'sendgrid') !== false) {
+        $headers .= "Authorization: Bearer " . EMAIL_API_KEY . "\r\n";
+        $payload = json_encode(['personalizations' => [['to' => [['email' => $to]]]], 'from' => ['name' => $from['name'], 'email' => $from['email']], 'subject' => $subject, 'content' => [['type' => 'text/plain', 'value' => $text], ['type' => 'text/html', 'value' => $html]]]);
+    } else { /* Resend-style (default) */
+        $headers .= "Authorization: Bearer " . EMAIL_API_KEY . "\r\n";
+        $payload = json_encode(['from' => EMAIL_FROM, 'to' => [$to], 'subject' => $subject, 'html' => $html, 'text' => $text]);
     }
-    if (function_exists('mail')) {
-        $res = @mail($to, $subject, $text, $html);
-        $ok = (bool) $res;
-        $err = $ok ? '' : 'PHP mail() returned false';
-        email_log($to, $subject, $ok, $err);
-        return $ok;
+    $ok = false; $err = ''; $code = 0;
+    try {
+        $ctx = stream_context_create(['http' => [
+            'method'   => 'POST',
+            'header'   => $headers,
+            'content'  => $payload,
+            'follow_location' => 1, 'max_redirects' => 2, 'ignore_errors' => true,
+        ]]);
+        $resp = (string) (@file_get_contents($url, false, $ctx) ?? '');
+        foreach ($http_response_header ?? [] as $h) { if (preg_match('#HTTP/\S+\s+(\d+)#', $h, $m)) $code = (int) $m[1]; }
+        $ok = $code >= 200 && $code < 300;
+        if (!$ok) $err = 'HTTP ' . $code . ': ' . substr($resp, 0, 180);
+    } catch (RuntimeException $e) {
+        $err = 'API exception: ' . $e->getMessage();
     }
-    /* no transport configured — silently skip, the app keeps working */
-    return false;
+    email_log($to, $subject, $ok, $err);
+    return $ok;
 }
 
 /* ---- small HTML builders for the e-mail bodies ---- */
