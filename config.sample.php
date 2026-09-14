@@ -34,22 +34,28 @@ define('DB_HOST', 'sqlXXX.infinityfree.com');
 define('DB_PORT', '3306');
 define('DB_NAME', 'epiz_XXXXXXXX_learnhub');
 define('DB_USER', 'epiz_XXXXXXXX');
-/* ---- E-mail delivery (greeting / new-lesson / quiz-result / messages / daily reminders) ----
+define('DB_PASS', 'your-mysql-password');
+/* ---- E-MAIL delivery (greeting / new-lesson / quiz-result / messages / daily reminders) ----
  * The app sends e-mail automatically:
- *   - a welcome e-mail when a student registers with an invitation code
+ *   - a welcome e-mail to the NEWLY REGISTERED STUDENT (every registration)
  *   - "new lesson" / "new quiz" to every enrolled student (upload.php, quiz_save.php)
  *   - quiz results, new private messages
  *   - a daily catch-up reminder when something unread is waiting (max 1/day)
- * It uses a Resend-style HTTP API when a key is set (free tier ≈ 100/day), and
- * falls back to PHP mail() elsewhere. InfinityFree free hosting disables PHP
- * mail(), so use a key there. Every attempt is logged to data/mail.log.
  *
- * 1. Create a free account at https://resend.com  → "API Keys" → new key.
- * 2. Without your own domain, use onboarding@resend.dev as the sender and keep
- *    EMAIL_FROM exactly "LearnHub LMS <onboarding@resend.dev>".
- * 3. Uncomment and fill in:
+ * ✅ BREVO (recommended — free 300/day, NO domain needed, reaches any address):
+ *   1. https://www.brevo.com → sign up → "SMTP & API" → "API Keys" → generate
+ *      (key starts with xkeysib-)
+ *   2. "Senders & IP" → "Senders" → add your sender e-mail (e.g. your gmail)
+ *      → click the confirmation link Brevo e-mails to it (check spam)
+ *   3. Uncomment the 4 BREVO lines below, paste the key, save.
+ *      Brevo verifies ONE sender, then delivers to every student.
+ * ⚠️ RESEND (100/day): the sandbox sender onboarding@resend.dev ONLY delivers
+ *    to the e-mail address that OWNS the Resend account — until you verify a
+ *    domain. Fine to test with your own address; NOT for real students.
+ * Without any of the above, PHP mail() is attempted (XAMPP dev only;
+ * disabled on InfinityFree). Every attempt is logged to data/mail.log.
  */
-// define('EMAIL_FROM',    'LearnHub LMS <onboarding@resend.dev>');
-// define('EMAIL_API_URL', 'https://api.resend.com/emails');
-// define('EMAIL_API_KEY', 're_xxxxxxxxxxxxxxxxxxxx');
+// define('EMAIL_FROM',    'LearnHub LMS <your-verified-sender@gmail.com>');
+// define('EMAIL_API_URL', 'https://api.brevo.com/v3/smtp/email');
+// define('EMAIL_API_KEY', 'xkeysib-xxxxx');
 // define('APP_URL',       'https://learninghublms.wuaze.com'); // used for links inside e-mails
