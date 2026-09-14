@@ -50,7 +50,7 @@ $fileMime = (string) ($material['mime'] ?? '');
 if ($fileMime === '') $fileMime = mime_for_ext($ext);
 if (is_file($absFile)) {
     $fbytes = @file_get_contents($absFile);
-    if ($fbytes !== false && strlen($fbytes) <= 8 * 1024 * 1024) {
+    if ($fbytes !== false && strlen($fbytes) <= 4 * 1024 * 1024) {
         $fileB64 = base64_encode($fbytes);
     }
 }
@@ -97,11 +97,16 @@ if (is_file($absFile)) {
   </div>
 <?php elseif ($kind === 'pdf'): ?>
   <p class="mb-3 rounded-xl bg-indigo-50 px-4 py-3 text-sm text-indigo-800 ring-1 ring-indigo-100">📖 The document opens below — go through it at a normal pace. Progress is tracked automatically.</p>
-  <embed id="pdf-embed" data-src="<?= e($fileSrc) ?>" data-b64="<?= $fileB64 ?>" data-mime="<?= e($fileMime) ?>" type="application/pdf" class="h-[85vh] w-full rounded-2xl bg-white ring-1 ring-slate-200">
+  <div class="relative h-[85vh] w-full overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
+    <div id="pdf-loading" class="absolute inset-0 grid place-items-center text-sm font-medium text-slate-400">Opening PDF…</div>
+    <iframe id="pdf-frame" title="<?= e((string) $material['title']) ?>" class="absolute inset-0 h-full w-full"></iframe>
+  </div>
+  <p class="mt-2 text-center"><a href="<?= e($fileSrc) ?>" target="_blank" rel="noopener" class="text-xs font-semibold text-indigo-600 hover:underline">Having trouble? Open the PDF in a new tab ⧉</a></p>
   <script>
-  /* Preferred: the document bytes are already in the page (data-b64) — no
+  /* Preferred: the document bytes are already in the page (inline base64) — no
      extra request, nothing for shared-host anti-bot systems to intercept.
-     Fallback: guarded fetch, then the direct URL. */
+     Fallback: guarded fetch, then the direct URL. A permanent "open in a new
+     tab" link above is the guaranteed way to read the file. */
   function lhChallengeRecovery() {
     try {
       var last = parseInt(sessionStorage.getItem('lh-challenge-reload') || '0', 10);
@@ -118,19 +123,23 @@ if (is_file($absFile)) {
     return new Blob([u8], { type: mime || 'application/octet-stream' });
   }
   (function () {
-    var em = document.getElementById('pdf-embed');
-    if (!em) return;
-    var src = em.getAttribute('data-src');
-    var b64 = em.getAttribute('data-b64') || '';
-    var mime = em.getAttribute('data-mime') || 'application/pdf';
-    if (b64) { em.src = URL.createObjectURL(lhBytesToBlob(b64, mime)); return; }
+    var fr = document.getElementById('pdf-frame');
+    if (!fr) return;
+    var src = '<?= e($fileSrc) ?>';
+    var b64 = '<?= $fileB64 ?>';
+    var mime = '<?= e($fileMime) ?>';
+    fr.addEventListener('load', function () {
+      var l = document.getElementById('pdf-loading');
+      if (l) l.remove();
+    });
+    if (b64) { fr.src = URL.createObjectURL(lhBytesToBlob(b64, mime)); return; }
     fetch(src, { credentials: 'same-origin' }).then(function (res) {
       var ct = (res.headers.get('content-type') || '').toLowerCase();
       if (!res.ok || ct.indexOf('text/html') !== -1) { lhChallengeRecovery(); return; }
       return res.blob().then(function (b) {
-        em.src = URL.createObjectURL(new Blob([b], { type: 'application/pdf' }));
+        fr.src = URL.createObjectURL(new Blob([b], { type: 'application/pdf' }));
       });
-    }).catch(function () { em.src = src; /* fall back to the direct embed */ });
+    }).catch(function () { fr.src = src; /* last resort: direct URL */ });
   })();
   </script>
 <?php elseif ($kind === 'image'): ?>
