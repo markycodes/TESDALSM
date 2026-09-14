@@ -43,18 +43,21 @@
     RewriteCond %{REQUEST_URI} !\.php$
     RewriteRule ^(.+)$ $1.php [L]
 
-    # 2) external redirect: /dashboard.php (GET) -> /dashboard (absolute URL path)
-    # The target is captured from THE_REQUEST (already a proper URL path like
-    # /LMS/dashboard or /dashboard) instead of the rule's relative substitution.
-    # A relative substitution + [R] makes Apache rebuild the target as
-    # perdir+substitution — a FILESYSTEM path (C:/xampp/htdocs/LMS/dashboard) —
-    # and if the docroot strip-back fails it leaks into Location verbatim.
-    # An absolute path from THE_REQUEST needs no RewriteBase and no
-    # filesystem->URL conversion, so the same file works everywhere.
+    # 2) external redirect: /dashboard.php (GET) -> /dashboard (absolute URL)
+    # The target path is captured from THE_REQUEST (as the client asked for it:
+    # /LMS/dashboard.php on XAMPP, /dashboard.php at a domain root) and the
+    # redirect is emitted as a FULL URL with the request's own host.
+    # Why fully-qualified: in per-directory context, mod_rewrite prepends the
+    # perdir (a FILESYSTEM path) to any non-absolute substitution and then tries
+    # to strip the docroot back off to build the Location. When that strip fails
+    # (XAMPP: "http://127.0.0.1/C:/xampp/htdocs/LMS/dashboard", InfinityFree:
+    # "https://site/home/vol11_5/.../htdocs/dashboard") the filesystem path
+    # leaks into the URL and Apache 403s it. An absolute URL is passed through
+    # verbatim — no RewriteBase and no filesystem->URL conversion needed.
     # 302 (not 301): browsers cache 301s permanently; 302 is always re-evaluated.
     RewriteCond %{THE_REQUEST} \s(/[^\s?]+)(?=\.php) [NC]
     RewriteCond %{REQUEST_METHOD} =GET
-    RewriteRule ^ %1 [R=302,L,NE]
+    RewriteRule ^ http://%{HTTP_HOST}%1 [R=302,L,NE]
 
     # 3) directories first (e.g. /uploads) and real files (css/js/images) pass through untouched
     RewriteCond %{REQUEST_FILENAME} -d [OR]
