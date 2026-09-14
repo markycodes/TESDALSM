@@ -44,6 +44,9 @@
     RewriteRule ^(.+)$ $1.php [L]
 
     # 2) external redirect: /dashboard.php (GET) -> /dashboard (absolute URL)
+    # AJAX/heartbeat endpoints keep their .php: one request instead of a
+    # redirect chain (shared-host security systems challenge every hop, and
+    # doubled poll traffic can trip their rate limits).
     # The target path is captured from THE_REQUEST (as the client asked for it:
     # /LMS/dashboard.php on XAMPP, /dashboard.php at a domain root) and the
     # redirect is emitted as a FULL URL with the request's own host.
@@ -55,6 +58,7 @@
     # leaks into the URL and Apache 403s it. An absolute URL is passed through
     # verbatim — no RewriteBase and no filesystem->URL conversion needed.
     # 302 (not 301): browsers cache 301s permanently; 302 is always re-evaluated.
+    RewriteCond %{REQUEST_URI} !^/([^/]+/)?(realtime|ping|presence|read_progress|watch)\.php$ [NC]
     RewriteCond %{THE_REQUEST} \s(/[^\s?]+)(?=\.php) [NC]
     RewriteCond %{REQUEST_METHOD} =GET
     RewriteRule ^ http://%{HTTP_HOST}%1 [R=302,L,NE]

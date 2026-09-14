@@ -332,6 +332,37 @@ document.addEventListener('submit', (e) => {
   });
 });
 
+/* ---------- AJAX resilience for shared hosts (InfinityFree, etc.) ----------
+   Their anti-bot system answers some requests with an HTML challenge page
+   instead of JSON ("This site requires Javascript…"). When a poller gets
+   non-JSON back we reload the page ONCE (rate-limited to 1×/45s): a full
+   page load runs the challenge JS, receives the clearance cookies, and all
+   following fetches return JSON again. Returns parsed JSON, or null on any
+   failure so callers can back off instead of hammering the host. ---------- */
+function lhSecureJson(url) {
+  return fetch(url + (url.indexOf('?') > -1 ? '&' : '?') + 't=' + Date.now(), {
+    cache: 'no-store',
+    credentials: 'same-origin',
+    headers: { 'X-Requested-With': 'fetch' },
+  }).then(function (r) {
+    return r.text().then(function (t) {
+      var d = null;
+      try { d = JSON.parse(t); } catch (e) { d = null; }
+      if (d === null) { lhChallengeRecovery(); return null; } /* HTML challenge / garbage */
+      return d;
+    });
+  }, function () { return null; }); /* network error — caller backs off */
+}
+function lhChallengeRecovery() {
+  try {
+    var last = parseInt(sessionStorage.getItem('lh-challenge-reload') || '0', 10);
+    if (Date.now() - last > 45000) {
+      sessionStorage.setItem('lh-challenge-reload', String(Date.now()));
+      window.location.reload();
+    }
+  } catch (e) { /* storage unavailable — just skip the reload */ }
+}
+
 /* ---------- Course search + category filter ---------- */
 let activeCat = 'all';
 function applyCourseFilters() {
@@ -817,25 +848,35 @@ if (dayFilter) {
     }).then(function (r) { return r.json(); }).then(function () { refreshNotifs(); }).catch(function () {});
   });
   function refreshNotifs() {
-    fetch('realtime.php?v=notifications&t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
-      .then(function (r) { return r.json(); })
-      .then(function (d) {
-        if (!d || !d.ok) return;
-        setBadge('lh-notif-badge', (typeof d.total === 'number' ? d.total : (d.unread || 0)));
-        setBadge('lh-chat-badge', d.chat_unread || 0);
-        setBadge('lh-chat-badge-side', d.chat_unread || 0);
-        if (!list) return;
-        if (!(d.items || []).length) {
-          list.innerHTML = '<p class="px-3.5 py-6 text-center text-xs text-slate-400">No notifications yet.<br>New lessons, quizzes, results and messages will show up here.</p>';
-          return;
-        }
-        list.innerHTML = (d.items || []).map(function (n) {
-          return '<a href="' + esc(n.link) + '" data-notif-id="' + n.id + '" class="lx-panel-item lh-notif-item ' + (n.is_read ? '' : 'lh-notif-unread') + '">'
-            + '<span class="text-[13px] font-semibold text-slate-800">' + esc(n.title) + '</span>'
-            + (n.body ? '<span class="text-xs text-slate-500">' + esc(n.body) + '</span>' : '')
-            + '<span class="text-[10px] text-slate-400">' + esc(ago(n.created_at)) + '</span></a>';
-        }).join('');
-      }).catch(function () {});
+    return lhSecureJson('realtime.php?v=notifications').then(function (d) {
+      if (!d || !d.ok) return false;
+      setBadge('lh-notif-badge', (typeof d.total === 'number' ? d.total : (d.unread || 0)));
+      setBadge('lh-chat-badge', d.chat_unread || 0);
+      setBadge('lh-chat-badge-side', d.chat_unread || 0);
+      if (!list) return true;
+      if (!(d.items || []).length) {
+        list.innerHTML = '<p class="px-3.5 py-6 text-center text-xs text-slate-400">No notifications yet.<br>New lessons, quizzes, results and messages will show up here.</p>';
+        return true;
+      }
+      list.innerHTML = (d.items || []).map(function (n) {
+        return '<a href="' + esc(n.link) + '" data-notif-id="' + n.id + '" class="lx-panel-item lh-notif-item ' + (n.is_read ? '' : 'lh-notif-unread') + '">'
+          + '<span class="text-[13px] font-semibold text-slate-800">' + esc(n.title) + '</span>'
+          + (n.body ? '<span class="text-xs text-slate-500">' + esc(n.body) + '</span>' : '')
+          + '<span class="text-[10px] text-slate-400">' + esc(ago(n.created_at)) + '</span></a>';
+      }).join('');
+      return true;
+    });
+  }
+  /* adaptive interval: 8s normally, backs off (max 60s) while the host
+     challenges/fails, resets on the next success — friendly to rate-limited
+     shared hosts instead of hammering them every 8s no matter what */
+  var notifDelay = 8000;
+  function notifLoop() {
+    refreshNotifs().then(function (ok) {
+      if (ok === false) notifDelay = Math.min(60000, Math.round(notifDelay * 1.6));
+      else if (ok === true) notifDelay = 8000;
+      setTimeout(notifLoop, notifDelay);
+    });
   }
   document.addEventListener('click', function (e) {
     var item = e.target.closest('[data-notif-id]');
@@ -849,8 +890,7 @@ if (dayFilter) {
     }).catch(function () {}).finally(function () { window.location.href = link; });
   });
   if (document.body.classList.contains('lh-app')) {
-    refreshNotifs();
-    setInterval(refreshNotifs, 8000);
+    notifLoop();
   }
   /* -------- private chat: live append + AJAX send -------- */
   var chatBox = document.getElementById('chat-box');
@@ -877,19 +917,24 @@ if (dayFilter) {
     });
     chatBox.scrollTop = chatBox.scrollHeight;
     var convoId = parseInt(chatBox.getAttribute('data-conversation'), 10) || 0;
-    setInterval(function () {
-      if (document.visibilityState === 'hidden') return;
-      fetch('realtime.php?v=chat&c=' + convoId + '&since=' + lastId + '&t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
-        .then(function (r) { return r.json(); })
-        .then(function (d) {
-          if (!d || !d.ok) return;
+    var chatDelay = 4000;
+    function chatLoop() {
+      if (document.visibilityState === 'hidden') { setTimeout(chatLoop, chatDelay); return; }
+      lhSecureJson('realtime.php?v=chat&c=' + convoId + '&since=' + lastId).then(function (d) {
+        if (d && d.ok) {
+          chatDelay = 4000;
           var fresh = 0;
           (d.messages || []).forEach(function (m) {
             if (parseInt(m.id, 10) > lastId) { lastId = parseInt(m.id, 10); appendMsg(m); fresh++; }
           });
           if (fresh) refreshNotifs();
-        }).catch(function () {});
-    }, 4000);
+        } else if (d === null) {
+          chatDelay = Math.min(60000, Math.round(chatDelay * 1.6)); /* host challenging / network error */
+        }
+        setTimeout(chatLoop, chatDelay);
+      });
+    }
+    chatLoop();
   }
   if (chatForm && chatBox) {
     chatForm.addEventListener('submit', function (e) {
@@ -954,17 +999,20 @@ if (dayFilter) {
     return out.length ? out.join(' ') : '0s';
   }
   function livePoll(url, interval, onData) {
-    var running = true;
+    var running = true, delay = interval, timer = null;
+    function schedule() { timer = setTimeout(tick, delay); }
     function tick() {
-      if (!running || document.visibilityState === 'hidden') return;
-      fetch(url + (url.indexOf('?') > -1 ? '&' : '?') + 't=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
-        .then(function (r) { if (!r.ok) throw 0; return r.json(); })
-        .then(function (d) { if (d && d.ok) onData(d); })
-        .catch(function () { });
+      if (!running) return;
+      if (document.visibilityState === 'hidden') { schedule(); return; }
+      lhSecureJson(url).then(function (d) {
+        if (!running) return;
+        if (d && d.ok) { delay = interval; onData(d); }
+        else delay = Math.min(60000, Math.round(delay * 1.6)); /* challenge/network: back off */
+        schedule();
+      });
     }
     setTimeout(tick, 500);
-    var timer = setInterval(tick, interval);
-    return function () { running = false; clearInterval(timer); };
+    return function () { running = false; clearTimeout(timer); };
   }
   var tickersOn = {};
   function runOpenTickers(container) {
