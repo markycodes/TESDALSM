@@ -143,7 +143,7 @@ require __DIR__ . '/header.php';
 <!-- Attendance today · needs attention · recent activity -->
 <!-- Responsive: 1 column on phones, 2 on small tablets (activity spans both), 3 on desktop -->
 <section class="reveal mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-  <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5">
+  <div class="min-w-0 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5">
     <h2 class="flex items-center gap-2 text-base font-bold text-slate-900">📍 Attendance today
       <span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700" data-live-visits-count><?= count($todayVisits) ?></span>
     </h2>
@@ -159,7 +159,7 @@ require __DIR__ . '/header.php';
     </ul>
     <a href="attendance_day.php" class="mt-3 inline-block text-xs font-semibold text-emerald-700 hover:underline">Full attendance →</a>
   </div>
-  <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5">
+  <div class="min-w-0 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5">
     <h2 class="text-base font-bold text-slate-900">🎯 Needs attention</h2>
     <ul class="mt-3 space-y-3 lg:max-h-72 lg:overflow-y-auto lg:pr-1" data-live-list="attention">
       <?php foreach ($attention as $a): ?>
@@ -171,14 +171,14 @@ require __DIR__ . '/header.php';
         </div>
         <div class="mt-1 flex items-center gap-2 pl-9">
           <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-rose-400" style="width: <?= $a['pct'] ?>%"></div></div>
-          <span class="shrink-0 text-[10px] text-slate-400"><?= $a['done'] ?>/<?= $a['total'] ?> · <?= e((string) $a['course']) ?></span>
+          <span class="min-w-0 truncate text-[10px] text-slate-400"><?= $a['done'] ?>/<?= $a['total'] ?> · <?= e((string) $a['course']) ?></span>
         </div>
       </li>
       <?php endforeach; ?>
       <?php if (!$attention): ?><li class="px-4 py-4 text-center text-sm text-slate-400">🎉 Everyone is on track!</li><?php endif; ?>
     </ul>
   </div>
-  <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:col-span-2 sm:p-5 lg:col-span-1">
+  <div class="min-w-0 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:col-span-2 sm:p-5 lg:col-span-1">
     <h2 class="text-base font-bold text-slate-900">🕒 Recent activity</h2>
     <ul class="mt-3 space-y-2.5 lg:max-h-72 lg:overflow-y-auto lg:pr-1" data-live-list="activity">
       <?php foreach ($activity as $act): ?>
