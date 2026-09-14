@@ -43,13 +43,18 @@
     RewriteCond %{REQUEST_URI} !\.php$
     RewriteRule ^(.+)$ $1.php [L]
 
-    # 2) external redirect: /dashboard.php (GET) -> /dashboard (directory-relative)
-    # 302 (not 301) on purpose: browsers cache 301s permanently, so a later
-    # RewriteBase change would keep sending users to the OLD target until they
-    # clear their browser cache. A 302 is always re-evaluated.
-    RewriteCond %{THE_REQUEST} \s/([^\s?]+)\.php[\s?] [NC]
+    # 2) external redirect: /dashboard.php (GET) -> /dashboard (absolute URL path)
+    # The target is captured from THE_REQUEST (already a proper URL path like
+    # /LMS/dashboard or /dashboard) instead of the rule's relative substitution.
+    # A relative substitution + [R] makes Apache rebuild the target as
+    # perdir+substitution — a FILESYSTEM path (C:/xampp/htdocs/LMS/dashboard) —
+    # and if the docroot strip-back fails it leaks into Location verbatim.
+    # An absolute path from THE_REQUEST needs no RewriteBase and no
+    # filesystem->URL conversion, so the same file works everywhere.
+    # 302 (not 301): browsers cache 301s permanently; 302 is always re-evaluated.
+    RewriteCond %{THE_REQUEST} \s(/[^\s?]+)(?=\.php) [NC]
     RewriteCond %{REQUEST_METHOD} =GET
-    RewriteRule ^(.+)\.php$ $1 [R=302,L,NE]
+    RewriteRule ^ %1 [R=302,L,NE]
 
     # 3) directories first (e.g. /uploads) and real files (css/js/images) pass through untouched
     RewriteCond %{REQUEST_FILENAME} -d [OR]
