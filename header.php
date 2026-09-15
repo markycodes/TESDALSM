@@ -1824,33 +1824,39 @@ if ($user) {
             <span id="lh-chat-badge" class="lh-badge hidden">0</span>
           </a>
           <?php if (($user['role'] ?? '') === 'teacher'): ?>
-            <button type="button" id="lh-mailtest" title="Send a test e-mail to your address" aria-label="Test e-mail"
-              class="lh-ico grid h-9 w-9 place-items-center rounded-lg text-slate-600 hover:bg-slate-100">✉️</button>
+            <button type="button" id="lh-mailtest" aria-label="Send a test e-mail to your address and show the result"
+              title="Send a test e-mail to your address and show the result"
+              class="hidden h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-emerald-700 sm:inline-flex">
+              <span>✉️</span><span id="lh-mailtest-label">Test e-mail</span>
+            </button>
             <script>
             /* one-click mail test: sends to YOUR address and shows the provider reply */
             (function () {
               var btn = document.getElementById('lh-mailtest');
               if (!btn) return;
+              var lab = document.getElementById('lh-mailtest-label') || btn;
+              var restore = function () { btn.disabled = false; lab.textContent = 'Test e-mail'; };
               var csrf = (document.querySelector('meta[name="csrf"]') || {}).content || '';
               btn.addEventListener('click', function () {
                 btn.disabled = true;
-                btn.textContent = '…';
+                lab.textContent = 'Sending…';
                 fetch('mailtest.php', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'fetch' },
                   body: 'csrf=' + encodeURIComponent(csrf),
                 }).then(function (r) { return r.json(); }).then(function (d) {
-                  btn.disabled = false; btn.textContent = '✉️';
+                  restore();
                   var msg = d.ok
                     ? '✅ E-mail accepted — check your inbox: ' + d.to
                     : '❌ E-mail was rejected — see mail.log below:';
                   if (d.tail && d.tail.length) msg += '\n\n' + d.tail.join('\n');
                   alert(msg);
-                }).catch(function () { btn.disabled = false; btn.textContent = '✉️'; alert('Could not reach the mail test endpoint.'); });
+                }).catch(function () { restore(); alert('Could not reach the mail test endpoint.'); });
               });
             })();
             </script>
           <?php endif; ?>
+
           <span class="hidden text-right sm:flex sm:flex-col sm:items-start leading-tight">
             <span class="text-sm font-semibold leading-4 text-slate-800"><?= e((string) $user['name']) ?></span>
             <span
