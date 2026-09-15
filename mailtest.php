@@ -46,8 +46,9 @@ echo json_encode([
     'subject'   => $subject,
     'state'     => $state,      // delivered | error | queued | unknown
     'reason'    => $reason,     // provider's own words when it failed
-    'sender_ok' => $senderOk,   // is EMAIL_FROM a validated sender at the provider?
-    'from'      => EMAIL_FROM,
+    'sender_ok' => $senderOk,   // is the sender a validated sender at the provider?
+    'from'      => mail_from(),  // the address actually used (config.php or the Settings page)
+    'provider'  => mail_provider(),
     'diag'      => $diag,       // transport / reachable / config notes for THIS server
     'tail'      => $tail,
 ]);

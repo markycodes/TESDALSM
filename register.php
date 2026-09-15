@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['user_id'] = $newUserId;
                 set_flash('success', 'Account created! You are enrolled in "'
                     . (string) ($c['title'] ?? 'the course') . '". Happy learning! 🎉');
-                send_welcome_email($newUserId, $courseId); // greeting e-mail to the new student
+                try { send_welcome_email($newUserId, $courseId); } catch (Throwable $e) { /* mail must never break registration */ }
                 header('Location: dashboard.php');
                 exit;
             }
@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             session_regenerate_id(true);
             $_SESSION['user_id'] = $newUserId;
             set_flash('success', 'Account created! You can now create courses and invite students with enrollment codes.');
-            send_welcome_email($newUserId); // greeting e-mail to the new teacher too
+            try { send_welcome_email($newUserId); } catch (Throwable $e) { /* mail must never break registration */ } // greeting e-mail to the new teacher too
             header('Location: dashboard.php');
             exit;
         }

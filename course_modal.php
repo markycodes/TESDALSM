@@ -20,7 +20,7 @@
         <input id="c-category" name="category" list="category-list" maxlength="60" placeholder="e.g. Programming"
           class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
         <datalist id="category-list">
-          <?php foreach ($categories as $cat): ?>
+          <?php foreach (($categories ?? []) as $cat): ?>
             <option value="<?= e($cat) ?>"><?php endforeach; ?>
         </datalist>
       </div>

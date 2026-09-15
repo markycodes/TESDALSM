@@ -38,9 +38,159 @@ if (!defined('DB_PASS')) define('DB_PASS', '');
  * are logged to data/mail.log. APP_URL (https://yoursite) builds clickable
  * links inside e-mails. The app never breaks when e-mail is not configured.
  * -------------------------------------------------------------------------- */
-if (!defined('EMAIL_FROM'))    define('EMAIL_FROM', 'LearnHub LMS <no-reply@example.com>'); /* real sender lives in config.php */
-if (!defined('EMAIL_API_URL')) define('EMAIL_API_URL', 'https://api.brevo.com/v3/smtp/email');
-if (!defined('EMAIL_API_KEY')) define('EMAIL_API_KEY', ''); /* real key lives in config.php (git-ignored) */
+if (!defined('EMAIL_FROM'))    define('EMAIL_FROM', '');   /* empty = use the saved setting, else the built-in sender */
+if (!defined('EMAIL_API_URL')) define('EMAIL_API_URL', ''); /* empty = use the saved setting / the provider implied by the key */
+if (!defined('EMAIL_API_KEY')) define('EMAIL_API_KEY', ''); /* real key lives in config.php or in-app Settings (never committed) */
+
+/* ---- saved settings store ---------------------------------------------------
+ * E-mail can be configured FROM THE DEPLOYED SITE (Settings page) because
+ * config.php is git-ignored and is therefore usually missing after a fresh
+ * upload. Resolution order for every mail value:
+ *     config.php constant  ->  saved setting  ->  built-in last resort. */
+function settings_ensure(): void
+{
+    static $done = false;
+    if ($done) return;
+    $done = true;
+    try {
+        db()->exec('CREATE TABLE IF NOT EXISTS app_settings (k VARCHAR(48) NOT NULL, v TEXT NOT NULL, PRIMARY KEY (k)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+    } catch (Throwable $e) { /* read-only DB: constants still work */ }
+}
+
+function setting_get(string $k, string $default = ''): string
+{
+    settings_ensure();
+    try {
+        $st = db()->prepare('SELECT v FROM app_settings WHERE k = ?');
+        $st->execute([$k]);
+        $v = $st->fetchColumn();
+        return $v === false ? $default : (string) $v;
+    } catch (Throwable $e) {
+        return $default;
+    }
+}
+
+function setting_set(string $k, string $v): void
+{
+    settings_ensure();
+    try {
+        db()->prepare('INSERT INTO app_settings (k, v) VALUES (?,?) ON DUPLICATE KEY UPDATE v = ?')->execute([$k, $v, $v]);
+    } catch (Throwable $e) { /* ignore */ }
+}
+
+/** Default sender when nothing is set: the first (admin) teacher account. Keeps
+ *  the address out of the source code while still giving a fresh deploy with no
+ *  config.php a sensible sender. */
+function mail_default_from(): string
+{
+    try {
+        $st = db()->query("SELECT email FROM users WHERE role = 'teacher' ORDER BY id LIMIT 1");
+        $mail = (string) ($st->fetchColumn() ?: '');
+        if (filter_var($mail, FILTER_VALIDATE_EMAIL)) return 'LearnHub LMS <' . $mail . '>';
+    } catch (Throwable $e) { /* users table not ready yet */ }
+    return '';
+}
+
+function mail_from(): string
+{
+    if (EMAIL_FROM !== '') return EMAIL_FROM;                  /* fixed by config.php */
+    $saved = setting_get('mail_from', '');
+    return $saved !== '' ? $saved : mail_default_from();
+}
+
+function mail_api_key(): string
+{
+    if (EMAIL_API_KEY !== '') return EMAIL_API_KEY;            /* fixed by config.php */
+    return setting_get('mail_api_key', '');
+}
+
+function mail_api_url(): string
+{
+    if (EMAIL_API_URL !== '') return EMAIL_API_URL;            /* fixed by config.php */
+    $saved = setting_get('mail_api_url', '');
+    if ($saved !== '') return $saved;
+    return mail_api_key() !== '' ? 'https://api.brevo.com/v3/smtp/email' : '';
+}
+
+/** This site's own base URL, derived from the current request — so links inside
+ *  e-mails still work on a fresh deploy where config.php (and APP_URL) are absent. */
+function request_base_url(): string
+{
+    $host = (string) ($_SERVER['HTTP_HOST'] ?? '');
+    if ($host === '' || strpos($host, '.') === false) return '';
+    $https = (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off')
+        || strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https'
+        || (int) ($_SERVER['SERVER_PORT'] ?? 0) === 443;
+    $dir = str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/')));
+    $dir = rtrim($dir === '/' ? '' : $dir, '/');
+    return ($https ? 'https://' : 'http://') . $host . $dir;
+}
+
+function mail_app_url(): string
+{
+    if (APP_URL !== '') return APP_URL;
+    $saved = setting_get('mail_app_url', '');
+    return $saved !== '' ? $saved : request_base_url();
+}
+
+/** brevo | sendgrid | resend | php-mail | none — what this server will actually use. */
+function mail_provider(): string
+{
+    if (mail_api_url() !== '' && mail_api_key() !== '') {
+        $u = strtolower(mail_api_url());
+        if (strpos($u, 'brevo') !== false) return 'brevo';
+        if (strpos($u, 'sendgrid') !== false) return 'sendgrid';
+        return 'resend';
+    }
+    return function_exists('mail') ? 'php-mail' : 'none';
+}
+
+/** Which outbound HTTP transport does this server have? cURL first — it keeps
+ *  working when the host disables allow_url_fopen, which is the #1 reason mail
+ *  works on a dev machine but not on the live host. */
+function lh_http_transport(): string
+{
+    if (function_exists('curl_init')) return 'curl';
+    if (ini_get('allow_url_fopen')) return 'fopen';
+    return 'none';
+}
+
+/** Minimal HTTP client that works on cURL-only and fopen-only hosts.
+ *  Returns ['code' => int, 'body' => string, 'err' => string]; code 0 = never reached. */
+function lh_http(string $url, string $method = 'GET', array $headers = [], string $payload = '', int $timeout = 10): array
+{
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CUSTOMREQUEST  => $method,
+            CURLOPT_HTTPHEADER     => $headers,
+            CURLOPT_TIMEOUT        => $timeout,
+            CURLOPT_CONNECTTIMEOUT => min(6, $timeout),
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS      => 2,
+        ]);
+        if ($payload !== '') curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+        $body = curl_exec($ch);
+        $err  = (string) curl_error($ch);
+        $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        if (PHP_VERSION_ID < 80500) curl_close($ch);  /* a no-op since PHP 8.0, deprecated in 8.5 */
+        if ($body === false) return ['code' => 0, 'body' => '', 'err' => 'curl: ' . ($err !== '' ? $err : 'connection failed')];
+        return ['code' => $code, 'body' => (string) $body, 'err' => ''];
+    }
+    if (ini_get('allow_url_fopen')) {
+        $ctx = stream_context_create(['http' => [
+            'method' => $method, 'header' => implode("\r\n", $headers), 'content' => $payload,
+            'ignore_errors' => true, 'follow_location' => 1, 'max_redirects' => 2, 'timeout' => $timeout,
+        ]]);
+        $body = @file_get_contents($url, false, $ctx);
+        $code = 0;
+        foreach ($http_response_header ?? [] as $h) { if (preg_match('#HTTP/\S+\s+(\d+)#', $h, $m)) $code = (int) $m[1]; }
+        if ($body === false) return ['code' => 0, 'body' => '', 'err' => 'request failed (allow_url_fopen)'];
+        return ['code' => $code, 'body' => (string) $body, 'err' => ''];
+    }
+    return ['code' => 0, 'body' => '', 'err' => 'no HTTP transport: this host has cURL disabled AND allow_url_fopen Off'];
+}
 if (!defined('APP_URL'))       define('APP_URL', '');       /* e.g. https://yoursite — builds links inside e-mails */
 
 const DOC_EXTS    = ['pdf','docx','pptx','xlsx','txt','md','csv','png','jpg','jpeg','gif','webp'];
@@ -2102,7 +2252,7 @@ function notify_course_students(int $courseId, string $type, string $title, stri
         $mail = (string) ($r['email'] ?? '');
         if (!filter_var($mail, FILTER_VALIDATE_EMAIL)) continue;
         $inner = '<p style="font-size:14px;line-height:1.6;color:#334155">' . e($body) . '</p>'
-            . ($link !== '' ? email_button(APP_URL !== '' ? app_link($link) : $link, 'Open it now') : '');
+            . ($link !== '' ? email_button(app_link($link), 'Open it now') : '');
         send_email($mail, $title, email_shell('LearnHub update', $inner));
     }
 }
@@ -2167,7 +2317,10 @@ function email_log(string $to, string $subject, bool $ok, string $err = ''): voi
     $path = DATA_DIR . '/mail.log';
     @mkdir(DATA_DIR, 0777, true);
     $old = is_file($path) ? (string) (@file_get_contents($path) ?? '') : '';
-    @file_put_contents($path, $old . $line);
+    if (@file_put_contents($path, $old . $line) === false) {
+        @error_log('LearnHub mail: ' . trim($line));   /* host blocks the data folder */
+    }
+    setting_set('mail_last', trim($line));            /* visible in the app even then */
 }
 
 /** Deliver one e-mail. Returns true when a transport accepted it.
@@ -2175,7 +2328,7 @@ function email_log(string $to, string $subject, bool $ok, string $err = ''): voi
  *  Provider is detected from EMAIL_API_URL: brevo | sendgrid | resend (default). */
 function email_from_parts(): array
 {
-    $from = trim(EMAIL_FROM);
+    $from = trim(mail_from());
     $name = 'LearnHub LMS'; $addr = $from;
     if (preg_match('/^(.*?)\s*<([^>]+)>\s*$/', $from, $m)) { $name = trim((string) $m[1]); $addr = trim((string) $m[2]); }
     if ($name === '') $name = $addr;
@@ -2186,46 +2339,48 @@ function email_via_php_mail(string $to, string $subject, string $html, string $t
 {
     $res = @mail($to, $subject, $text, $html);
     $ok = (bool) $res;
-    email_log($to, $subject, $ok, $ok ? '' : 'PHP mail() returned false');
+    email_log($to, $subject, $ok, $ok ? '' : 'PHP mail() returned false (free hosting disables it)');
     return $ok;
 }
 
+/** Deliver one e-mail. Returns true when a transport accepted it.
+ *  Transport: the provider's HTTP API (Brevo/SendGrid/Resend) whenever a key is
+ *  configured — works on hosts that disable PHP mail(). If the provider cannot be
+ *  reached at all (outbound blocked) it falls back to PHP mail() so a registration
+ *  e-mail is never silently lost. */
 function send_email(string $to, string $subject, string $html, string $text = ''): bool
 {
     if (!filter_var($to, FILTER_VALIDATE_EMAIL)) return false;
     $subject = cut($subject, 120);
     if ($text === '') $text = email_plain($html);
-    if (EMAIL_API_URL === '' || EMAIL_API_KEY === '') return email_via_php_mail($to, $subject, $html, $text);
+
+    $url = mail_api_url();
+    $key = mail_api_key();
+    if ($url === '' || $key === '') return email_via_php_mail($to, $subject, $html, $text);
 
     $from = email_from_parts();
-    $url = EMAIL_API_URL;
-    $headers = "Content-Type: application/json\r\n";
-    if (stripos($url, 'brevo') !== false) {
-        $headers .= "api-key: " . EMAIL_API_KEY . "\r\n";
+    $u = strtolower($url);
+    $headers = ['Content-Type: application/json'];
+    if (strpos($u, 'brevo') !== false) {
+        $headers[] = 'api-key: ' . $key;
         $payload = json_encode(['sender' => ['name' => $from['name'], 'email' => $from['email']], 'to' => [['email' => $to]], 'subject' => $subject, 'htmlContent' => $html, 'textContent' => $text]);
-    } elseif (stripos($url, 'sendgrid') !== false) {
-        $headers .= "Authorization: Bearer " . EMAIL_API_KEY . "\r\n";
+    } elseif (strpos($u, 'sendgrid') !== false) {
+        $headers[] = 'Authorization: Bearer ' . $key;
         $payload = json_encode(['personalizations' => [['to' => [['email' => $to]]]], 'from' => ['name' => $from['name'], 'email' => $from['email']], 'subject' => $subject, 'content' => [['type' => 'text/plain', 'value' => $text], ['type' => 'text/html', 'value' => $html]]]);
     } else { /* Resend-style (default) */
-        $headers .= "Authorization: Bearer " . EMAIL_API_KEY . "\r\n";
-        $payload = json_encode(['from' => EMAIL_FROM, 'to' => [$to], 'subject' => $subject, 'html' => $html, 'text' => $text]);
+        $headers[] = 'Authorization: Bearer ' . $key;
+        $payload = json_encode(['from' => mail_from(), 'to' => [$to], 'subject' => $subject, 'html' => $html, 'text' => $text]);
     }
-    $ok = false; $err = ''; $code = 0;
-    try {
-        $ctx = stream_context_create(['http' => [
-            'method'   => 'POST',
-            'header'   => $headers,
-            'content'  => $payload,
-            'follow_location' => 1, 'max_redirects' => 2, 'ignore_errors' => true,
-            'timeout'  => 8, // fail fast when a host blocks outbound HTTPS — registration must not hang
-        ]]);
-        $resp = (string) (@file_get_contents($url, false, $ctx) ?? '');
-        foreach ($http_response_header ?? [] as $h) { if (preg_match('#HTTP/\S+\s+(\d+)#', $h, $m)) $code = (int) $m[1]; }
-        $ok = $code >= 200 && $code < 300;
-        if (!$ok) $err = 'HTTP ' . $code . ': ' . substr($resp, 0, 180);
-    } catch (RuntimeException $e) {
-        $err = 'API exception: ' . $e->getMessage();
+
+    $r  = lh_http($url, 'POST', $headers, (string) $payload, 10);
+    $ok = $r['code'] >= 200 && $r['code'] < 300;
+    if (!$ok && $r['code'] === 0) {
+        /* the provider was never reached: outbound blocked, DNS, or no HTTP
+         * transport. Do not drop the mail - try PHP mail() as a last resort. */
+        email_log($to, $subject, false, $r['err'] . ' -> trying PHP mail()');
+        return email_via_php_mail($to, $subject, $html, $text);
     }
+    $err = $ok ? '' : ($r['err'] !== '' ? $r['err'] : 'HTTP ' . $r['code'] . ': ' . substr($r['body'], 0, 180));
     email_log($to, $subject, $ok, $err);
     return $ok;
 }
@@ -2238,14 +2393,10 @@ function send_email(string $to, string $subject, string $html, string $text = ''
 /** Recent Brevo transactional events, newest first. Empty when unsupported. */
 function brevo_events(int $limit = 20): array
 {
-    if (stripos(EMAIL_API_URL, 'brevo') === false || EMAIL_API_KEY === '') return [];
-    $ctx = stream_context_create(['http' => [
-        'method'        => 'GET',
-        'header'        => "accept: application/json\r\napi-key: " . EMAIL_API_KEY . "\r\n",
-        'ignore_errors' => true,
-    ]]);
-    $resp = (string) (@file_get_contents('https://api.brevo.com/v3/smtp/statistics/events?limit=' . $limit . '&sort=desc', false, $ctx) ?? '');
-    $j = json_decode($resp, true);
+    if (mail_provider() !== 'brevo') return [];
+    $r = lh_http('https://api.brevo.com/v3/smtp/statistics/events?limit=' . $limit . '&sort=desc', 'GET',
+        ['accept: application/json', 'api-key: ' . mail_api_key()], '', 8);
+    $j = json_decode($r['body'], true);
     return is_array($j['events'] ?? null) ? $j['events'] : [];
 }
 
@@ -2273,15 +2424,11 @@ function email_delivery_state(string $needle, int $waitSeconds = 8): array
 /** True when EMAIL_FROM's address is one of the provider's validated senders. */
 function email_sender_is_verified(): ?bool
 {
-    if (stripos(EMAIL_API_URL, 'brevo') === false || EMAIL_API_KEY === '') return null;
-    $ctx = stream_context_create(['http' => [
-        'method'        => 'GET',
-        'header'        => "accept: application/json\r\napi-key: " . EMAIL_API_KEY . "\r\n",
-        'ignore_errors' => true,
-        'timeout'       => 10,
-    ]]);
-    $resp = (string) (@file_get_contents('https://api.brevo.com/v3/senders', false, $ctx) ?? '');
-    $j = json_decode($resp, true);
+    if (mail_provider() !== 'brevo') return null;
+    $r = lh_http('https://api.brevo.com/v3/senders', 'GET',
+        ['accept: application/json', 'api-key: ' . mail_api_key()], '', 10);
+    if ($r['code'] < 200 || $r['code'] >= 300) return null;
+    $j = json_decode($r['body'], true);
     if (!is_array($j['senders'] ?? null)) return null;
     $want = strtolower(email_from_parts()['email']);
     foreach ($j['senders'] as $s) {
@@ -2296,41 +2443,40 @@ function email_sender_is_verified(): ?bool
 function mail_diagnostics(): array
 {
     $out = ['transport' => 'none', 'reachable' => null, 'sender_ok' => null, 'notes' => []];
-    if (EMAIL_API_URL !== '' && EMAIL_API_KEY !== '') {
-        $out['transport'] = stripos(EMAIL_API_URL, 'brevo') !== false ? 'brevo-api'
-            : (stripos(EMAIL_API_URL, 'sendgrid') !== false ? 'sendgrid-api' : 'http-api');
-    } elseif (function_exists('mail')) {
-        $out['transport'] = 'php-mail';
-    }
+    $prov = mail_provider();
+    $out['transport'] = $prov === 'php-mail' ? 'php-mail' : $prov;
+    $out['http'] = lh_http_transport();
+    $out['from'] = mail_from();
+    $out['app_url'] = mail_app_url();
+
     if ($out['transport'] === 'none') {
-        $out['notes'][] = 'No e-mail transport is configured on this server: set EMAIL_API_URL + EMAIL_API_KEY in config.php.';
+        $out['notes'][] = 'No e-mail transport is configured on this server: paste a Brevo API key in Settings (or set EMAIL_API_KEY in config.php).';
     }
     if ($out['transport'] === 'php-mail') {
-        $out['notes'][] = 'Using PHP mail(). Free hosting (InfinityFree) disables it - set a Brevo API key in config.php instead.';
+        $out['notes'][] = 'Only PHP mail() is available. Free hosting (InfinityFree) disables it - paste a Brevo API key in Settings instead.';
     }
-    if (APP_URL === '') {
-        $out['notes'][] = 'APP_URL is empty: links inside e-mails will be relative and may not open. Set it to your site address.';
+    if ($out['http'] === 'none') {
+        $out['notes'][] = 'This host has cURL disabled AND allow_url_fopen Off, so no provider API can be called from here.';
+    }
+    if ($out['app_url'] === '') {
+        $out['notes'][] = 'APP_URL is unknown: links inside e-mails will be relative and may not open.';
     }
     $want = strtolower(email_from_parts()['email']);
     if ($want === '' || !filter_var($want, FILTER_VALIDATE_EMAIL)) {
-        $out['notes'][] = 'EMAIL_FROM is not a valid address - the provider will reject every mail.';
+        $out['notes'][] = 'The sending address is not a valid e-mail address - the provider will reject every mail.';
     }
     if ($out['transport'] !== 'none' && $out['transport'] !== 'php-mail') {
-        /* can this server reach the provider at all? (InfinityFree allows outbound HTTPS) */
-        $ctx = stream_context_create(['http' => [
-            'method'        => 'GET',
-            'header'        => "accept: application/json\r\napi-key: " . EMAIL_API_KEY . "\r\n",
-            'ignore_errors' => true,
-            'timeout'       => 10,
-        ]]);
-        $resp = @file_get_contents(EMAIL_API_URL, false, $ctx);
-        $out['reachable'] = ($resp !== false);
-        if ($resp === false) {
-            $out['notes'][] = 'This server could not reach the e-mail provider (outbound HTTPS blocked or DNS unavailable).';
+        /* can this server reach the provider at all? (a 4xx/2xx both prove it) */
+        $auth = $prov === 'brevo' ? 'api-key: ' : 'Authorization: Bearer ';
+        $r = lh_http(mail_api_url(), 'GET', ['accept: application/json', $auth . mail_api_key()], '', 10);
+        $out['reachable'] = $r['code'] > 0;
+        $out['http_code'] = $r['code'];
+        if (!$out['reachable']) {
+            $out['notes'][] = 'This server could not reach the e-mail provider: ' . ($r['err'] !== '' ? $r['err'] : 'connection failed') . '.';
         }
         $out['sender_ok'] = email_sender_is_verified();
         if ($out['sender_ok'] === false) {
-            $out['notes'][] = 'EMAIL_FROM (' . $want . ') is NOT in the provider\'s validated-sender list - mail is accepted then refused at delivery. Validate it in the provider dashboard, spelled exactly.';
+            $out['notes'][] = 'The sending address (' . $want . ') is NOT in the provider\'s validated-sender list - mail is accepted then refused at delivery. Validate it in the provider dashboard, spelled exactly.';
         }
     }
     return $out;
@@ -2354,7 +2500,8 @@ function email_button(string $href, string $label): string
 
 function app_link(string $path): string
 {
-    return trim(APP_URL, '/') . '/' . $path;
+    $base = trim(mail_app_url(), '/');
+    return $base !== '' ? $base . '/' . $path : $path;
 }
 
 /* ---------------- event e-mails ---------------- */
@@ -2374,14 +2521,14 @@ function send_welcome_email(int $studentId, int $courseId = 0): void
         $inner = '<p style="font-size:14px;color:#334155">Hi ' . e((string) $u['name']) . ',</p>'
             . '<p style="font-size:14px;line-height:1.6;color:#334155">Your LearnHub account is ready. Log in anytime with <b>' . e($mail) . '</b>.</p>'
             . '<p style="font-size:14px;line-height:1.6;color:#334155">As a teacher you can create a course, upload lessons (files, video or a YouTube link), build quizzes, and invite students with a one-time enrollment code. Your students then receive every update by e-mail too.</p>'
-            . email_button(APP_URL !== '' ? app_link('dashboard.php') : 'dashboard.php', 'Open your dashboard');
+            . email_button(app_link('dashboard.php'), 'Open your dashboard');
         send_email($mail, 'Welcome to LearnHub', email_shell('Welcome! ', $inner));
         return;
     }
     $inner = '<p style="font-size:14px;color:#334155">Hi ' . e((string) $u['name']) . ',</p>'
         . '<p style="font-size:14px;line-height:1.6;color:#334155">You are now enrolled in <b style="color:#0f172a">' . e((string) $c['title']) . '</b> · taught by ' . e((string) ($c['teacher_name'] ?? 'your teacher')) . '. New lessons, quizzes and messages will land here in your inbox.</p>'
         . '<p style="font-size:14px;color:#334155">Log in anytime with <b>' . e((string) $u['email']) . '</b>.</p>'
-        . email_button(APP_URL !== '' ? app_link('login.php') : 'login.php', 'Go to LearnHub');
+        . email_button(app_link('login.php'), 'Go to LearnHub');
     send_email((string) $u['email'], 'Welcome to ' . cut((string) $c['title'], 60) . ' 🎉', email_shell('Welcome! 🎉', $inner));
 }
 
@@ -2395,7 +2542,7 @@ function send_quiz_result_email(int $studentId, string $quizTitle, array $result
     $inner = '<p style="font-size:14px;color:#334155">You scored <b>' . (int) ($result['correct'] ?? 0) . '/' . (int) ($result['total'] ?? 0)
         . '</b> (' . $pct . '%) on “' . e(cut($quizTitle, 80)) . '”.</p>'
         . '<p style="font-size:14px;' . ($passed ? 'color:#047857' : 'color:#b91c1c') . '">' . ($passed ? '✅ Passed — great job!' : '❌ Not passed — review your answers and ask your teacher if you need help.') . '</p>'
-        . email_button(APP_URL !== '' ? app_link('my_records.php') : 'my_records.php', 'View your records');
+        . email_button(app_link('my_records.php'), 'View your records');
     send_email((string) $u['email'], ($passed ? '✅ ' : '📝 ') . 'Quiz result: ' . cut($quizTitle, 60), email_shell('Quiz result', $inner));
 }
 
@@ -2408,7 +2555,7 @@ function send_message_email(int $toId, int $fromId, string $body): void
     if (!filter_var((string) ($dst['email'] ?? ''), FILTER_VALIDATE_EMAIL)) return;
     $inner = '<p style="font-size:14px;color:#334155"><b>' . e((string) $src['name']) . '</b> sent you a message:</p>'
         . '<p style="font-size:14px;color:#0f172a;white-space:pre-wrap">' . e(cut($body, 220)) . '</p>'
-        . email_button(APP_URL !== '' ? app_link('messages.php?with=' . $fromId) : 'messages.php', 'Open messages');
+        . email_button(app_link('messages.php?with=' . $fromId), 'Open messages');
     send_email((string) $dst['email'], '💬 New message from ' . cut((string) $src['name'], 40), email_shell('New message', $inner));
 }
 
@@ -2456,7 +2603,7 @@ function maybe_send_digest(int $userId): void
         . ($quizzes > 0 ? '<li style="font-size:14px;color:#334155">' . $quizzes . ' quiz' . ($quizzes === 1 ? '' : 'zes') . ' still to take</li>' : '')
         . ($lessons > 0 ? '<li style="font-size:14px;color:#334155">' . $lessons . ' lesson' . ($lessons === 1 ? '' : 's') . ' still to complete</li>' : '')
         . '</ul>'
-        . email_button(APP_URL !== '' ? app_link('dashboard.php') : 'dashboard.php', 'See what is new')
+        . email_button(app_link('dashboard.php'), 'See what is new')
         . '<p style="font-size:12px;color:#94a3b8;margin-top:6px">One reminder per day at most — log in to clear it.</p>';
     send_email((string) $u['email'], 'LearnHub: ' . implode(' and ', $bits) . ' waiting for you', email_shell('You have updates 👋', $inner));
     user_meta_set($userId, 'digest_at', (string) $now);

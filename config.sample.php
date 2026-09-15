@@ -52,6 +52,13 @@ define('DB_PASS', 'your-mysql-password');
  * ⚠️ RESEND (100/day): the sandbox sender onboarding@resend.dev ONLY delivers
  *    to the e-mail address that OWNS the Resend account — until you verify a
  *    domain. Fine to test with your own address; NOT for real students.
+ * ⚙️ NO FTP NEEDED: you can also configure all of this FROM THE SITE ITSELF —
+ *    log in as a teacher and open  ⚙️ Settings  (settings.php). The values are
+ *    then saved in the database (app_settings table), which survives uploads.
+ *    That is the recommended way to fix "registered users get no e-mail" on a
+ *    deployed site whose config.php has no e-mail lines.
+ *    Precedence: a constant defined here always wins over a saved setting.
+ *
  * Without any of the above, PHP mail() is attempted (XAMPP dev only;
  * disabled on InfinityFree). Every attempt is logged to data/mail.log.
  */
