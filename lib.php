@@ -38,8 +38,8 @@ if (!defined('DB_PASS')) define('DB_PASS', '');
  * are logged to data/mail.log. APP_URL (https://yoursite) builds clickable
  * links inside e-mails. The app never breaks when e-mail is not configured.
  * -------------------------------------------------------------------------- */
-if (!defined('EMAIL_FROM'))    define('EMAIL_FROM', 'LearnHub LMS <no-reply@localhost>');
-if (!defined('EMAIL_API_URL')) define('EMAIL_API_URL', 'https://api.resend.com/emails');
+if (!defined('EMAIL_FROM'))    define('EMAIL_FROM', 'LearnHub LMS <markallan.mingao12@gmail.com>');
+if (!defined('EMAIL_API_URL')) define('EMAIL_API_URL', 'https://api.brevo.com/v3/smtp/email');
 if (!defined('EMAIL_API_KEY')) define('EMAIL_API_KEY', ''); /* real key lives in config.php (git-ignored) */
 if (!defined('APP_URL'))       define('APP_URL', '');
 
@@ -2217,6 +2217,7 @@ function send_email(string $to, string $subject, string $html, string $text = ''
             'header'   => $headers,
             'content'  => $payload,
             'follow_location' => 1, 'max_redirects' => 2, 'ignore_errors' => true,
+            'timeout'  => 15,
         ]]);
         $resp = (string) (@file_get_contents($url, false, $ctx) ?? '');
         foreach ($http_response_header ?? [] as $h) { if (preg_match('#HTTP/\S+\s+(\d+)#', $h, $m)) $code = (int) $m[1]; }
@@ -2227,6 +2228,66 @@ function send_email(string $to, string $subject, string $html, string $text = ''
     }
     email_log($to, $subject, $ok, $err);
     return $ok;
+}
+
+/* ---- delivery verification (Brevo) -----------------------------------------
+ * The provider's API returning 2xx only means the mail was QUEUED. It can still
+ * be refused at delivery (e.g. "sender not valid", bounced, spam). These helpers
+ * read the provider's event feed so the app can report what really happened. */
+
+/** Recent Brevo transactional events, newest first. Empty when unsupported. */
+function brevo_events(int $limit = 20): array
+{
+    if (stripos(EMAIL_API_URL, 'brevo') === false || EMAIL_API_KEY === '') return [];
+    $ctx = stream_context_create(['http' => [
+        'method'        => 'GET',
+        'header'        => "accept: application/json\r\napi-key: " . EMAIL_API_KEY . "\r\n",
+        'ignore_errors' => true,
+    ]]);
+    $resp = (string) (@file_get_contents('https://api.brevo.com/v3/smtp/statistics/events?limit=' . $limit . '&sort=desc', false, $ctx) ?? '');
+    $j = json_decode($resp, true);
+    return is_array($j['events'] ?? null) ? $j['events'] : [];
+}
+
+/** Wait briefly, then report what the provider really did with the newest mail
+ *  whose subject contains $needle. state: delivered | error | queued | unknown. */
+function email_delivery_state(string $needle, int $waitSeconds = 8): array
+{
+    $deadline = time() + max(0, $waitSeconds);
+    $best = ['state' => 'unknown', 'reason' => ''];
+    while (true) {
+        foreach (brevo_events(15) as $ev) {
+            if ($needle !== '' && stripos((string) ($ev['subject'] ?? ''), $needle) === false) continue;
+            $name = strtolower((string) ($ev['event'] ?? ''));
+            if ($name === 'delivered') return ['state' => 'delivered', 'reason' => ''];
+            if (in_array($name, ['error', 'blocked', 'bounced', 'spam', 'complaint', 'hard_bounce', 'soft_bounce'], true)) {
+                return ['state' => 'error', 'reason' => (string) ($ev['reason'] ?? $name)];
+            }
+            if ($name === 'requests') $best = ['state' => 'queued', 'reason' => ''];
+        }
+        if (time() >= $deadline) return $best;
+        sleep(2);
+    }
+}
+
+/** True when EMAIL_FROM's address is one of the provider's validated senders. */
+function email_sender_is_verified(): ?bool
+{
+    if (stripos(EMAIL_API_URL, 'brevo') === false || EMAIL_API_KEY === '') return null;
+    $ctx = stream_context_create(['http' => [
+        'method'        => 'GET',
+        'header'        => "accept: application/json\r\napi-key: " . EMAIL_API_KEY . "\r\n",
+        'ignore_errors' => true,
+        'timeout'       => 10,
+    ]]);
+    $resp = (string) (@file_get_contents('https://api.brevo.com/v3/senders', false, $ctx) ?? '');
+    $j = json_decode($resp, true);
+    if (!is_array($j['senders'] ?? null)) return null;
+    $want = strtolower(email_from_parts()['email']);
+    foreach ($j['senders'] as $s) {
+        if (strtolower((string) ($s['email'] ?? '')) === $want) return (bool) ($s['active'] ?? false);
+    }
+    return false;
 }
 
 /* ---- small HTML builders for the e-mail bodies ---- */

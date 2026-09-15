@@ -1846,9 +1846,24 @@ if ($user) {
                   body: 'csrf=' + encodeURIComponent(csrf),
                 }).then(function (r) { return r.json(); }).then(function (d) {
                   restore();
-                  var msg = d.ok
-                    ? '✅ E-mail accepted — check your inbox: ' + d.to
-                    : '❌ E-mail was rejected — see mail.log below:';
+                  var msg;
+                  if (d.sender_ok === false) {
+                    /* catch the #1 cause before it wastes anyone's time */
+                    msg = '❌ Your sending address is NOT validated at the provider:\n\n' + d.from
+                      + '\n\nAdd/verify this exact address in your Brevo account (Senders & IP → Senders),'
+                      + ' or fix EMAIL_FROM in config.php to match the address you verified.';
+                  } else if (!d.ok) {
+                    msg = '❌ The provider refused the request — see mail.log lines below:';
+                  } else if (d.state === 'delivered') {
+                    msg = '✅ Delivered — the provider handed it to the recipient. Check your inbox (and spam): ' + d.to;
+                  } else if (d.state === 'queued') {
+                    msg = '⏳ Accepted and queued — not delivered yet. Check your inbox (and spam) in a minute: ' + d.to;
+                  } else if (d.state === 'error') {
+                    msg = '❌ Accepted, then REJECTED at delivery to ' + d.to + '.\n\nThe provider said:\n'
+                      + (d.reason || '(no reason given)');
+                  } else {
+                    msg = '✉️ Accepted by the provider, delivery not confirmed yet. Check your inbox (and spam): ' + d.to;
+                  }
                   if (d.tail && d.tail.length) msg += '\n\n' + d.tail.join('\n');
                   alert(msg);
                 }).catch(function () { restore(); alert('Could not reach the mail test endpoint.'); });
