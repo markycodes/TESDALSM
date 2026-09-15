@@ -1865,6 +1865,10 @@ if ($user) {
                     msg = '✉️ Accepted by the provider, delivery not confirmed yet. Check your inbox (and spam): ' + d.to;
                   }
                   if (d.tail && d.tail.length) msg += '\n\n' + d.tail.join('\n');
+                  var notes = (d.diag && d.diag.notes) ? d.diag.notes : [];
+                  if (notes.length && (d.sender_ok === false || !d.ok || d.state === 'error' || d.state === 'unknown')) {
+                    msg += '\n\nServer check (' + ((d.diag && d.diag.transport) || 'unknown') + '):\n- ' + notes.join('\n- ');
+                  }
                   alert(msg);
                 }).catch(function () { restore(); alert('Could not reach the mail test endpoint.'); });
               });

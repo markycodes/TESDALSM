@@ -49,6 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             session_regenerate_id(true);
             $_SESSION['user_id'] = $newUserId;
             set_flash('success', 'Account created! You can now create courses and invite students with enrollment codes.');
+            send_welcome_email($newUserId); // greeting e-mail to the new teacher too
             header('Location: dashboard.php');
             exit;
         }

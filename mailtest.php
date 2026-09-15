@@ -32,6 +32,7 @@ if ($ok) {
     $reason = $r['reason'];
 }
 $senderOk = email_sender_is_verified();
+$diag     = mail_diagnostics();
 
 $tail = [];
 $log = DATA_DIR . '/mail.log';
@@ -47,6 +48,7 @@ echo json_encode([
     'reason'    => $reason,     // provider's own words when it failed
     'sender_ok' => $senderOk,   // is EMAIL_FROM a validated sender at the provider?
     'from'      => EMAIL_FROM,
+    'diag'      => $diag,       // transport / reachable / config notes for THIS server
     'tail'      => $tail,
 ]);
 exit;

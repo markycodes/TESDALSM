@@ -32,16 +32,16 @@ if (!defined('DB_PASS')) define('DB_PASS', '');
 
 /* ---- e-mail (greeting / updates / reminders) -------------------------------
  * Set EMAIL_API_URL + EMAIL_API_KEY in config.php to deliver through a
- * Resend-style HTTP API (free tier ≈ 100/day — plenty for a classroom).
+ * provider HTTP API — e.g. Brevo (free 300/day), SendGrid or Resend.
  * Without a key, PHP mail() is used on dev machines (XAMPP). InfinityFree free
  * hosting disables PHP mail(), so an API key is required there. All attempts
  * are logged to data/mail.log. APP_URL (https://yoursite) builds clickable
  * links inside e-mails. The app never breaks when e-mail is not configured.
  * -------------------------------------------------------------------------- */
-if (!defined('EMAIL_FROM'))    define('EMAIL_FROM', 'LearnHub LMS <markallan.mingao12@gmail.com>');
+if (!defined('EMAIL_FROM'))    define('EMAIL_FROM', 'LearnHub LMS <no-reply@example.com>'); /* real sender lives in config.php */
 if (!defined('EMAIL_API_URL')) define('EMAIL_API_URL', 'https://api.brevo.com/v3/smtp/email');
 if (!defined('EMAIL_API_KEY')) define('EMAIL_API_KEY', ''); /* real key lives in config.php (git-ignored) */
-if (!defined('APP_URL'))       define('APP_URL', '');
+if (!defined('APP_URL'))       define('APP_URL', '');       /* e.g. https://yoursite — builds links inside e-mails */
 
 const DOC_EXTS    = ['pdf','docx','pptx','xlsx','txt','md','csv','png','jpg','jpeg','gif','webp'];
 const VIDEO_EXTS  = ['mp4','webm','ogg','ogv','mov','m4v'];
@@ -2217,7 +2217,7 @@ function send_email(string $to, string $subject, string $html, string $text = ''
             'header'   => $headers,
             'content'  => $payload,
             'follow_location' => 1, 'max_redirects' => 2, 'ignore_errors' => true,
-            'timeout'  => 15,
+            'timeout'  => 8, // fail fast when a host blocks outbound HTTPS — registration must not hang
         ]]);
         $resp = (string) (@file_get_contents($url, false, $ctx) ?? '');
         foreach ($http_response_header ?? [] as $h) { if (preg_match('#HTTP/\S+\s+(\d+)#', $h, $m)) $code = (int) $m[1]; }
@@ -2290,6 +2290,52 @@ function email_sender_is_verified(): ?bool
     return false;
 }
 
+/** Plain-language report of whether THIS server can actually deliver e-mail.
+ *  Meant to be shown in the admin mail-test panel so a deployed site explains
+ *  itself instead of silently failing. */
+function mail_diagnostics(): array
+{
+    $out = ['transport' => 'none', 'reachable' => null, 'sender_ok' => null, 'notes' => []];
+    if (EMAIL_API_URL !== '' && EMAIL_API_KEY !== '') {
+        $out['transport'] = stripos(EMAIL_API_URL, 'brevo') !== false ? 'brevo-api'
+            : (stripos(EMAIL_API_URL, 'sendgrid') !== false ? 'sendgrid-api' : 'http-api');
+    } elseif (function_exists('mail')) {
+        $out['transport'] = 'php-mail';
+    }
+    if ($out['transport'] === 'none') {
+        $out['notes'][] = 'No e-mail transport is configured on this server: set EMAIL_API_URL + EMAIL_API_KEY in config.php.';
+    }
+    if ($out['transport'] === 'php-mail') {
+        $out['notes'][] = 'Using PHP mail(). Free hosting (InfinityFree) disables it - set a Brevo API key in config.php instead.';
+    }
+    if (APP_URL === '') {
+        $out['notes'][] = 'APP_URL is empty: links inside e-mails will be relative and may not open. Set it to your site address.';
+    }
+    $want = strtolower(email_from_parts()['email']);
+    if ($want === '' || !filter_var($want, FILTER_VALIDATE_EMAIL)) {
+        $out['notes'][] = 'EMAIL_FROM is not a valid address - the provider will reject every mail.';
+    }
+    if ($out['transport'] !== 'none' && $out['transport'] !== 'php-mail') {
+        /* can this server reach the provider at all? (InfinityFree allows outbound HTTPS) */
+        $ctx = stream_context_create(['http' => [
+            'method'        => 'GET',
+            'header'        => "accept: application/json\r\napi-key: " . EMAIL_API_KEY . "\r\n",
+            'ignore_errors' => true,
+            'timeout'       => 10,
+        ]]);
+        $resp = @file_get_contents(EMAIL_API_URL, false, $ctx);
+        $out['reachable'] = ($resp !== false);
+        if ($resp === false) {
+            $out['notes'][] = 'This server could not reach the e-mail provider (outbound HTTPS blocked or DNS unavailable).';
+        }
+        $out['sender_ok'] = email_sender_is_verified();
+        if ($out['sender_ok'] === false) {
+            $out['notes'][] = 'EMAIL_FROM (' . $want . ') is NOT in the provider\'s validated-sender list - mail is accepted then refused at delivery. Validate it in the provider dashboard, spelled exactly.';
+        }
+    }
+    return $out;
+}
+
 /* ---- small HTML builders for the e-mail bodies ---- */
 
 function email_shell(string $title, string $inner): string
@@ -2313,12 +2359,25 @@ function app_link(string $path): string
 
 /* ---------------- event e-mails ---------------- */
 
-/** Greeting for a brand-new student enrolling with an invitation code. */
-function send_welcome_email(int $studentId, int $courseId): void
+/** Greeting e-mail for EVERY new account. A student who enrolled with an
+ *  invitation code gets their course details; a teacher (or a student with no
+ *  course yet) gets a short "how to start" note. */
+function send_welcome_email(int $studentId, int $courseId = 0): void
 {
     $u = find_user_by_id($studentId);
-    $c = course_row($courseId);
-    if (!$u || !$c) return;
+    if (!$u) return;
+    $mail = (string) ($u['email'] ?? '');
+    if (!filter_var($mail, FILTER_VALIDATE_EMAIL)) return;
+    $c = $courseId > 0 ? course_row($courseId) : null;
+    if (!$c) {
+        /* teacher (or student without a course) - short "how to start" note */
+        $inner = '<p style="font-size:14px;color:#334155">Hi ' . e((string) $u['name']) . ',</p>'
+            . '<p style="font-size:14px;line-height:1.6;color:#334155">Your LearnHub account is ready. Log in anytime with <b>' . e($mail) . '</b>.</p>'
+            . '<p style="font-size:14px;line-height:1.6;color:#334155">As a teacher you can create a course, upload lessons (files, video or a YouTube link), build quizzes, and invite students with a one-time enrollment code. Your students then receive every update by e-mail too.</p>'
+            . email_button(APP_URL !== '' ? app_link('dashboard.php') : 'dashboard.php', 'Open your dashboard');
+        send_email($mail, 'Welcome to LearnHub', email_shell('Welcome! ', $inner));
+        return;
+    }
     $inner = '<p style="font-size:14px;color:#334155">Hi ' . e((string) $u['name']) . ',</p>'
         . '<p style="font-size:14px;line-height:1.6;color:#334155">You are now enrolled in <b style="color:#0f172a">' . e((string) $c['title']) . '</b> · taught by ' . e((string) ($c['teacher_name'] ?? 'your teacher')) . '. New lessons, quizzes and messages will land here in your inbox.</p>'
         . '<p style="font-size:14px;color:#334155">Log in anytime with <b>' . e((string) $u['email']) . '</b>.</p>'
@@ -2354,7 +2413,7 @@ function send_message_email(int $toId, int $fromId, string $body): void
 }
 
 /** Daily catch-up reminder — piggybacks on the presence heartbeat, max 1/day,
- *  only when the student actually has unread updates (never spam). */
+ *  only when something actually needs their attention (never spam). */
 function maybe_send_digest(int $userId): void
 {
     $now = time();
@@ -2362,16 +2421,40 @@ function maybe_send_digest(int $userId): void
     if ($now - $last < 86400) return;
     $n = unread_notification_count($userId);
     $m = unread_message_total($userId);
-    if ($n === 0 && $m === 0) return;
+    /* ...and what is still waiting to be DONE in their courses */
+    $lessons = 0; $quizzes = 0;
+    try {
+        $st = db()->prepare('SELECT COUNT(*) FROM enrollments e'
+            . ' JOIN materials m ON m.course_id = e.course_id'
+            . ' LEFT JOIN progress p ON p.material_id = m.id AND p.user_id = e.user_id'
+            . ' WHERE e.user_id = ? AND p.material_id IS NULL');
+        $st->execute([$userId]);
+        $lessons = (int) $st->fetchColumn();
+
+        $st = db()->prepare('SELECT COUNT(*) FROM enrollments e'
+            . ' JOIN materials m ON m.course_id = e.course_id'
+            . ' JOIN quizzes q ON q.material_id = m.id'
+            . ' LEFT JOIN quiz_results r ON r.quiz_id = q.id AND r.user_id = e.user_id'
+            . ' WHERE e.user_id = ? AND r.quiz_id IS NULL');
+        $st->execute([$userId]);
+        $quizzes = (int) $st->fetchColumn();
+    } catch (Throwable $e) {
+        /* an older or absent table must never break the presence heartbeat */
+    }
+    if ($n === 0 && $m === 0 && $lessons === 0 && $quizzes === 0) return;
     $u = find_user_by_id($userId);
     if (!$u || !filter_var((string) ($u['email'] ?? ''), FILTER_VALIDATE_EMAIL)) return;
     $bits = [];
     if ($n > 0) $bits[] = $n . ' new ' . ($n === 1 ? 'update' : 'updates');
     if ($m > 0) $bits[] = $m . ' unread ' . ($m === 1 ? 'message' : 'messages');
+    if ($quizzes > 0) $bits[] = $quizzes . ($quizzes === 1 ? ' quiz to take' : ' quizzes to take');
+    if ($lessons > 0) $bits[] = $lessons . ($lessons === 1 ? ' lesson to finish' : ' lessons to finish');
     $inner = '<p style="font-size:14px;color:#334155">Hi ' . e((string) $u['name']) . ',</p>'
         . '<p style="font-size:14px;color:#334155">Since your last visit you have:</p><ul>'
         . ($n > 0 ? '<li style="font-size:14px;color:#334155">' . $n . ' new update' . ($n === 1 ? '' : 's') . ' in your courses</li>' : '')
         . ($m > 0 ? '<li style="font-size:14px;color:#334155">' . $m . ' unread message' . ($m === 1 ? '' : 's') . '</li>' : '')
+        . ($quizzes > 0 ? '<li style="font-size:14px;color:#334155">' . $quizzes . ' quiz' . ($quizzes === 1 ? '' : 'zes') . ' still to take</li>' : '')
+        . ($lessons > 0 ? '<li style="font-size:14px;color:#334155">' . $lessons . ' lesson' . ($lessons === 1 ? '' : 's') . ' still to complete</li>' : '')
         . '</ul>'
         . email_button(APP_URL !== '' ? app_link('dashboard.php') : 'dashboard.php', 'See what is new')
         . '<p style="font-size:12px;color:#94a3b8;margin-top:6px">One reminder per day at most — log in to clear it.</p>';
