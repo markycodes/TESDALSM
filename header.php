@@ -1701,6 +1701,7 @@ if ($user) {
 
       <div class="lh-side-sec">Menu</div>
       <nav class="lh-side-nav">
+        <?php if (($user['role'] ?? '') !== 'admin'): ?>
         <a href="dashboard.php" class="lh-side-link <?= $nav_active === 'dashboard' ? 'active' : '' ?>"
           data-tip="Dashboard"><span class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
@@ -1729,7 +1730,8 @@ if ($user) {
               <path d="M3 9.5h18M8 3v4M16 3v4" />
               <path d="M9 14.25l2 2 4-3.75" />
             </svg></span><span class="lh-side-label">Attendance</span></a>
-        <?php if (in_array(($user['role'] ?? ''), ['teacher', 'admin'], true)): ?>
+        <?php endif; ?>
+        <?php if (($user['role'] ?? '') === 'teacher'): ?>
           <a href="codes.php" class="lh-side-link <?= $nav_active === 'codes' ? 'active' : '' ?>"
             data-tip="Invite codes"><span class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
@@ -1751,6 +1753,7 @@ if ($user) {
                 <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.06A1.7 1.7 0 0 0 8.9 19.3a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.06A1.7 1.7 0 0 0 4.6 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6h.08A1.7 1.7 0 0 0 10.1 3.04V3a2 2 0 1 1 4 0v.06a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.08a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.06A1.7 1.7 0 0 0 19.4 15z" />
               </svg></span><span class="lh-side-label">Settings</span></a>
         <?php endif; ?>
+        <?php if (($user['role'] ?? '') !== 'admin'): ?>
         <a href="<?= ($user['role'] ?? '') === 'student' ? 'my_records.php' : 'quiz_records.php' ?>"
           class="lh-side-link <?= $nav_active === 'records' ? 'active' : '' ?>" data-tip="Quiz Records"><span
             class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
@@ -1758,8 +1761,10 @@ if ($user) {
               <path d="M4 20V10M10 20V4M16 20v-7" />
             </svg></span><span
             class="lh-side-label"><?= ($user['role'] ?? '') === 'student' ? 'My Progress' : 'Student Records' ?></span></a>
+        <?php endif; ?>
       </nav>
 
+      <?php if (($user['role'] ?? '') !== 'admin'): ?>
       <div class="lh-side-sec">Communication</div>
       <nav class="lh-side-nav">
         <a href="messages.php" class="lh-side-link <?= $nav_active === 'messages' ? 'active' : '' ?>" data-tip="Messages"
@@ -1771,6 +1776,7 @@ if ($user) {
           <span id="lh-chat-badge-side" class="lh-badge hidden">0</span>
         </a>
       </nav>
+      <?php endif; ?>
 
       <div class="lh-side-collapse-wrap"><button id="lh-side-collapse" type="button" title="Collapse sidebar"
           aria-label="Collapse sidebar">«</button></div>
