@@ -1302,6 +1302,45 @@ function maintenance_enabled(): bool
     return setting_get('maintenance', '') === '1';
 }
 
+/* ---- boot-time shutdown gate ------------------------------------------------
+ * Lives in lib.php (included by EVERY page) and runs before any auth redirect,
+ * so a shut-down site really is closed: every visitor gets HTTP 503 + the
+ * "temporarily closed" paper notice — even when the page would have redirected
+ * to login.php first (the header.php gate alone is bypassed by that redirect).
+ * Still reachable while closed: admin.php (control panel), login.php/logout.php
+ * (so the admin can sign in/out), ping.php (heartbeat), and any logged-in ADMIN
+ * browsing the site. CLI scripts skip the gate entirely. */
+if (PHP_SAPI !== 'cli') {
+    $lh_self = strtolower(basename((string) ($_SERVER['SCRIPT_NAME'] ?? '')));
+    if ($lh_self === '' || $lh_self === '/' ) $lh_self = 'index.php';
+    if (!in_array($lh_self, ['admin.php', 'login.php', 'logout.php', 'ping.php'], true)) {
+        $lh_me = null;
+        try { $lh_me = current_user(); } catch (Throwable $e) { /* DB not ready */ }
+        if (($lh_me['role'] ?? '') !== 'admin' && maintenance_enabled()) {
+            http_response_code(503);
+            header('Retry-After: 3600');
+            ?><!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LearnHub — temporarily closed</title>
+<style>
+  body{margin:0;min-height:100vh;display:grid;place-items:center;background:#eef1ee radial-gradient(circle at 20% 0%,rgba(16,185,129,.12),transparent 55%);font-family:ui-sans-serif,system-ui,'Segoe UI',Roboto,Arial,sans-serif;color:#1f2937}
+  .paper{position:relative;width:min(92vw,460px);background:repeating-linear-gradient(#fffdf6,#fffdf6 30px,#f4f0e4 31px);border-radius:6px;padding:44px 34px 38px;box-shadow:0 18px 40px rgba(15,23,42,.22);transform:rotate(-1.4deg)}
+  .tape{position:absolute;top:-13px;left:50%;margin-left:-56px;width:112px;height:24px;background:rgba(16,185,129,.45);box-shadow:0 1px 3px rgba(0,0,0,.15)}
+  h1{margin:0;font-size:22px}p{margin:10px 0 0;font-size:14px;line-height:1.6;color:#4b5563}
+  .sig{margin-top:18px;font-size:12px;color:#9ca3af}
+</style></head>
+<body><div class="paper"><div class="tape"></div>
+  <h1>🛠️ LearnHub is temporarily closed</h1>
+  <p>The administrator has paused the website for maintenance. Please check back soon —
+     lessons, quizzes and your progress are safe and will be right here when we reopen.</p>
+  <p class="sig">— LearnHub LMS</p>
+</div></body></html><?php
+            exit;
+        }
+    }
+    unset($lh_self, $lh_me);
+}
+
 /* ---------------- main-admin overview (admin.php) ---------------- */
 
 /** Every course with its teacher and enrolled-student count (biggest first). */
