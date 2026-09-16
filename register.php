@@ -24,6 +24,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             elseif (!empty($codeRow['used_by'])) $errors[] = 'That invitation code has already been used — ask your teacher for a fresh one.';
         }
     }
+    if ($role === 'teacher') {
+        if (strlen($code) < 4) {
+            $errors[] = 'Teachers need an access code — ask the main administrator.';
+        } else {
+            $tRow = teacher_code_lookup($code);
+            if (!$tRow) $errors[] = 'That access code is invalid.';
+            elseif (!empty($tRow['used_by'])) $errors[] = 'That access code has already been used — ask the administrator for a fresh one.';
+        }
+    }
     if (!$errors && email_exists($email)) {
         $errors[] = 'That email is already registered — try logging in.';
     }
@@ -46,12 +55,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
         } else {
-            session_regenerate_id(true);
-            $_SESSION['user_id'] = $newUserId;
-            set_flash('success', 'Account created! You can now create courses and invite students with enrollment codes.');
-            try { send_welcome_email($newUserId); } catch (Throwable $e) { /* mail must never break registration */ } // greeting e-mail to the new teacher too
-            header('Location: dashboard.php');
-            exit;
+            if (!redeem_teacher_code($code, $newUserId)) {
+                // code was just claimed by someone else — undo the account
+                db()->prepare('DELETE FROM users WHERE id = ?')->execute([$newUserId]);
+                $errors[] = 'That access code was just claimed by someone else — ask the administrator for a fresh one.';
+            } else {
+                session_regenerate_id(true);
+                $_SESSION['user_id'] = $newUserId;
+                set_flash('success', 'Teacher account created! You can now create courses and invite students with enrollment codes.');
+                try { send_welcome_email($newUserId); } catch (Throwable $e) { /* mail must never break registration */ } // greeting e-mail to the new teacher too
+                header('Location: dashboard.php');
+                exit;
+            }
         }
     }
 }
@@ -94,10 +109,10 @@ require __DIR__ . '/header.php';
         </div>
       </fieldset>
       <div>
-        <label class="block text-sm font-medium text-slate-700" for="code">Invitation code <?php if ($role === 'student'): ?><span class="text-rose-500">(required — from your teacher)</span><?php endif; ?></label>
-        <input id="code" name="code" value="<?= e($code) ?>" placeholder="e.g. DEMO-7K3P — from your teacher"
+        <label class="block text-sm font-medium text-slate-700" for="code">Access code <span class="text-rose-500">(required)</span></label>
+        <input id="code" name="code" value="<?= e($code) ?>" placeholder="e.g. DEMO-7K3P"
                class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
-        <p class="mt-1 text-xs text-slate-400">Students: the teacher of the course sends you a unique code — registering with it enrolls you in that exact course. Teachers: leave this blank.</p>
+        <p class="mt-1 text-xs text-slate-400">Students: your teacher sends you a unique code — registering with it enrolls you in that exact course. Teachers: use the access code from the main administrator.</p>
       </div>
       <div>
         <label class="block text-sm font-medium text-slate-700" for="password">Password</label>
@@ -117,8 +132,8 @@ require __DIR__ . '/header.php';
   if (!radios.length || !inp) return;
   function sync() {
     var student = document.querySelector('input[name="role"]:checked').value === 'student';
-    inp.required = student;
-    inp.placeholder = student ? 'e.g. DEMO-7K3P — from your teacher' : 'Leave blank for teacher accounts';
+    inp.required = true;
+    inp.placeholder = student ? 'e.g. DEMO-7K3P — from your teacher' : 'e.g. T-1A2B3C — from the main administrator';
   }
   radios.forEach(function (r) { r.addEventListener('change', sync); });
   sync();

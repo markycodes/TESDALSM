@@ -9,6 +9,16 @@ Teachers create courses and upload **learning materials** (PDF, DOCX, PPTX, imag
 - **Real-time notifications** (header bell): green unread badge, dropdown panel, per-item "mark as read" (click-through to the linked page) and "Mark all as read". Generated **only from real events**: 💬 new private message, 📚 new lesson posted, 🧪 quiz assigned, 🏆/📝 quiz result. Polled every 8s via `realtime.php?v=notifications` (also carries the chat unread total).
 - Tables (auto-created): `conversations` (UNIQUE student↔teacher pair), `messages` (sender, body, is_read, created_at), `notifications` (user, type, title, body, link, is_read). Demo data includes one teacher→student welcome message.
 
+## 🛡️ Main administrator
+
+- On first run the app auto-creates the main admin account — **`admin@learnhub.local`** with a random password written to **`data/admin-credentials.txt`** (that folder is blocked from the web and git). Log in and change the password on the Admin page.
+- **`admin.php` — Admin control panel** (main admin only):
+  - **Shut down / reopen the website** (maintenance mode): visitors see a "temporarily closed" notice (HTTP 503); only the admin can browse.
+  - **Teacher access codes** (`T-XXXXXX`, one-time): a person can only register as a **teacher** with one of these codes. Student invite codes remain a teacher tool (`codes.php`).
+  - **Site settings** (e-mail delivery/provider) — moved here from the teacher account; `settings.php` is admin-only.
+  - **Change the admin password.**
+- The admin can open every teacher page as well (admin passes all teacher gates).
+
 ## Requirements
 
 - XAMPP with **Apache** and **MySQL** running

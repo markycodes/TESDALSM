@@ -1,6 +1,30 @@
 <?php
 require_once __DIR__ . '/lib.php';
 $user = current_user();
+/* Maintenance mode: while shut down, only the main admin can browse. login/logout stay reachable. */
+if (maintenance_enabled()
+    && ($user['role'] ?? '') !== 'admin'
+    && !in_array(basename((string) ($_SERVER['SCRIPT_NAME'] ?? '')), ['login.php', 'logout.php'], true)) {
+    http_response_code(503);
+    header('Retry-After: 3600');
+    ?><!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LearnHub — temporarily closed</title>
+<style>
+  body{margin:0;min-height:100vh;display:grid;place-items:center;background:#eef1ee radial-gradient(circle at 20% 0%,rgba(16,185,129,.12),transparent 55%);font-family:ui-sans-serif,system-ui,'Segoe UI',Roboto,Arial,sans-serif;color:#1f2937}
+  .paper{position:relative;width:min(92vw,460px);background:repeating-linear-gradient(#fffdf6,#fffdf6 30px,#f4f0e4 31px);border-radius:6px;padding:44px 34px 38px;box-shadow:0 18px 40px rgba(15,23,42,.22);transform:rotate(-1.4deg)}
+  .tape{position:absolute;top:-13px;left:50%;margin-left:-56px;width:112px;height:24px;background:rgba(16,185,129,.45);box-shadow:0 1px 3px rgba(0,0,0,.15)}
+  h1{margin:0;font-size:22px}p{margin:10px 0 0;font-size:14px;line-height:1.6;color:#4b5563}
+  .sig{margin-top:18px;font-size:12px;color:#9ca3af}
+</style></head>
+<body><div class="paper"><div class="tape"></div>
+  <h1>🛠️ LearnHub is temporarily closed</h1>
+  <p>The administrator has paused the website for maintenance. Please check back soon —
+     lessons, quizzes and your progress are safe and will be right here when we reopen.</p>
+  <p class="sig">— LearnHub LMS</p>
+</div></body></html><?php
+    exit;
+}
 $page_title = $page_title ?? 'LearnHub';
 $nav_active = $nav_active ?? '';
 $flashes = take_flashes();
@@ -1671,7 +1695,7 @@ if ($user) {
           <a href="dashboard.php" class="block text-sm font-extrabold tracking-tight text-slate-900">LearnHub <span
               class="text-emerald-600">LMS</span></a>
           <p class="text-[11px] text-slate-400">
-            <?= ($user['role'] ?? '') === 'teacher' ? '👩‍🏫 Teacher' : '👨‍🎓 Student' ?></p>
+            <?= ($user['role'] ?? '') === 'admin' ? '🛡️ Main Admin' : (($user['role'] ?? '') === 'teacher' ? '👩‍🏫 Teacher' : '👨‍🎓 Student') ?></p>
         </div>
       </div>
 
@@ -1705,13 +1729,21 @@ if ($user) {
               <path d="M3 9.5h18M8 3v4M16 3v4" />
               <path d="M9 14.25l2 2 4-3.75" />
             </svg></span><span class="lh-side-label">Attendance</span></a>
-        <?php if (($user['role'] ?? '') === 'teacher'): ?>
+        <?php if (in_array(($user['role'] ?? ''), ['teacher', 'admin'], true)): ?>
           <a href="codes.php" class="lh-side-link <?= $nav_active === 'codes' ? 'active' : '' ?>"
             data-tip="Invite codes"><span class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M14.5 3.5a7 7 0 0 0-6.7 9.3L3.5 17v3.5H7L15 12.5a7 7 0 1 0-.5-9z" />
                 <circle cx="16.5" cy="7.5" r="1.8" />
               </svg></span><span class="lh-side-label">Invite codes</span></a>
+        <?php endif; ?>
+        <?php if (($user['role'] ?? '') === 'admin'): ?>
+          <a href="admin.php" class="lh-side-link <?= $nav_active === 'admin' ? 'active' : '' ?>"
+            data-tip="Admin"><span class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3l7.5 3v5.4c0 4.6-3.1 8.2-7.5 9.6-4.4-1.4-7.5-5-7.5-9.6V6z" />
+                <path d="M9.2 12.1l2 2 3.6-3.9" />
+              </svg></span><span class="lh-side-label">Admin</span></a>
           <a href="settings.php" class="lh-side-link <?= $nav_active === 'settings' ? 'active' : '' ?>"
             data-tip="Settings"><span class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
@@ -1719,13 +1751,13 @@ if ($user) {
                 <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.06A1.7 1.7 0 0 0 8.9 19.3a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.06A1.7 1.7 0 0 0 4.6 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6h.08A1.7 1.7 0 0 0 10.1 3.04V3a2 2 0 1 1 4 0v.06a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.08a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.06A1.7 1.7 0 0 0 19.4 15z" />
               </svg></span><span class="lh-side-label">Settings</span></a>
         <?php endif; ?>
-        <a href="<?= ($user['role'] ?? '') === 'teacher' ? 'quiz_records.php' : 'my_records.php' ?>"
+        <a href="<?= ($user['role'] ?? '') === 'student' ? 'my_records.php' : 'quiz_records.php' ?>"
           class="lh-side-link <?= $nav_active === 'records' ? 'active' : '' ?>" data-tip="Quiz Records"><span
             class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
               stroke-linecap="round" stroke-linejoin="round">
               <path d="M4 20V10M10 20V4M16 20v-7" />
             </svg></span><span
-            class="lh-side-label"><?= ($user['role'] ?? '') === 'teacher' ? 'Student Records' : 'My Progress' ?></span></a>
+            class="lh-side-label"><?= ($user['role'] ?? '') === 'student' ? 'My Progress' : 'Student Records' ?></span></a>
       </nav>
 
       <div class="lh-side-sec">Communication</div>
@@ -1748,7 +1780,7 @@ if ($user) {
         <span class="min-w-0 flex-1 text-left leading-tight">
           <span class="block truncate text-sm font-semibold text-slate-800"><?= e((string) $user['name']) ?></span>
           <span
-            class="block truncate text-[10px] uppercase tracking-wide text-slate-400"><?= ($user['role'] ?? '') === 'teacher' ? 'Teacher' : 'Student' ?></span>
+            class="block truncate text-[10px] uppercase tracking-wide text-slate-400"><?= ($user['role'] ?? '') === 'admin' ? 'Main Admin' : (($user['role'] ?? '') === 'teacher' ? 'Teacher' : 'Student') ?></span>
         </span>
         <a href="logout.php" title="Log out"
           class="lh-ico grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-500">⏻</a>
@@ -1833,7 +1865,7 @@ if ($user) {
           <span class="hidden text-right sm:flex sm:flex-col sm:items-start leading-tight">
             <span class="text-sm font-semibold leading-4 text-slate-800"><?= e((string) $user['name']) ?></span>
             <span
-              class="text-[10px] font-semibold uppercase tracking-wide text-slate-400"><?= ($user['role'] ?? '') === 'teacher' ? 'Teacher' : 'Student' ?></span>
+              class="text-[10px] font-semibold uppercase tracking-wide text-slate-400"><?= ($user['role'] ?? '') === 'admin' ? 'Admin' : (($user['role'] ?? '') === 'teacher' ? 'Teacher' : 'Student') ?></span>
           </span>
           <span
             class="grid h-9 w-9 place-items-center rounded-full bg-emerald-600 text-sm font-bold text-white"><?= e(strtoupper(substr((string) $user['name'], 0, 1))) ?></span>

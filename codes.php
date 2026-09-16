@@ -6,7 +6,7 @@
  */
 require_once __DIR__ . '/lib.php';
 $user = require_login();
-if (($user['role'] ?? '') !== 'teacher') {
+if (!in_array(($user['role'] ?? ''), ['teacher', 'admin'], true)) {
     http_response_code(403);
     exit('This page is for teachers only.');
 }

@@ -31,6 +31,7 @@ if (is_file(__DIR__ . '/config.php')) {
  * else (a real domain like learninghublms.wuaze.com) = production. */
 if (!defined('DB_HOST')) {
     $__host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    $__host = preg_replace('/:\d+$/', '', $__host);   /* strip the port: 127.0.0.1:8099 -> 127.0.0.1 */
     $__isLocal = PHP_SAPI === 'cli'
         || $__host === '' || $__host === 'localhost' || $__host === '127.0.0.1' || $__host === '::1'
         || strpos($__host, '.local') !== false && strpos($__host, '.') === strrpos($__host, '.local');
@@ -281,7 +282,7 @@ function db_ensure_schema(PDO $pdo): void
             name VARCHAR(120) NOT NULL,
             email VARCHAR(190) NOT NULL UNIQUE,
             password VARCHAR(255) NOT NULL,
-            role ENUM('teacher','student') NOT NULL DEFAULT 'student',
+            role ENUM('teacher','student','admin') NOT NULL DEFAULT 'student',
             created_at INT UNSIGNED NOT NULL DEFAULT 0
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
         "CREATE TABLE IF NOT EXISTS courses (
@@ -380,6 +381,18 @@ function db_ensure_schema(PDO $pdo): void
             CONSTRAINT fk_ec_teacher FOREIGN KEY (teacher_id) REFERENCES users (id) ON DELETE CASCADE,
             CONSTRAINT fk_ec_user FOREIGN KEY (used_by) REFERENCES users (id) ON DELETE SET NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        "CREATE TABLE IF NOT EXISTS teacher_codes (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            code VARCHAR(20) NOT NULL,
+            created_by INT UNSIGNED NOT NULL,
+            used_by INT UNSIGNED NULL,
+            used_at INT UNSIGNED NULL,
+            created_at INT UNSIGNED NOT NULL DEFAULT 0,
+            UNIQUE KEY uq_teacher_codes_code (code),
+            INDEX idx_teacher_codes_by (created_by),
+            CONSTRAINT fk_tcc_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE CASCADE,
+            CONSTRAINT fk_tcc_user FOREIGN KEY (used_by) REFERENCES users (id) ON DELETE SET NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
         "CREATE TABLE IF NOT EXISTS quizzes (
             id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
             material_id INT UNSIGNED NOT NULL UNIQUE,
@@ -464,7 +477,45 @@ function db_ensure_schema(PDO $pdo): void
     foreach ($tables as $sql) {
         $pdo->exec($sql);
     }
+    db_schema_post_migrate($pdo);
     db_migrate_quiz_results($pdo);
+}
+
+/** One-time-per-request post-schema work: widen the role ENUM on old databases, then guarantee a main admin exists. */
+function db_schema_post_migrate(PDO $pdo): void
+{
+    static $done = false;
+    if ($done) return;
+    $done = true;
+    /* older installs were created with role ENUM('teacher','student') — add 'admin' */
+    try {
+        $colType = $pdo->query("SELECT COLUMN_TYPE FROM information_schema.COLUMNS
+                                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'role'")
+            ->fetchColumn();
+        if ($colType && stripos((string) $colType, 'admin') === false) {
+            $pdo->exec("ALTER TABLE users MODIFY role ENUM('teacher','student','admin') NOT NULL DEFAULT 'student'");
+        }
+    } catch (Throwable $e) { /* best-effort; fresh installs already have the new ENUM */ }
+    admin_ensure($pdo);
+}
+
+/** Guarantee a main-admin account exists. Credentials are written to data/admin-credentials.txt (web-blocked). */
+function admin_ensure(PDO $pdo): void
+{
+    static $done = false;
+    if ($done) return;
+    $done = true;
+    try {
+        if ((int) $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'admin'")->fetchColumn() > 0) return;
+        $pass = 'lh-' . bin2hex(random_bytes(5));
+        $pdo->prepare('INSERT INTO users (name, email, password, role, created_at) VALUES (?,?,?,?,?)')
+            ->execute(['Main Admin', 'admin@learnhub.local', password_hash($pass, PASSWORD_DEFAULT), 'admin', time()]);
+        @file_put_contents(DATA_DIR . '/admin-credentials.txt',
+            "LearnHub main administrator (auto-created " . date('Y-m-d H:i:s') . ")\r\n" .
+            "E-mail:   admin@learnhub.local\r\n" .
+            "Password: {$pass}\r\n" .
+            "Log in and change it on the Admin page. This folder is blocked from the web and git.\r\n");
+    } catch (Throwable $e) { /* never block the site over this */ }
 }
 
 /** One-time migration: legacy multi-attempt rows -> one QuizResult per student (best attempt), then drop the old table. */
@@ -739,7 +790,15 @@ function require_login(): array
 function require_teacher(): array
 {
     $u = require_login();
-    if (($u['role'] ?? '') !== 'teacher') { header('Location: dashboard.php'); exit; }
+    if (!in_array(($u['role'] ?? ''), ['teacher', 'admin'], true)) { header('Location: dashboard.php'); exit; }
+    return $u;
+}
+
+/** Main-admin-only pages (Admin control panel, site settings). */
+function require_admin(): array
+{
+    $u = require_login();
+    if (($u['role'] ?? '') !== 'admin') { header('Location: dashboard.php'); exit; }
     return $u;
 }
 /* ---------------- CSRF ---------------- */
@@ -1176,6 +1235,71 @@ function delete_enroll_code(int $teacherId, int $codeId): bool
     $st = db()->prepare('DELETE FROM enroll_codes WHERE id = ? AND teacher_id = ? AND used_by IS NULL');
     $st->execute([$codeId, $teacherId]);
     return $st->rowCount() > 0;
+}
+
+/* ---------------- teacher access codes (main admin) ---------------- */
+
+function teacher_code_lookup(string $code): ?array
+{
+    $st = db()->prepare('SELECT tc.*, u.name AS created_by_name FROM teacher_codes tc
+                         LEFT JOIN users u ON u.id = tc.created_by WHERE tc.code = ? LIMIT 1');
+    $st->execute([strtoupper(trim($code))]);
+    return $st->fetch() ?: null;
+}
+
+/** Generate a one-time code that lets someone register as a teacher. */
+function generate_teacher_code(int $adminId): ?string
+{
+    $st = db()->prepare('SELECT COUNT(*) FROM teacher_codes WHERE used_by IS NULL');
+    $st->execute();
+    if ((int) $st->fetchColumn() >= 50) return null; // cap outstanding codes
+
+    for ($i = 0; $i < 8; $i++) {
+        $code = 'T-' . strtoupper(bin2hex(random_bytes(3)));
+        $chk = db()->prepare('SELECT COUNT(*) FROM teacher_codes WHERE code = ?');
+        $chk->execute([$code]);
+        if ((int) $chk->fetchColumn() === 0) {
+            db()->prepare('INSERT INTO teacher_codes (code, created_by, created_at) VALUES (?,?,?)')
+                ->execute([$code, $adminId, time()]);
+            return $code;
+        }
+    }
+    return null;
+}
+
+/** Atomically redeem a teacher access code. */
+function redeem_teacher_code(string $code, int $userId): bool
+{
+    $st = db()->prepare('SELECT id FROM teacher_codes WHERE code = ? AND used_by IS NULL LIMIT 1');
+    $st->execute([strtoupper(trim($code))]);
+    $row = $st->fetch();
+    if (!$row) return false;
+    $st = db()->prepare('UPDATE teacher_codes SET used_by = ?, used_at = ? WHERE id = ? AND used_by IS NULL');
+    $st->execute([$userId, time(), (int) $row['id']]);
+    return $st->rowCount() > 0;
+}
+
+function admin_teacher_codes(): array
+{
+    return db()->query('SELECT tc.*, u.name AS created_by_name, u2.name AS used_by_name
+                        FROM teacher_codes tc
+                        LEFT JOIN users u ON u.id = tc.created_by
+                        LEFT JOIN users u2 ON u2.id = tc.used_by
+                        ORDER BY tc.id DESC LIMIT 100')->fetchAll();
+}
+
+function delete_teacher_code(int $codeId): bool
+{
+    $st = db()->prepare('DELETE FROM teacher_codes WHERE id = ? AND used_by IS NULL');
+    $st->execute([$codeId]);
+    return $st->rowCount() > 0;
+}
+
+/* ---------------- maintenance mode (main admin) ---------------- */
+
+function maintenance_enabled(): bool
+{
+    return setting_get('maintenance', '') === '1';
 }
 
 function course_material_exists(int $courseId, int $materialId): bool

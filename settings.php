@@ -14,9 +14,9 @@
  */
 require_once __DIR__ . '/lib.php';
 $user = require_login();
-if (($user['role'] ?? '') !== 'teacher') {
+if (($user['role'] ?? '') !== 'admin') {
     http_response_code(403);
-    exit('This page is for teachers only.');
+    exit('This page is for the main administrator only.');
 }
 $nav_active = 'settings';
 
