@@ -1829,58 +1829,6 @@ if ($user) {
             </svg>
             <span id="lh-chat-badge" class="lh-badge hidden">0</span>
           </a>
-          <?php if (($user['role'] ?? '') === 'teacher'): ?>
-            <button type="button" id="lh-mailtest" aria-label="Send a test e-mail to your address and show the result"
-              title="Send a test e-mail to your address and show the result"
-              class="hidden h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-emerald-700 sm:inline-flex">
-              <span>✉️</span><span id="lh-mailtest-label">Test e-mail</span>
-            </button>
-            <script>
-            /* one-click mail test: sends to YOUR address and shows the provider reply */
-            (function () {
-              var btn = document.getElementById('lh-mailtest');
-              if (!btn) return;
-              var lab = document.getElementById('lh-mailtest-label') || btn;
-              var restore = function () { btn.disabled = false; lab.textContent = 'Test e-mail'; };
-              var csrf = (document.querySelector('meta[name="csrf"]') || {}).content || '';
-              btn.addEventListener('click', function () {
-                btn.disabled = true;
-                lab.textContent = 'Sending…';
-                fetch('mailtest.php', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'fetch' },
-                  body: 'csrf=' + encodeURIComponent(csrf),
-                }).then(function (r) { return r.json(); }).then(function (d) {
-                  restore();
-                  var msg;
-                  if (d.sender_ok === false) {
-                    /* catch the #1 cause before it wastes anyone's time */
-                    msg = '❌ Your sending address is NOT validated at the provider:\n\n' + d.from
-                      + '\n\nAdd/verify this exact address in your Brevo account (Senders & IP → Senders),'
-                      + ' or fix EMAIL_FROM in config.php to match the address you verified.';
-                  } else if (!d.ok) {
-                    msg = '❌ The provider refused the request — see mail.log lines below:';
-                  } else if (d.state === 'delivered') {
-                    msg = '✅ Delivered — the provider handed it to the recipient. Check your inbox (and spam): ' + d.to;
-                  } else if (d.state === 'queued') {
-                    msg = '⏳ Accepted and queued — not delivered yet. Check your inbox (and spam) in a minute: ' + d.to;
-                  } else if (d.state === 'error') {
-                    msg = '❌ Accepted, then REJECTED at delivery to ' + d.to + '.\n\nThe provider said:\n'
-                      + (d.reason || '(no reason given)');
-                  } else {
-                    msg = '✉️ Accepted by the provider, delivery not confirmed yet. Check your inbox (and spam): ' + d.to;
-                  }
-                  if (d.tail && d.tail.length) msg += '\n\n' + d.tail.join('\n');
-                  var notes = (d.diag && d.diag.notes) ? d.diag.notes : [];
-                  if (notes.length && (d.sender_ok === false || !d.ok || d.state === 'error' || d.state === 'unknown')) {
-                    msg += '\n\nServer check (' + ((d.diag && d.diag.transport) || 'unknown') + '):\n- ' + notes.join('\n- ');
-                  }
-                  alert(msg);
-                }).catch(function () { restore(); alert('Could not reach the mail test endpoint.'); });
-              });
-            })();
-            </script>
-          <?php endif; ?>
 
           <span class="hidden text-right sm:flex sm:flex-col sm:items-start leading-tight">
             <span class="text-sm font-semibold leading-4 text-slate-800"><?= e((string) $user['name']) ?></span>
