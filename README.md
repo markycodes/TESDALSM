@@ -17,6 +17,7 @@ Teachers create courses and upload **learning materials** (PDF, DOCX, PPTX, imag
   - **Teacher access codes** (`T-XXXXXX`, one-time): a person can only register as a **teacher** with one of these codes. Student invite codes remain a teacher tool (`codes.php`).
   - **Site settings** (e-mail delivery/provider) — moved here from the teacher account; `settings.php` is admin-only.
   - **Change the admin password.**
+- **Live overview**: per-course **enrolled-student counts** (with totals) and which **teachers are online right now** (3-minute presence window).
 - The admin can open every teacher page as well (admin passes all teacher gates).
 
 ## Requirements

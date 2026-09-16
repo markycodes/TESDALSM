@@ -52,15 +52,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $maint  = maintenance_enabled();
 $tcodes = admin_teacher_codes();
 $diag   = mail_diagnostics();
+$overview = admin_course_overview();
+$onlineTeachers = admin_online_users(['teacher']);
 
 /* tiny stats strip */
-$stats = ['admins' => 0, 'teachers' => 0, 'students' => 0, 'courses' => 0];
+$stats = ['admins' => 0, 'teachers' => 0, 'students' => 0, 'courses' => 0, 'enrollments' => 0];
 try {
     foreach (db()->query("SELECT role, COUNT(*) c FROM users GROUP BY role")->fetchAll() as $r) {
         $stats[$r['role'] . 's'] = (int) $r['c'];
     }
     $stats['courses'] = (int) db()->query('SELECT COUNT(*) FROM courses')->fetchColumn();
+    $stats['enrollments'] = (int) db()->query('SELECT COUNT(*) FROM enrollments')->fetchColumn();
 } catch (Throwable $e) { /* stats are decorative */ }
+
+function lh_ago_txt(int $ts): string
+{
+    $d = time() - $ts;
+    return $d < 60 ? 'just now' : ($d < 3600 ? floor($d / 60) . 'm ago' : ($d < 86400 ? floor($d / 3600) . 'h ago' : floor($d / 86400) . 'd ago'));
+}
 
 $page_title = 'Admin';
 require __DIR__ . '/header.php';
@@ -73,13 +82,76 @@ require __DIR__ . '/header.php';
   </div>
 
   <!-- stats strip -->
-  <div class="reveal mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-    <?php foreach ([['👨‍🎓 Students', $stats['students']], ['👩‍🏫 Teachers', $stats['teachers']], ['🛡️ Admins', $stats['admins']], ['📚 Courses', $stats['courses']]] as $s): ?>
+  <div class="reveal mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+    <?php foreach ([['👨‍🎓 Students', $stats['students']], ['👩‍🏫 Teachers', $stats['teachers']], ['🔗 Enrollments', $stats['enrollments']], ['📚 Courses', $stats['courses']], ['🛡️ Admins', $stats['admins']]] as $s): ?>
       <div class="rounded-2xl bg-white p-4 text-center shadow-sm ring-1 ring-slate-200">
         <div class="text-xl font-extrabold text-slate-900"><?= (int) $s[1] ?></div>
         <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-400"><?= $s[0] ?></div>
       </div>
     <?php endforeach; ?>
+  </div>
+
+  <!-- courses & enrollment overview -->
+  <div class="reveal mt-6 grid gap-6 lg:grid-cols-3">
+    <div class="lg:col-span-2 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="text-base font-bold text-slate-900">📚 Courses &amp; enrollment</h2>
+        <span class="text-xs text-slate-400"><?= count($overview) ?> courses · <?= (int) $stats['enrollments'] ?> total enrollments</span>
+      </div>
+      <?php if (!$overview): ?>
+        <p class="mt-4 rounded-xl border-2 border-dashed border-slate-300 p-6 text-center text-sm text-slate-400">No courses yet.</p>
+      <?php else: ?>
+      <div class="mt-4 overflow-x-auto">
+        <table class="w-full min-w-[520px] text-left text-sm">
+          <thead>
+            <tr class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-400">
+              <th class="px-2 py-2">Course</th>
+              <th class="px-2 py-2">Teacher</th>
+              <th class="px-2 py-2">Category</th>
+              <th class="px-2 py-2 text-right">👥 Students</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php $sum = 0; foreach ($overview as $o): $sum += (int) $o['enrolled']; ?>
+            <tr class="border-b border-slate-100">
+              <td class="px-2 py-3 font-semibold text-slate-800"><a class="hover:text-emerald-700" href="course.php?id=<?= (int) $o['id'] ?>"><?= e((string) $o['title']) ?></a></td>
+              <td class="px-2 py-3 text-slate-600"><?= e((string) $o['teacher_name']) ?></td>
+              <td class="px-2 py-3"><span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500"><?= e((string) $o['category']) ?></span></td>
+              <td class="px-2 py-3 text-right font-bold <?= $o['enrolled'] > 0 ? 'text-emerald-700' : 'text-slate-300' ?>"><?= (int) $o['enrolled'] ?></td>
+            </tr>
+            <?php endforeach; ?>
+            <tr class="text-sm font-bold text-slate-700">
+              <td class="px-2 py-3" colspan="3">Total enrolled</td>
+              <td class="px-2 py-3 text-right text-emerald-700"><?= $sum ?></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <?php endif; ?>
+    </div>
+
+    <div class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+      <h2 class="text-base font-bold text-slate-900">🟢 Teachers online now</h2>
+      <?php if (!$onlineTeachers): ?>
+        <p class="mt-4 rounded-xl border-2 border-dashed border-slate-300 p-6 text-center text-sm text-slate-400">No teachers online right now.</p>
+      <?php else: ?>
+        <ul class="mt-4 space-y-3">
+          <?php foreach ($onlineTeachers as $t): ?>
+          <li class="flex items-center gap-3">
+            <span class="relative grid h-9 w-9 shrink-0 place-items-center rounded-full bg-emerald-600 text-sm font-bold text-white">
+              <?= e(strtoupper(substr((string) $t['name'], 0, 1))) ?>
+              <span class="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500"></span>
+            </span>
+            <span class="min-w-0 flex-1 leading-tight">
+              <span class="block truncate text-sm font-semibold text-slate-800"><?= e((string) $t['name']) ?></span>
+              <span class="block text-[11px] text-slate-400">online · <?= e(lh_ago_txt((int) $t['last_seen'])) ?></span>
+            </span>
+          </li>
+          <?php endforeach; ?>
+        </ul>
+        <p class="mt-4 text-[11px] text-slate-400">Online = active in the last 3 minutes.</p>
+      <?php endif; ?>
+    </div>
   </div>
 
   <!-- site control -->

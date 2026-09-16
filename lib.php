@@ -1302,6 +1302,37 @@ function maintenance_enabled(): bool
     return setting_get('maintenance', '') === '1';
 }
 
+/* ---------------- main-admin overview (admin.php) ---------------- */
+
+/** Every course with its teacher and enrolled-student count (biggest first). */
+function admin_course_overview(): array
+{
+    return db()->query('SELECT c.id, c.title, c.category, u.name AS teacher_name,
+                        (SELECT COUNT(*) FROM enrollments e WHERE e.course_id = c.id) AS enrolled
+                        FROM courses c
+                        JOIN users u ON u.id = c.teacher_id
+                        ORDER BY enrolled DESC, c.title ASC
+                        LIMIT 200')->fetchAll();
+}
+
+/** Users currently online (heartbeat within PRESENCE_TIMEOUT), newest heartbeat first. */
+function admin_online_users(array $roles = []): array
+{
+    $roles = array_values(array_intersect($roles, ['teacher', 'student', 'admin']));
+    $sql = 'SELECT u.id, u.name, u.role, p.last_seen FROM presence p
+            JOIN users u ON u.id = p.user_id
+            WHERE p.last_seen >= ?';
+    $args = [time() - PRESENCE_TIMEOUT];
+    if ($roles) {
+        $sql .= ' AND u.role IN (' . implode(',', array_fill(0, count($roles), '?')) . ')';
+        $args = array_merge($args, $roles);
+    }
+    $sql .= ' ORDER BY p.last_seen DESC LIMIT 100';
+    $st = db()->prepare($sql);
+    $st->execute($args);
+    return $st->fetchAll();
+}
+
 function course_material_exists(int $courseId, int $materialId): bool
 {
     return get_material($courseId, $materialId) !== null;
