@@ -29,12 +29,16 @@ if (count(get_included_files()) === 1) {
     exit('Forbidden');
 }
 
-/* ---- Edit these four/five lines, then rename this file to config.php ---- */
-define('DB_HOST', 'sqlXXX.infinityfree.com');
-define('DB_PORT', '3306');
-define('DB_NAME', 'epiz_XXXXXXXX_learnhub');
-define('DB_USER', 'epiz_XXXXXXXX');
-define('DB_PASS', 'your-mysql-password');
+/* ---- Edit these values, then rename this file to config.php ----
+ * The file may carry BOTH environments — lib.php auto-detects where it runs:
+ *   • XAMPP / localhost / CLI → uses the *_LOCAL block
+ *   • any real domain         → uses the *_PROD  block
+ * so one file works on your PC AND on InfinityFree (no loopback errors). */
+define('DB_HOST_LOCAL', '127.0.0.1');   define('DB_HOST_PROD', 'sqlXXX.infinityfree.com');
+define('DB_PORT_LOCAL', '3306');        define('DB_PORT_PROD', '3306');
+define('DB_NAME_LOCAL', 'learnhub');    define('DB_NAME_PROD', 'if0_XXXXXXXX_learnhub');
+define('DB_USER_LOCAL', 'root');        define('DB_USER_PROD', 'if0_XXXXXXXX');
+define('DB_PASS_LOCAL', '');            define('DB_PASS_PROD', 'your-mysql-password');
 /* ---- E-MAIL delivery (greeting / new-lesson / quiz-result / messages / daily reminders) ----
  * The app sends e-mail automatically:
  *   - a welcome e-mail to the NEWLY REGISTERED STUDENT (every registration)

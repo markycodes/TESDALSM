@@ -24,6 +24,25 @@ if (is_file(__DIR__ . '/config.php')) {
     require_once __DIR__ . '/config.php';
 }
 
+/* ---- Environment-aware DB selection ----------------------------------------
+ * config.php may carry BOTH a LOCAL (XAMPP) and a PROD (InfinityFree) block.
+ * Decide by where the request came from: a hostname without a dot (localhost,
+ * 127.0.0.1), a CLI run, or a missing host header = local machine; anything
+ * else (a real domain like learninghublms.wuaze.com) = production. */
+if (!defined('DB_HOST')) {
+    $__host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    $__isLocal = PHP_SAPI === 'cli'
+        || $__host === '' || $__host === 'localhost' || $__host === '127.0.0.1' || $__host === '::1'
+        || strpos($__host, '.local') !== false && strpos($__host, '.') === strrpos($__host, '.local');
+    if ($__isLocal && defined('DB_HOST_LOCAL')) {
+        define('DB_HOST', DB_HOST_LOCAL); define('DB_PORT', DB_PORT_LOCAL);
+        define('DB_NAME', DB_NAME_LOCAL); define('DB_USER', DB_USER_LOCAL); define('DB_PASS', DB_PASS_LOCAL);
+    } elseif (defined('DB_HOST_PROD')) {
+        define('DB_HOST', DB_HOST_PROD); define('DB_PORT', DB_PORT_PROD);
+        define('DB_NAME', DB_NAME_PROD); define('DB_USER', DB_USER_PROD); define('DB_PASS', DB_PASS_PROD);
+    }
+}
+
 if (!defined('DB_HOST')) define('DB_HOST', '127.0.0.1');
 if (!defined('DB_PORT')) define('DB_PORT', '3306');
 if (!defined('DB_NAME')) define('DB_NAME', 'learnhub');
@@ -207,8 +226,12 @@ function db_error_page(string $message): void
         . '<div style="max-width:560px;background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:32px;box-shadow:0 10px 30px rgba(0,0,0,.06)">'
         . '<h1 style="margin:0 0 10px;font-size:20px;color:#0f172a">🗄️ Database not reachable</h1>'
         . '<p style="margin:0 0 10px;color:#334155;font-size:14px;line-height:1.6">' . e($message) . '</p>'
-        . '<p style="margin:0;color:#64748b;font-size:14px;line-height:1.6">Start <b>MySQL</b> in the XAMPP Control Panel, then reload this page. '
-        . 'Connection settings live at the top of <code>lib.php</code>.</p>'
+        . '<p style="margin:0;color:#64748b;font-size:14px;line-height:1.6">'
+        . '📍 Trying <code>' . e(DB_HOST) . '</code> — '
+        . (DB_HOST === '127.0.0.1' || DB_HOST === 'localhost'
+            ? 'Start <b>MySQL</b> in the XAMPP Control Panel, then reload this page. Connection settings live in <code>config.php</code> (LOCAL block) / top of <code>lib.php</code>.'
+            : 'Re-upload the newest <code>config.php</code> and <code>lib.php</code> to the site, and confirm the PROD block matches your hosting control panel\'s "MySQL Databases" values.')
+        . '</p>'
         . '</div></body></html>';
     exit;
 }
