@@ -101,6 +101,10 @@ try {
         cut($title, 90) . ($type === 'video' ? '' : ''),
         'course.php?id=' . $courseId);
     set_flash('success', $ok);
+} catch (PDOException $e) {
+    /* database details stay in the log file — see the hardening block in lib.php */
+    lms_error_log('lesson save failed: ' . $e->getMessage());
+    set_flash('error', 'The lesson could not be saved because of a database problem. Please try again.');
 } catch (RuntimeException $e) {
     set_flash('error', $e->getMessage());
 }

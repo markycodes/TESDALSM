@@ -52,6 +52,11 @@ try {
         'A new quiz was assigned to this lesson.',
         'course.php?id=' . $courseId);
     set_flash('success', '🧪 Quiz saved — ' . count($questions) . ' question(s) assigned to this lesson. It unlocks for students once they complete the lesson.');
+} catch (PDOException $e) {
+    /* never print a database message to the browser: it names tables, columns
+       and sometimes the whole failing statement. Log it, apologise to the user. */
+    lms_error_log('quiz save failed: ' . $e->getMessage());
+    set_flash('error', 'The quiz could not be saved because of a database problem. Please try again.');
 } catch (RuntimeException $e) {
     set_flash('error', $e->getMessage());
 }

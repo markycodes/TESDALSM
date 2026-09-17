@@ -50,6 +50,69 @@ if (!defined('DB_NAME')) define('DB_NAME', 'learnhub');
 if (!defined('DB_USER')) define('DB_USER', 'root');
 if (!defined('DB_PASS')) define('DB_PASS', '');
 
+/* ---- hardening: crash output & secrets --------------------------------------
+ * A failed query, an uncaught throwable or a PHP fatal must never print SQL,
+ * file paths or credentials to a visitor. The detail goes to data/error.log
+ * (a web-blocked folder) and the visitor gets a short apology page instead.
+ * On the local dev machine (XAMPP) the real message is still shown — it helps
+ * development and nothing there is public. PHP notices/warnings are never
+ * displayed on a live domain.
+ * -------------------------------------------------------------------------- */
+
+/** True when this request runs on the local machine (XAMPP) or via the CLI. */
+function lms_is_local(): bool
+{
+    static $local = null;
+    if ($local !== null) return $local;
+    $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    $host = (string) preg_replace('/:\d+$/', '', $host);            /* 127.0.0.1:8099 -> 127.0.0.1 */
+    return $local = PHP_SAPI === 'cli'
+        || $host === '' || $host === 'localhost' || $host === '127.0.0.1' || $host === '::1'
+        || str_ends_with($host, '.local') || str_ends_with($host, '.test');
+}
+
+/** Append one line to data/error.log; falls back to the host's own error log. */
+function lms_error_log(string $message): void
+{
+    $line = date('Y-m-d H:i:s') . ' | ' . str_replace(["\r", "\n"], ' ', trim($message)) . "\n";
+    if (!is_dir(DATA_DIR)) @mkdir(DATA_DIR, 0777, true);
+    if (@file_put_contents(DATA_DIR . '/error.log', $line, FILE_APPEND) === false) {
+        @error_log('LearnHub: ' . trim($line));
+    }
+}
+
+/** Last-resort page for an uncaught error: log the detail, show nothing risky. */
+function lms_fatal_page(Throwable $e): void
+{
+    $detail = get_class($e) . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine();
+    lms_error_log($detail);
+    if (PHP_SAPI === 'cli') { fwrite(STDERR, '[fatal] ' . $detail . "\n"); return; }
+    if (!headers_sent()) http_response_code(500);
+    $shown = lms_is_local() ? $detail : 'Something went wrong while handling this request.';
+    echo '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Error · LearnHub</title></head>'
+        . '<body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#f8fafc;font-family:Segoe UI,Arial,sans-serif">'
+        . '<div style="max-width:560px;background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:32px;box-shadow:0 10px 30px rgba(0,0,0,.06)">'
+        . '<h1 style="margin:0 0 10px;font-size:20px;color:#0f172a">⚠️ Something broke</h1>'
+        . '<p style="margin:0 0 10px;color:#334155;font-size:14px;line-height:1.6">' . e($shown) . '</p>'
+        . '<p style="margin:0;color:#64748b;font-size:14px;line-height:1.6">The full detail was written to '
+        . '<code>data/error.log</code>. Reload the page — or try again in a moment.</p>'
+        . '</div></body></html>';
+}
+
+/* Uncaught throwables -> safe page. */
+set_exception_handler(static function (Throwable $e): void { lms_fatal_page($e); });
+/* PHP fatals (E_ERROR, parse errors, out-of-memory) -> same safe page. */
+register_shutdown_function(static function (): void {
+    $err = error_get_last();
+    if (!$err || !in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR], true)) return;
+    lms_fatal_page(new ErrorException($err['message'], 0, $err['type'], (string) $err['file'], (int) $err['line']));
+});
+if (!lms_is_local()) {
+    @ini_set('display_errors', '0');            /* never echo warnings / SQL traces */
+    @ini_set('display_startup_errors', '0');
+    @ini_set('log_errors', '1');
+}
+
 /* ---- e-mail (greeting / updates / reminders) -------------------------------
  * Set EMAIL_API_URL + EMAIL_API_KEY in config.php to deliver through a
  * provider HTTP API — e.g. Brevo (free 300/day), SendGrid or Resend.
@@ -221,19 +284,29 @@ const INLINE_EXTS = ['pdf','png','jpg','jpeg','gif','webp','txt','mp4','webm','o
 
 function db_error_page(string $message): void
 {
-    http_response_code(500);
+    lms_error_log('database: ' . $message);
+    if (!headers_sent()) http_response_code(500);
+    $local = lms_is_local();
     echo '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Database error · LearnHub</title></head>'
         . '<body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#f8fafc;font-family:Segoe UI,Arial,sans-serif">'
         . '<div style="max-width:560px;background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:32px;box-shadow:0 10px 30px rgba(0,0,0,.06)">'
         . '<h1 style="margin:0 0 10px;font-size:20px;color:#0f172a">🗄️ Database not reachable</h1>'
-        . '<p style="margin:0 0 10px;color:#334155;font-size:14px;line-height:1.6">' . e($message) . '</p>'
-        . '<p style="margin:0;color:#64748b;font-size:14px;line-height:1.6">'
-        . '📍 Trying <code>' . e(DB_HOST) . '</code> — '
-        . (DB_HOST === '127.0.0.1' || DB_HOST === 'localhost'
-            ? 'Start <b>MySQL</b> in the XAMPP Control Panel, then reload this page. Connection settings live in <code>config.php</code> (LOCAL block) / top of <code>lib.php</code>.'
-            : 'Re-upload the newest <code>config.php</code> and <code>lib.php</code> to the site, and confirm the PROD block matches your hosting control panel\'s "MySQL Databases" values.')
-        . '</p>'
-        . '</div></body></html>';
+        /* The raw PDO text names the host, the database user and the table — that is
+           for the log file, not for a visitor. A live domain only sees the notice. */
+        . '<p style="margin:0 0 10px;color:#334155;font-size:14px;line-height:1.6">'
+        . ($local ? e($message) : 'The site cannot reach its database right now. Please try again in a moment.') . '</p>';
+    if ($local) {
+        echo '<p style="margin:0;color:#64748b;font-size:14px;line-height:1.6">'
+            . '📍 Trying <code>' . e(DB_HOST) . '</code> — '
+            . (DB_HOST === '127.0.0.1' || DB_HOST === 'localhost'
+                ? 'Start <b>MySQL</b> in the XAMPP Control Panel, then reload this page. Connection settings live in <code>config.php</code> (LOCAL block) / top of <code>lib.php</code>.'
+                : 'Re-upload the newest <code>config.php</code> and <code>lib.php</code> to the site, and confirm the PROD block matches your hosting control panel\'s "MySQL Databases" values.')
+            . '</p>';
+    } else {
+        echo '<p style="margin:0;color:#64748b;font-size:14px;line-height:1.6">'
+            . 'The reason was written to <code>data/error.log</code> on the server — an administrator can read it there.</p>';
+    }
+    echo '</div></body></html>';
     exit;
 }
 
@@ -245,6 +318,13 @@ function db(): PDO
 
     if (!extension_loaded('pdo_mysql')) {
         db_error_page('The PHP extension <b>pdo_mysql</b> is not enabled. Enable <code>extension=pdo_mysql</code> in php.ini and restart Apache.');
+    }
+    /* DB_NAME is interpolated into `CREATE DATABASE` / `USE` below, and SQL
+       identifiers can never be bound as parameters (placeholders only work for
+       values). config.php is a server-side file, but validate it anyway so a
+       tampered config can never turn into an injection point. */
+    if (!preg_match('/^[A-Za-z0-9_$]+$/', DB_NAME)) {
+        db_error_page('DB_NAME contains characters that are not allowed in a MySQL database name.');
     }
     $opts = [
         PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
@@ -1147,11 +1227,33 @@ function serve_file_with_range(string $path, string $mime, string $name, string 
     exit;
 }
 
+/** Put .htaccess + index.html in a private folder so the web server can never
+ *  serve it, whatever the root .htaccess does. Written for Apache 2.4 AND 2.2
+ *  so it works on XAMPP as well as shared hosts (InfinityFree & friends).
+ *  Never overwrites a file that is already there. */
+function deny_web_access(string $dir): void
+{
+    if (!is_dir($dir)) return;
+    if (!is_file($dir . '/.htaccess')) {
+        @file_put_contents($dir . '/.htaccess',
+            "# LearnHub — never serve this folder over the web\n"
+            . "<IfModule mod_authz_core.c>\n    Require all denied\n</IfModule>\n"
+            . "<IfModule !mod_authz_core.c>\n    Order deny,allow\n    Deny from all\n</IfModule>\n"
+            . "# No rewrite magic either: a direct hit on any file in here is refused.\n"
+            . "<IfModule mod_rewrite.c>\n    RewriteEngine Off\n</IfModule>\n");
+    }
+    if (!is_file($dir . '/index.html')) @file_put_contents($dir . '/index.html', '');
+}
+
 function ensure_storage(): void
 {
     if (!is_dir(UPLOAD_DIR)) @mkdir(UPLOAD_DIR, 0777, true);
-    if (!is_file(UPLOAD_DIR . '/.htaccess'))  @file_put_contents(UPLOAD_DIR . '/.htaccess', "Require all denied\n");
-    if (!is_file(UPLOAD_DIR . '/index.html')) @file_put_contents(UPLOAD_DIR . '/index.html', '');
+    deny_web_access(UPLOAD_DIR);
+    /* data/ holds admin-credentials.txt, mail.log and error.log — files with the
+       DB/e-mail secrets and the password of the auto-created admin. Block it at
+       the folder level too, so a missing root .htaccess cannot expose them. */
+    if (!is_dir(DATA_DIR)) @mkdir(DATA_DIR, 0777, true);
+    deny_web_access(DATA_DIR);
 }
 /* ---------------- courses & lessons (write) ---------------- */
 
