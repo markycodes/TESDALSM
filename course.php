@@ -76,10 +76,33 @@ require __DIR__ . '/header.php';
             <button class="w-full rounded-xl border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50">Delete course</button>
           </form>
         </div>
-      <?php elseif (($user['role'] ?? '') === 'student' && !$enrolled): ?>
+      <?php elseif (($user['role'] ?? '') === 'student' && !$enrolled):
+        $creq = null;
+        foreach (code_requests_for_student((int) $user['id']) as $r) {
+          if ((int) $r['course_id'] === (int) $course['id']) { $creq = $r; break; }
+        } ?>
         <div class="rounded-xl bg-amber-50 p-4 ring-1 ring-amber-100">
           <p class="text-sm font-semibold text-amber-800">🔑 Invitation only</p>
-          <p class="mt-1 text-xs leading-5 text-amber-700">Ask <b><?= e((string) ($course['teacher_name'] ?? 'the teacher')) ?></b> for an invitation code, then create your account with it to unlock this course.</p>
+          <?php if ($creq && ($creq['status'] ?? '') === 'pending'): ?>
+          <p class="mt-1 text-xs leading-5 text-amber-700">⏳ You've asked <b><?= e((string) ($course['teacher_name'] ?? 'the teacher')) ?></b> for a code — you'll get a notification as soon as it's approved.</p>
+          <?php elseif ($creq && ($creq['status'] ?? '') === 'approved' && !empty($creq['code'])): ?>
+          <p class="mt-1 text-xs leading-5 text-amber-700">✅ Approved! Your code: <b class="font-mono"><?= e((string) $creq['code']) ?></b></p>
+          <form method="post" action="enroll.php" class="mt-2">
+            <?= csrf_field() ?>
+            <input type="hidden" name="course_id" value="<?= e((string) $course['id']) ?>">
+            <input type="hidden" name="code" value="<?= e((string) $creq['code']) ?>">
+            <button class="w-full rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">🔓 Unlock this course now</button>
+          </form>
+          <?php else: ?>
+          <p class="mt-1 text-xs leading-5 text-amber-700">This course is locked. Ask <b><?= e((string) ($course['teacher_name'] ?? 'the teacher')) ?></b> for an invitation code — request one right here:</p>
+          <form method="post" action="request_code.php" class="mt-2 space-y-2">
+            <?= csrf_field() ?>
+            <input type="hidden" name="course_id" value="<?= e((string) $course['id']) ?>">
+            <input name="note" maxlength="300" placeholder="Optional note to the teacher…"
+                   class="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs outline-none focus:border-amber-400">
+            <button class="w-full rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">🔑 Request an enrollment code</button>
+          </form>
+          <?php endif; ?>
         </div>
       <?php elseif ($enrolled): ?>
         <div class="rounded-xl bg-indigo-50 p-4 ring-1 ring-indigo-100">
