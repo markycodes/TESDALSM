@@ -328,21 +328,27 @@ if ($v === 'chat') {
         echo json_encode(['ok' => false, 'error' => 'No access']);
         exit;
     }
-    $st = db()->prepare('SELECT m.id, m.sender_id, m.body, m.created_at FROM messages m WHERE m.conversation_id = ? AND m.id > ? ORDER BY m.id ASC LIMIT 100');
+    $st = db()->prepare('SELECT m.id, m.sender_id, m.body, m.is_read, m.created_at FROM messages m WHERE m.conversation_id = ? AND m.id > ? ORDER BY m.id ASC LIMIT 100');
     $st->execute([$cId, $since]);
     $msgs = array_map(fn ($r) => [
         'id' => (int) $r['id'],
         'sender_id' => (int) $r['sender_id'],
         'body' => (string) $r['body'],
+        'is_read' => (int) $r['is_read'],
         'created_at' => (int) $r['created_at'],
     ], $st->fetchAll());
     $st2 = db()->prepare('SELECT MAX(id) FROM messages WHERE conversation_id = ?');
     $st2->execute([$cId]);
+    /* read receipt: the newest of MY messages the peer has already seen
+     * (is_read flips to 1 when the peer opens this conversation) */
+    $st3 = db()->prepare('SELECT MAX(id) FROM messages WHERE conversation_id = ? AND sender_id = ? AND is_read = 1');
+    $st3->execute([$cId, $me]);
     echo json_encode([
         'ok' => true,
         'conversation' => $cId,
         'messages' => $msgs,
         'last_id' => (int) $st2->fetchColumn(),
+        'read_up_to' => (int) $st3->fetchColumn(),
         'now' => time(),
     ]);
     exit;

@@ -907,7 +907,13 @@ if (dayFilter) {
     wrap.innerHTML = '<div class="max-w-[78%] rounded-2xl px-3.5 py-2 text-sm leading-6 shadow-sm '
       + (mine ? 'rounded-br-md bg-emerald-600 text-white' : 'rounded-bl-md bg-slate-100 text-slate-700') + '">'
       + '<p class="whitespace-pre-wrap break-words">' + esc(m.body) + '</p>'
-      + '<p class="mt-1 text-right text-[10px] ' + (mine ? 'text-emerald-100/90' : 'text-slate-400') + '">' + esc(ts) + '</p></div>';
+      + '<p class="mt-1 text-right text-[10px] ' + (mine ? 'text-emerald-100/90' : 'text-slate-400') + '">' + esc(ts)
+      + (mine ? '<span class="chat-seen" style="display:none"> · ✓✓ Seen</span>' : '')
+      + '</p></div>';
+    if (mine && parseInt(m.is_read, 10) === 1) {
+      var s0 = wrap.querySelector('.chat-seen');
+      if (s0) s0.style.display = '';
+    }
     chatBox.appendChild(wrap);
     chatBox.scrollTop = chatBox.scrollHeight;
   }
@@ -917,7 +923,22 @@ if (dayFilter) {
     });
     chatBox.scrollTop = chatBox.scrollHeight;
     var convoId = parseInt(chatBox.getAttribute('data-conversation'), 10) || 0;
+    var readUpTo = parseInt(chatBox.getAttribute('data-read-up-to'), 10) || 0;
     var chatDelay = 4000;
+    /* read receipts: reveal "✓✓ Seen" on MY bubbles up to the newest one the peer opened */
+    function updateSeen(upTo) {
+      upTo = parseInt(upTo, 10) || 0;
+      if (upTo <= readUpTo) return;
+      readUpTo = upTo;
+      chatBox.querySelectorAll('.chat-msg').forEach(function (el) {
+        var id = parseInt(el.getAttribute('data-msg'), 10) || 0;
+        var mine = el.classList.contains('justify-end');
+        if (mine && id <= readUpTo) {
+          var s = el.querySelector('.chat-seen');
+          if (s) s.style.display = '';
+        }
+      });
+    }
     function chatLoop() {
       if (document.visibilityState === 'hidden') { setTimeout(chatLoop, chatDelay); return; }
       lhSecureJson('realtime.php?v=chat&c=' + convoId + '&since=' + lastId).then(function (d) {
@@ -927,6 +948,7 @@ if (dayFilter) {
           (d.messages || []).forEach(function (m) {
             if (parseInt(m.id, 10) > lastId) { lastId = parseInt(m.id, 10); appendMsg(m); fresh++; }
           });
+          updateSeen(d.read_up_to);
           if (fresh) refreshNotifs();
         } else if (d === null) {
           chatDelay = Math.min(60000, Math.round(chatDelay * 1.6)); /* host challenging / network error */

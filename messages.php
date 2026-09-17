@@ -97,14 +97,17 @@ require __DIR__ . '/header.php';
         <span class="hidden rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700 sm:block">🔒 Private</span>
       </div>
 
-      <div id="chat-box" class="chat-scroll flex flex-1 flex-col gap-2 overflow-y-auto px-4 py-4" data-conversation="<?= (int) $active['id'] ?>" data-me="<?= $userId ?>">
+      <div id="chat-box" class="chat-scroll flex flex-1 flex-col gap-2 overflow-y-auto px-4 py-4" data-conversation="<?= (int) $active['id'] ?>" data-me="<?= $userId ?>" data-read-up-to="<?php
+        $readUpTo = 0;
+        foreach ($activeMessages as $m) { if ((int) $m['sender_id'] === $userId && (int) ($m['is_read'] ?? 0) === 1) { $readUpTo = max($readUpTo, (int) $m['id']); } }
+        echo (int) $readUpTo; ?>">
         <?php if (!$activeMessages): ?>
         <p class="my-auto text-center text-sm text-slate-400">No messages yet — send the first one below 👇</p>
         <?php else: foreach ($activeMessages as $m): $mine = (int) $m['sender_id'] === $userId; ?>
         <div class="chat-msg flex <?= $mine ? 'justify-end' : 'justify-start' ?>" data-msg="<?= (int) $m['id'] ?>">
           <div class="max-w-[78%] rounded-2xl px-3.5 py-2 text-sm leading-6 shadow-sm <?= $mine ? 'rounded-br-md bg-emerald-600 text-white' : 'rounded-bl-md bg-slate-100 text-slate-700' ?>">
             <p class="whitespace-pre-wrap break-words"><?= e((string) $m['body']) ?></p>
-            <p class="mt-1 text-right text-[10px] <?= $mine ? 'text-emerald-100/90' : 'text-slate-400' ?>"><?= e(date('M j, H:i', (int) $m['created_at'])) ?></p>
+            <p class="mt-1 text-right text-[10px] <?= $mine ? 'text-emerald-100/90' : 'text-slate-400' ?>"><?= e(date('M j, H:i', (int) $m['created_at'])) ?><?php if ($mine): ?><span class="chat-seen"<?= (int) ($m['is_read'] ?? 0) === 1 ? '' : ' style="display:none"' ?>> · ✓✓ Seen</span><?php endif; ?></p>
           </div>
         </div>
         <?php endforeach; endif; ?>

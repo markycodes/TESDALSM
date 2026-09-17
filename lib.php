@@ -2427,6 +2427,7 @@ function messages_in_conversation(int $conversationId, int $userId, int $limit =
         'id' => (int) $r['id'],
         'sender_id' => (int) $r['sender_id'],
         'body' => (string) $r['body'],
+        'is_read' => (int) $r['is_read'],
         'created_at' => (int) $r['created_at'],
     ], $rev);
 }
