@@ -23,7 +23,6 @@ require __DIR__ . '/header.php';
       <a href="register.php" class="rounded-lg bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800">Create free account</a>
       <a href="login.php" class="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Log in</a>
     </div>
-    <p class="reveal mt-5 text-sm text-slate-500">Demo: <code class="rounded bg-white px-1.5 py-0.5 text-xs ring-1 ring-slate-200">teacher@demo.com</code> or <code class="rounded bg-white px-1.5 py-0.5 text-xs ring-1 ring-slate-200">student@demo.com</code> · password <code class="rounded bg-white px-1.5 py-0.5 text-xs ring-1 ring-slate-200">demo123</code></p>
   </div>
 
   <!-- Feature index: one composed card, hairline dividers -->

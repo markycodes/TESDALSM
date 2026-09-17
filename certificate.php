@@ -105,7 +105,7 @@ $verifyUrl = app_link('verify_certificate.php?code=' . urlencode((string) $cert[
     <div class="inner">
       <img src="logo/logo.png" alt="LearnHub LMS">
       <div class="kicker">Certificate of Completion</div>
-      <h1 class="title">LearnHub LMS</h1>
+      <h1 class="title">Felices Technological Training Center Inc.</h1>
       <p class="presented">This certificate is proudly presented to</p>
       <div class="name"><?= e((string) $user['name']) ?></div>
       <p class="for">for successfully completing every lesson of the course</p>

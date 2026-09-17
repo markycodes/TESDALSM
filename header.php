@@ -778,26 +778,65 @@ if ($user) {
       box-shadow: 0 0 0 2px #fff
     }
 
-    .lh-panel {
-      position: absolute;
-      top: calc(100% + 10px);
-      right: 0;
-      z-index: 60;
-      width: min(360px, calc(100vw - 16px));
-      max-height: min(480px, calc(100vh - 70px));
-      overflow: hidden;
-      border-radius: 18px;
-      border: 1px solid rgba(226, 232, 240, .9);
-      background: #fff;
-      box-shadow: 0 28px 60px -24px rgba(4, 120, 87, .28)
-    }
+    /* ---- notifications panel: responsive on every screen ----------------------
+   Phones  : full-width sheet pinned 8px inside the viewport (never overflows)
+   Desktop : dropdown anchored under the bell
+   Both    : dvh (not vh) so mobile URL bars can never push it off-screen,
+             long words wrap, and the list scrolls with momentum containment.
+   ------------------------------------------------------------------------- */
+.lh-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 60;
+  width: min(380px, calc(100vw - 2rem));
+  max-height: min(480px, calc(100dvh - 84px));
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid rgba(226, 232, 240, .9);
+  background: #fff;
+  box-shadow: 0 28px 60px -24px rgba(4, 120, 87, .28);
+  display: flex;
+  flex-direction: column;
+  overscroll-behavior: contain
+}
 
-    .lh-panel-list {
-      max-height: min(400px, calc(100vh - 130px));
-      overflow-y: auto
-    }
+/* The bell in app.js toggles Tailwind's `.hidden` — which has exactly the same
+   specificity as `.lh-panel` above. Tailwind is injected at runtime by its CDN
+   script, so which of the two wins depends on stylesheet order: without this
+   rule the panel can end up permanently open, or permanently closed. Pin the
+   closed state explicitly so the toggle always works. */
+.lh-panel.hidden {
+  display: none !important
+}
 
-    .lx-panel-item {
+/* browsers without dvh support keep the old viewport maths */
+@supports not (height: 100dvh) {
+  .lh-panel {
+    max-height: min(480px, calc(100vh - 84px))
+  }
+  .lx-panel-list {
+    max-height: min(400px, calc(100vh - 148px))
+  }
+}
+
+/* NOTE: the list/head classes really are `lx-…` in the markup (header.php and
+   app.js) — the old rules said `.lh-panel-list`, which matched nothing, so the
+   list had no overflow rule at all and long lists were simply clipped. */
+.lx-panel-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: min(400px, calc(100dvh - 148px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch
+}
+
+.lx-panel-head {
+  flex: 0 0 auto
+}
+
+  .lx-panel-item {
       display: flex;
       flex-direction: column;
       gap: 2px;
@@ -810,6 +849,92 @@ if ($user) {
     .lx-panel-item:hover {
       background: #f6fbf8
     }
+
+    /* An e-mail address or URL in a notification is one long unbreakable word —
+       let it wrap instead of overflowing the sheet (the panel clips with
+       overflow:hidden, so overflow would silently cut the text off). */
+    .lx-panel-item,
+    .lx-panel-item-title {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      word-break: break-word
+    }
+
+    /* ==== responsive rules BELOW every base panel rule ======================
+       These must come last: a media query does not add specificity, so a base
+       rule placed after the query would silently win by source order (that is
+       why `.lx-panel-item`'s padding used to beat the phone override).
+       Phones  : full-width sheet pinned 8px inside the viewport (never overflows)
+       Desktop : dropdown anchored under the bell
+       Both    : dvh (not vh) so mobile URL bars can never push it off-screen.
+       ===================================================================== */
+
+@media (max-width: 639.98px) {
+  /* `backdrop-filter` makes its element a containing block for position:fixed
+     children, so drop the blur on phones — the sheet below then pins to the
+     viewport itself instead of to the 60px topbar. Also cheaper to render.
+     `!important` is required: `nav.glass` (line ~1161) and `.lh-topbar`
+     (line ~1174) both set the background with `!important`, and an important
+     declaration beats a non-important one no matter the specificity. */
+  .lh-topbar.glass {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(255, 255, 255, .97) !important
+  }
+
+  .lh-panel {
+    position: fixed;
+    top: 66px;
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-height: calc(100dvh - 82px);
+    border-radius: 16px
+  }
+
+  .lx-panel-list {
+    max-height: calc(100dvh - 170px);
+    padding-bottom: calc(.5rem + env(safe-area-inset-bottom, 0px))
+  }
+
+  /* comfy touch targets, and the sheet spans edge to edge */
+  .lx-panel-item {
+    padding: .8rem 1rem;
+    min-height: 44px
+  }
+
+  /* Ultra-narrow phones (iPhone SE portrait, 320-360px): "Notifications" and
+     "Mark all as read" sit on one row and would push each other out of the
+     sheet. Let them wrap only when they actually run out of room. */
+  .lx-panel-head {
+    flex-wrap: wrap;
+    row-gap: .25rem
+  }
+}
+
+/* Landscape phones / very short windows: reclaim vertical space.
+   NOTE: no `top` here. On desktop the panel is `position: absolute` and hangs
+   from `top: calc(100% + 10px)` under the bell — overriding that to a viewport
+   value would drop it out of the topbar. Only the heights need shrinking. */
+@media (max-height: 480px) {
+  .lh-panel {
+    max-height: calc(100dvh - 84px)
+  }
+  .lx-panel-list {
+    max-height: calc(100dvh - 132px)
+  }
+  .lx-panel-item {
+    padding: .55rem .85rem
+  }
+}
+
+/* big desktop / large fonts: keep it comfortable, still never off-screen */
+@media (min-width: 1280px) {
+  .lh-panel {
+    width: min(400px, calc(100vw - 4rem))
+  }
+}
+
 
     .lh-notif-unread {
       background: #ecfdf5

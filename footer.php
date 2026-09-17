@@ -38,7 +38,7 @@
           </ul>
         </div>
       </div>
-      <p class="mt-8 border-t border-slate-100 pt-4 text-center text-xs text-slate-400">© <?= date('Y') ?> LearnHub LMS · editorial studio edition</p>
+      <p class="mt-8 border-t border-slate-100 pt-4 text-center text-xs text-slate-400">© <?= date('Y') ?> LearnHub LMS · v.1.0.0</p>
     </div>
   </div>
 </footer>

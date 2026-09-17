@@ -45,11 +45,7 @@ require __DIR__ . '/header.php';
     </form>
     <p class="mt-6 text-center text-sm text-slate-500">No account? <a href="register.php" class="font-semibold text-indigo-600 hover:underline">Create one free</a></p>
   </div>
-  <div class="mt-4 rounded-2xl border border-indigo-100 bg-indigo-50 p-4 text-sm text-indigo-800">
-    <b>Demo accounts</b> (password <code>demo123</code>):<br>
-    👩‍🏫 Teacher — <code>teacher@demo.com</code><br>
-    👨‍🎓 Student — <code>student@demo.com</code>
-  </div>
+
 </div>
 
 <?php require __DIR__ . '/footer.php'; ?>
