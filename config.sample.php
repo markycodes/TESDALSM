@@ -69,4 +69,4 @@ define('DB_PASS_LOCAL', '');            define('DB_PASS_PROD', 'your-mysql-passw
 // define('EMAIL_FROM',    'LearnHub LMS <your-verified-sender@gmail.com>');
 // define('EMAIL_API_URL', 'https://api.brevo.com/v3/smtp/email');
 // define('EMAIL_API_KEY', 'xkeysib-xxxxx');
-// define('APP_URL',       'https://learninghublms.wuaze.com'); // used for links inside e-mails
+// define('APP_URL',       'https://lmshub.wuaze.com'); // used for links inside e-mails

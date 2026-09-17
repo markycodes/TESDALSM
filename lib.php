@@ -28,7 +28,7 @@ if (is_file(__DIR__ . '/config.php')) {
  * config.php may carry BOTH a LOCAL (XAMPP) and a PROD (InfinityFree) block.
  * Decide by where the request came from: a hostname without a dot (localhost,
  * 127.0.0.1), a CLI run, or a missing host header = local machine; anything
- * else (a real domain like learninghublms.wuaze.com) = production. */
+ * else (a real domain like lmshub.wuaze.com) = production. */
 if (!defined('DB_HOST')) {
     $__host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
     $__host = preg_replace('/:\d+$/', '', $__host);   /* strip the port: 127.0.0.1:8099 -> 127.0.0.1 */
