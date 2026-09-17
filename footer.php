@@ -5,9 +5,8 @@
     <div class="rounded-2xl border border-slate-200 bg-white p-8 shadow-[0_1px_2px_rgba(17,33,26,.05),0_18px_40px_-28px_rgba(17,33,26,.25)]">
       <div class="grid gap-8 sm:grid-cols-3">
         <div>
-          <div class="flex items-center gap-2">
-            <span class="grid h-9 w-9 place-items-center rounded-lg bg-[linear-gradient(135deg,#047857,#059669,#10b981)] text-white">🎓</span>
-            <span class="lh-display text-lg text-slate-900">LearnHub <span class="text-emerald-700">LMS</span></span>
+          <div class="flex items-center gap-2 lg:w-[100px] w-[70px]">
+            <img src="logo/2ndlogo.png" alt="LearnHub LMS">
           </div>
           <p class="mt-3 text-sm leading-6 text-slate-500">Upload learning materials &amp; video tutorials — built for easy learning.</p>
         </div>

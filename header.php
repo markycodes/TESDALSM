@@ -1,30 +1,6 @@
 <?php
 require_once __DIR__ . '/lib.php';
 $user = current_user();
-/* Maintenance mode: while shut down, only the main admin can browse. login/logout stay reachable. */
-if (maintenance_enabled()
-    && ($user['role'] ?? '') !== 'admin'
-    && !in_array(basename((string) ($_SERVER['SCRIPT_NAME'] ?? '')), ['login.php', 'logout.php'], true)) {
-    http_response_code(503);
-    header('Retry-After: 3600');
-    ?><!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LearnHub — temporarily closed</title>
-<style>
-  body{margin:0;min-height:100vh;display:grid;place-items:center;background:#eef1ee radial-gradient(circle at 20% 0%,rgba(16,185,129,.12),transparent 55%);font-family:ui-sans-serif,system-ui,'Segoe UI',Roboto,Arial,sans-serif;color:#1f2937}
-  .paper{position:relative;width:min(92vw,460px);background:repeating-linear-gradient(#fffdf6,#fffdf6 30px,#f4f0e4 31px);border-radius:6px;padding:44px 34px 38px;box-shadow:0 18px 40px rgba(15,23,42,.22);transform:rotate(-1.4deg)}
-  .tape{position:absolute;top:-13px;left:50%;margin-left:-56px;width:112px;height:24px;background:rgba(16,185,129,.45);box-shadow:0 1px 3px rgba(0,0,0,.15)}
-  h1{margin:0;font-size:22px}p{margin:10px 0 0;font-size:14px;line-height:1.6;color:#4b5563}
-  .sig{margin-top:18px;font-size:12px;color:#9ca3af}
-</style></head>
-<body><div class="paper"><div class="tape"></div>
-  <h1>🛠️ LearnHub is temporarily closed</h1>
-  <p>The administrator has paused the website for maintenance. Please check back soon —
-     lessons, quizzes and your progress are safe and will be right here when we reopen.</p>
-  <p class="sig">— LearnHub LMS</p>
-</div></body></html><?php
-    exit;
-}
 $page_title = $page_title ?? 'LearnHub';
 $nav_active = $nav_active ?? '';
 $flashes = take_flashes();
@@ -41,9 +17,8 @@ if ($user) {
   <?php if (!empty($attendance_course)): ?>
     <meta name="attendance-course" content="<?= (int) $attendance_course ?>"><?php endif; ?>
   <title><?= e($page_title) ?> · LearnHub LMS</title>
-  <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon.png">
-  <link rel="apple-touch-icon" href="assets/logo.png">
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="icon" href="logo/logo.png" type="image/png">
   <script>
     tailwind.config = {
       theme: {
@@ -1691,15 +1666,9 @@ if ($user) {
   <?php if ($user): ?>
     <aside id="lh-sidebar" class="lh-sidebar" aria-label="Main navigation">
       <div class="lh-side-head">
-        <a href="dashboard.php" title="LearnHub home"
-          class="lh-logo grid h-10 w-10 place-items-center rounded-xl text-white text-lg"><img
-            src="assets/logo.png" alt="LearnHub" class="h-10 w-10 rounded-xl"></a>
-        <div class="min-w-0 leading-tight">
-          <a href="dashboard.php" class="block text-sm font-extrabold tracking-tight text-slate-900">LearnHub <span
-              class="text-emerald-600">LMS</span></a>
-          <p class="text-[11px] text-slate-400">
-            <?= ($user['role'] ?? '') === 'admin' ? '🛡️ Main Admin' : (($user['role'] ?? '') === 'teacher' ? '👩‍🏫 Teacher' : '👨‍🎓 Student') ?></p>
-        </div>
+        <a href="dashboard.php" title="LearnHub home">
+          <img src="logo/logo.png" alt="LearnHub LMS" class="h-14 w-14 object-contain mb-5" />
+        </a>
       </div>
 
       <div class="lh-side-sec">Menu</div>
@@ -1757,13 +1726,13 @@ if ($user) {
               </svg></span><span class="lh-side-label">Settings</span></a>
         <?php endif; ?>
         <?php if (($user['role'] ?? '') !== 'admin'): ?>
-        <a href="<?= ($user['role'] ?? '') === 'student' ? 'my_records.php' : 'quiz_records.php' ?>"
+        <a href="<?= ($user['role'] ?? '') === 'teacher' ? 'quiz_records.php' : 'my_records.php' ?>"
           class="lh-side-link <?= $nav_active === 'records' ? 'active' : '' ?>" data-tip="Quiz Records"><span
             class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
               stroke-linecap="round" stroke-linejoin="round">
               <path d="M4 20V10M10 20V4M16 20v-7" />
             </svg></span><span
-            class="lh-side-label"><?= ($user['role'] ?? '') === 'student' ? 'My Progress' : 'Student Records' ?></span></a>
+            class="lh-side-label"><?= ($user['role'] ?? '') === 'teacher' ? 'Student Records' : 'My Progress' ?></span></a>
         <?php endif; ?>
       </nav>
 
@@ -1813,13 +1782,8 @@ if ($user) {
             </svg>
           </button>
         <?php endif; ?>
-        <a href="<?= $user ? 'dashboard.php' : 'index.php' ?>" title="LearnHub home"
-          class="lh-logo grid h-9 w-9 place-items-center rounded-xl text-white lg:hidden"><img
-            src="assets/logo.png" alt="LearnHub" class="h-9 w-9 rounded-lg"></a>
-        <a href="<?= $user ? 'dashboard.php' : 'index.php' ?>" class="lh-topword hidden items-center gap-2 lg:flex">
-          <img src="assets/logo.png" alt="LearnHub" class="lh-logo h-8 w-8 rounded-lg">
-          <span class="text-sm font-extrabold tracking-tight text-slate-900">LearnHub <span
-              class="text-emerald-600">LMS</span></span>
+        <a href="<?= $user ? 'dashboard.php' : 'index.php' ?>" class="lh-topword  items-center gap-2 lg:flex">
+          <img src="logo/2ndlogo.png" alt="LearnHub LMS" class="h-14 w-14 object-contain" />
         </a>
 
       </div>
@@ -1871,7 +1835,6 @@ if ($user) {
             </svg>
             <span id="lh-chat-badge" class="lh-badge hidden">0</span>
           </a>
-
           <span class="hidden text-right sm:flex sm:flex-col sm:items-start leading-tight">
             <span class="text-sm font-semibold leading-4 text-slate-800"><?= e((string) $user['name']) ?></span>
             <span
