@@ -41,6 +41,8 @@ if ($user) {
   <?php if (!empty($attendance_course)): ?>
     <meta name="attendance-course" content="<?= (int) $attendance_course ?>"><?php endif; ?>
   <title><?= e($page_title) ?> · LearnHub LMS</title>
+  <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon.png">
+  <link rel="apple-touch-icon" href="assets/logo.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -1690,7 +1692,8 @@ if ($user) {
     <aside id="lh-sidebar" class="lh-sidebar" aria-label="Main navigation">
       <div class="lh-side-head">
         <a href="dashboard.php" title="LearnHub home"
-          class="lh-logo grid h-10 w-10 place-items-center rounded-xl text-white text-lg">🎓</a>
+          class="lh-logo grid h-10 w-10 place-items-center rounded-xl text-white text-lg"><img
+            src="assets/logo.png" alt="LearnHub" class="h-10 w-10 rounded-xl"></a>
         <div class="min-w-0 leading-tight">
           <a href="dashboard.php" class="block text-sm font-extrabold tracking-tight text-slate-900">LearnHub <span
               class="text-emerald-600">LMS</span></a>
@@ -1811,9 +1814,10 @@ if ($user) {
           </button>
         <?php endif; ?>
         <a href="<?= $user ? 'dashboard.php' : 'index.php' ?>" title="LearnHub home"
-          class="lh-logo grid h-9 w-9 place-items-center rounded-xl text-white lg:hidden">🎓</a>
+          class="lh-logo grid h-9 w-9 place-items-center rounded-xl text-white lg:hidden"><img
+            src="assets/logo.png" alt="LearnHub" class="h-9 w-9 rounded-lg"></a>
         <a href="<?= $user ? 'dashboard.php' : 'index.php' ?>" class="lh-topword hidden items-center gap-2 lg:flex">
-          <span class="lh-logo grid h-8 w-8 place-items-center rounded-xl text-white">🎓</span>
+          <img src="assets/logo.png" alt="LearnHub" class="lh-logo h-8 w-8 rounded-lg">
           <span class="text-sm font-extrabold tracking-tight text-slate-900">LearnHub <span
               class="text-emerald-600">LMS</span></span>
         </a>
