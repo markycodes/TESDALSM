@@ -485,21 +485,6 @@ function db_ensure_schema(PDO $pdo): void
             CONSTRAINT fk_cert_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
             CONSTRAINT fk_cert_course FOREIGN KEY (course_id) REFERENCES courses (id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
-        "CREATE TABLE IF NOT EXISTS code_requests (
-            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            user_id INT UNSIGNED NOT NULL,
-            course_id INT UNSIGNED NOT NULL,
-            note VARCHAR(300) NOT NULL DEFAULT '',
-            status ENUM('pending','approved','declined') NOT NULL DEFAULT 'pending',
-            code VARCHAR(20) NULL,
-            handled_by INT UNSIGNED NULL,
-            created_at INT UNSIGNED NOT NULL DEFAULT 0,
-            handled_at INT UNSIGNED NULL,
-            UNIQUE KEY uq_creq_once (user_id, course_id),
-            INDEX idx_creq_course (course_id, status),
-            CONSTRAINT fk_creq_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
-            CONSTRAINT fk_creq_course FOREIGN KEY (course_id) REFERENCES courses (id) ON DELETE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
     ];
     foreach ($tables as $sql) {
         $pdo->exec($sql);
@@ -1304,97 +1289,6 @@ function redeem_enroll_code(string $code, int $userId): ?int
     $db->prepare('INSERT IGNORE INTO enrollments (course_id, user_id, created_at) VALUES (?,?,?)')
         ->execute([(int) $row['course_id'], $userId, time()]);
     return (int) $row['course_id'];
-}
-
-/* ---------------- enrollment code requests (existing students) ---------------- */
-
-/** A student asks for an invitation code for one course. One live request per course;
- *  a declined request may be re-submitted. Notifies the course teacher. */
-function code_request_create(int $userId, int $courseId, string $note): array
-{
-    $course = course_row($courseId);
-    if (!$course) return [false, 'That course was not found.'];
-    if (is_enrolled_id($courseId, $userId)) return [false, 'You are already enrolled in this course.'];
-    db()->prepare("DELETE FROM code_requests WHERE user_id = ? AND course_id = ? AND status = 'declined'")
-        ->execute([$userId, $courseId]);
-    try {
-        db()->prepare("INSERT INTO code_requests (user_id, course_id, note, status, created_at)
-                       VALUES (?,?,?,'pending',?)")
-            ->execute([$userId, $courseId, cut($note, 300), time()]);
-    } catch (Throwable $e) {
-        return [false, 'You already have a request for this course — wait for your teacher to respond.'];
-    }
-    add_notification((int) $course['teacher_id'], 'code_request',
-        '🔑 Code request from ' . (string) (find_user_by_id($userId)['name'] ?? 'a student'),
-        cut('Course: ' . (string) $course['title'] . ($note !== '' ? ' — "' . $note . '"' : ''), 140),
-        'codes.php');
-    return [true, 'Request sent! Your teacher will review it and hand you a code.'];
-}
-
-/** Pending requests across every course the teacher owns (newest first). */
-function code_requests_for_teacher(int $teacherId): array
-{
-    $st = db()->prepare("SELECT cr.*, u.name AS student_name, c.title AS course_title
-                         FROM code_requests cr
-                         JOIN users u   ON u.id  = cr.user_id
-                         JOIN courses c ON c.id  = cr.course_id
-                         WHERE c.teacher_id = ? AND cr.status = 'pending'
-                         ORDER BY cr.id DESC LIMIT 50");
-    $st->execute([$teacherId]);
-    return $st->fetchAll();
-}
-
-/** The student's own requests with course titles (newest first). */
-function code_requests_for_student(int $userId): array
-{
-    $st = db()->prepare('SELECT cr.*, c.title AS course_title
-                         FROM code_requests cr
-                         JOIN courses c ON c.id = cr.course_id
-                         WHERE cr.user_id = ? ORDER BY cr.id DESC LIMIT 50');
-    $st->execute([$userId]);
-    return $st->fetchAll();
-}
-
-/** Teacher approves: mint a fresh one-time code for the course and hand it to the student. */
-function code_request_approve(int $requestId, int $teacherId): array
-{
-    $st = db()->prepare("SELECT cr.*, c.teacher_id AS course_teacher, c.title AS course_title
-                         FROM code_requests cr
-                         JOIN courses c ON c.id = cr.course_id
-                         WHERE cr.id = ? AND cr.status = 'pending' LIMIT 1");
-    $st->execute([$requestId]);
-    $req = $st->fetch();
-    if (!$req) return [false, 'That request is no longer pending.'];
-    if ((int) $req['course_teacher'] !== $teacherId) return [false, 'Only the course teacher can approve this request.'];
-    $code = generate_enroll_code($teacherId, (int) $req['course_id']);
-    if ($code === null) return [false, 'This course already has 25 unused codes — revoke one first, then approve.'];
-    db()->prepare("UPDATE code_requests SET status = 'approved', code = ?, handled_by = ?, handled_at = ? WHERE id = ?")
-        ->execute([$code, $teacherId, time(), $requestId]);
-    add_notification((int) $req['user_id'], 'code_request',
-        '✅ Code approved for ' . (string) $req['course_title'],
-        cut('Your code: ' . $code . ' — open Browse courses and press Unlock on the course card.', 200),
-        'courses.php');
-    return [true, 'Approved — code ' . $code . ' was sent to the student.'];
-}
-
-/** Teacher declines: close the request and let the student know (they may ask again). */
-function code_request_decline(int $requestId, int $teacherId): array
-{
-    $st = db()->prepare("SELECT cr.*, c.teacher_id AS course_teacher, c.title AS course_title
-                         FROM code_requests cr
-                         JOIN courses c ON c.id = cr.course_id
-                         WHERE cr.id = ? AND cr.status = 'pending' LIMIT 1");
-    $st->execute([$requestId]);
-    $req = $st->fetch();
-    if (!$req) return [false, 'That request is no longer pending.'];
-    if ((int) $req['course_teacher'] !== $teacherId) return [false, 'Only the course teacher can decide this request.'];
-    db()->prepare("UPDATE code_requests SET status = 'declined', handled_by = ?, handled_at = ? WHERE id = ?")
-        ->execute([$teacherId, time(), $requestId]);
-    add_notification((int) $req['user_id'], 'code_request',
-        'Code request declined',
-        cut('Your request for "' . (string) $req['course_title'] . '" was declined. You can ask again anytime.', 180),
-        'courses.php');
-    return [true, 'Request declined — the student was notified.'];
 }
 
 /** All codes belonging to one teacher (newest first). */

@@ -13,13 +13,6 @@ foreach ($courses as $c) {
 }
 sort($categories);
 
-$myReqs = [];
-if (($user['role'] ?? '') === 'student') {
-    foreach (code_requests_for_student((int) $user['id']) as $r) {
-        $myReqs[(int) $r['course_id']] = $r;
-    }
-}
-
 $page_title = 'All courses';
 require __DIR__ . '/header.php';
 ?>
@@ -74,25 +67,6 @@ require __DIR__ . '/header.php';
     <?php if ($certReady): ?>
     <a href="certificate.php?course=<?= e((string) $c['id']) ?>"
        class="mt-2 rounded-xl bg-emerald-50 px-4 py-2 text-center text-sm font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100">🎓 Certificate earned — open it</a>
-    <?php endif; ?>
-    <?php if (($user['role'] ?? '') === 'student' && !$enrolled && !$owner):
-      $rq = $myReqs[(int) $c['id']] ?? null; ?>
-      <?php if ($rq && ($rq['status'] ?? '') === 'pending'): ?>
-      <p class="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-center text-xs font-semibold text-amber-700 ring-1 ring-amber-200">⏳ Code requested — waiting for your teacher</p>
-      <?php elseif ($rq && ($rq['status'] ?? '') === 'approved' && !empty($rq['code'])): ?>
-      <form method="post" action="enroll.php" class="mt-4">
-        <?= csrf_field() ?>
-        <input type="hidden" name="course_id" value="<?= (int) $c['id'] ?>">
-        <input type="hidden" name="code" value="<?= e((string) $rq['code']) ?>">
-        <button class="w-full rounded-xl bg-emerald-600 px-4 py-2 text-center text-sm font-semibold text-white hover:bg-emerald-700">🔓 Unlock with your code (<?= e((string) $rq['code']) ?>)</button>
-      </form>
-      <?php else: ?>
-      <form method="post" action="request_code.php" class="mt-4">
-        <?= csrf_field() ?>
-        <input type="hidden" name="course_id" value="<?= (int) $c['id'] ?>">
-        <button class="w-full rounded-xl border border-indigo-200 px-4 py-2 text-center text-xs font-semibold text-indigo-600 hover:bg-indigo-50">🔑 Request an enrollment code</button>
-      </form>
-      <?php endif; ?>
     <?php endif; ?>
   </div>
   <?php endforeach; ?>
