@@ -91,6 +91,10 @@ require __DIR__ . '/header.php';
             <div data-role="bar" data-progress-for="<?= e((string) $course['id']) ?>" class="h-full rounded-full bg-indigo-600 transition-all duration-300" style="width: <?= $progress['pct'] ?>%"></div>
           </div>
           <p class="mt-2 text-[11px] leading-4 text-slate-500">Progress splits <b>100% equally</b> across the <?= $progress['total'] ?> lessons — each lesson counts <b><?= $lessonW ?>%</b> toward this course. Videos complete only when watched to the very end; materials complete when read to the bottom at a normal pace.</p>
+          <?php if ($progress['total'] > 0 && $progress['pct'] >= 100): ?>
+          <a href="certificate.php?course=<?= e((string) $course['id']) ?>"
+             class="mt-3 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700">🎓 View your certificate</a>
+          <?php endif; ?>
           <form method="post" action="enroll.php" data-confirm="Leave this course? Your progress will be kept." class="mt-3">
             <?= csrf_field() ?><input type="hidden" name="course_id" value="<?= e((string) $course['id']) ?>">
             <button class="text-xs font-medium text-slate-400 hover:text-rose-500">Leave course</button>

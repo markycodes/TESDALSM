@@ -473,6 +473,18 @@ function db_ensure_schema(PDO $pdo): void
             INDEX idx_notif_user (user_id, is_read),
             CONSTRAINT fk_notif_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        "CREATE TABLE IF NOT EXISTS certificates (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            user_id INT UNSIGNED NOT NULL,
+            course_id INT UNSIGNED NOT NULL,
+            code VARCHAR(24) NOT NULL,
+            issued_at INT UNSIGNED NOT NULL DEFAULT 0,
+            UNIQUE KEY uq_cert_once (user_id, course_id),
+            UNIQUE KEY uq_cert_code (code),
+            INDEX idx_cert_course (course_id),
+            CONSTRAINT fk_cert_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+            CONSTRAINT fk_cert_course FOREIGN KEY (course_id) REFERENCES courses (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
     ];
     foreach ($tables as $sql) {
         $pdo->exec($sql);
@@ -893,6 +905,70 @@ function course_progress(array $course, int|string $userId): array
     $total = count($course['materials'] ?? []);
     $done  = count($course['progress'][(int) $userId] ?? []);
     return ['total' => $total, 'done' => $done, 'pct' => $total > 0 ? (int) round($done * 100 / $total) : 0];
+}
+
+/* ---------------- e-certificates ---------------- */
+
+/** Percent (0-100) of a course's lessons the user completed; -1 when the course has no lessons. */
+function course_progress_pct(int $userId, int $courseId): int
+{
+    $st = db()->prepare('SELECT COUNT(*) FROM materials WHERE course_id = ?');
+    $st->execute([$courseId]);
+    $total = (int) $st->fetchColumn();
+    if ($total === 0) return -1;
+    $st = db()->prepare('SELECT COUNT(*) FROM progress p JOIN materials m ON m.id = p.material_id
+                         WHERE m.course_id = ? AND p.user_id = ?');
+    $st->execute([$courseId, $userId]);
+    return (int) round(100 * (int) $st->fetchColumn() / $total);
+}
+
+/** The user's certificate row for a course — issued automatically on the first
+ *  visit after every lesson is completed. Returns null while not yet earned. */
+function certificate_ensure(int $userId, int $courseId): ?array
+{
+    $st = db()->prepare('SELECT * FROM certificates WHERE user_id = ? AND course_id = ? LIMIT 1');
+    $st->execute([$userId, $courseId]);
+    $row = $st->fetch();
+    if ($row) return $row;
+    if (course_progress_pct($userId, $courseId) < 100) return null;
+    for ($try = 0; $try < 5; $try++) {
+        $code = 'LH-' . strtoupper(bin2hex(random_bytes(3))) . '-' . strtoupper(bin2hex(random_bytes(3)));
+        try {
+            db()->prepare('INSERT INTO certificates (user_id, course_id, code, issued_at) VALUES (?,?,?,?)')
+                ->execute([$userId, $courseId, $code, time()]);
+            $st = db()->prepare('SELECT * FROM certificates WHERE user_id = ? AND course_id = ? LIMIT 1');
+            $st->execute([$userId, $courseId]);
+            return $st->fetch() ?: null;
+        } catch (Throwable $e) { /* rare code collision / race — retry with a fresh code */ }
+    }
+    return null;
+}
+
+/** Public verification: resolve a certificate code to holder + course details. */
+function certificate_by_code(string $code): ?array
+{
+    $st = db()->prepare('SELECT ct.code, ct.issued_at, u.name AS student_name,
+                                c.title AS course_title, c.category AS course_category, tu.name AS teacher_name
+                         FROM certificates ct
+                         JOIN users u   ON u.id  = ct.user_id
+                         JOIN courses c ON c.id = ct.course_id
+                         JOIN users tu  ON tu.id = c.teacher_id
+                         WHERE ct.code = ? LIMIT 1');
+    $st->execute([strtoupper(trim($code))]);
+    $row = $st->fetch();
+    return $row ?: null;
+}
+
+/** All certificates earned by a user, newest first. */
+function certificates_for_user(int $userId): array
+{
+    $st = db()->prepare('SELECT ct.code, ct.issued_at, c.id AS course_id, c.title AS course_title, tu.name AS teacher_name
+                         FROM certificates ct
+                         JOIN courses c ON c.id = ct.course_id
+                         JOIN users tu  ON tu.id = c.teacher_id
+                         WHERE ct.user_id = ? ORDER BY ct.issued_at DESC');
+    $st->execute([$userId]);
+    return $st->fetchAll();
 }
 
 function ext_color(string $ext): string

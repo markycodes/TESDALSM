@@ -43,6 +43,11 @@ require __DIR__ . '/header.php';
   <?php foreach ($courses as $c):
     $owner = ($user['role'] ?? '') === 'teacher' && (int) ($c['teacher_id'] ?? 0) === (int) $user['id'];
     $enrolled = is_enrolled($c, (string) $user['id']);
+    $certReady = false;
+    if ($enrolled && ($user['role'] ?? '') === 'student') {
+      $cardPct = course_progress_pct((int) $user['id'], (int) $c['id']);
+      $certReady = $cardPct >= 100;
+    }
     $searchText = strtolower(($c['title'] ?? '') . ' ' . ($c['teacher_name'] ?? '') . ' ' . ($c['category'] ?? ''));
   ?>
   <div data-course-card data-cat="<?= e((string) ($c['category'] ?? 'General')) ?>" data-search="<?= e($searchText) ?>"
@@ -59,6 +64,10 @@ require __DIR__ . '/header.php';
        class="mt-4 rounded-xl px-4 py-2 text-center text-sm font-semibold <?= $owner || $enrolled ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'border border-indigo-600 text-indigo-600 hover:bg-indigo-50' ?>">
       <?= $owner ? 'Manage' : ($enrolled ? 'Continue' : ((($user['role'] ?? '') === 'student') ? '🔑 View course' : 'View course')) ?>
     </a>
+    <?php if ($certReady): ?>
+    <a href="certificate.php?course=<?= e((string) $c['id']) ?>"
+       class="mt-2 rounded-xl bg-emerald-50 px-4 py-2 text-center text-sm font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100">🎓 Certificate earned — open it</a>
+    <?php endif; ?>
   </div>
   <?php endforeach; ?>
 </div>
