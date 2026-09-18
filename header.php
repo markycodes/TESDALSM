@@ -1032,6 +1032,11 @@ if ($user) {
         display: none
       }
 
+      /* wordmark (learn.png) hides on the collapsed rail — icon only */
+      body.lh-rail .lh-side-head .lh-side-wordmark {
+        display: none
+      }
+
       body.lh-rail .lh-side-sec {
         display: none
       }
@@ -1791,8 +1796,9 @@ if ($user) {
   <?php if ($user): ?>
     <aside id="lh-sidebar" class="lh-sidebar" aria-label="Main navigation">
       <div class="lh-side-head">
-        <a href="dashboard.php" title="LearnHub home">
+        <a href="dashboard.php" title="LearnHub home" class="flex flex-row items-center justify-center">
           <img src="logo/logo.png" alt="LearnHub LMS" class="h-14 w-14 object-contain mb-5" />
+          <img src="logo/learn.png" alt="" class="lh-side-wordmark w-[10rem] object-contain mb-5">
         </a>
       </div>
 
