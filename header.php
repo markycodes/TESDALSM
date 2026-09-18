@@ -1891,8 +1891,12 @@ if ($user) {
           <span
             class="block truncate text-[10px] uppercase tracking-wide text-slate-400"><?= ($user['role'] ?? '') === 'admin' ? 'Main Admin' : (($user['role'] ?? '') === 'teacher' ? 'Teacher' : 'Student') ?></span>
         </span>
-        <a href="logout.php" title="Log out"
-          class="lh-ico grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-500">⏻</a>
+        <a href="logout.php" title="Log out" aria-label="Log out"
+          class="lh-ico grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-500">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5.636 5.636a9 9 0 1012.728 0M12 3v9" />
+          </svg>
+        </a>
       </div>
     </aside>
     <div id="lh-side-backdrop" class="lh-backdrop" aria-hidden="true"></div>
@@ -1978,7 +1982,11 @@ if ($user) {
             class="hidden rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 sm:inline-block">Log
             out</a>
           <a href="logout.php" title="Log out" aria-label="Log out"
-            class="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-500 sm:hidden">⏻</a>
+            class="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-500 sm:hidden">
+            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5.636 5.636a9 9 0 1012.728 0M12 3v9" />
+            </svg>
+          </a>
         <?php else: ?>
           <a href="login.php" class="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100">Log
             in</a>
