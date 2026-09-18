@@ -2886,7 +2886,8 @@ function unread_notification_count(int $userId): int
     return (int) $st->fetchColumn();
 }
 
-/** Total notifications (read + unread) — used by the red bell badge. */
+/** Total notifications (read + unread) — returned by realtime.php for reference;
+ *  the red bell badge uses unread_notification_count() instead. */
 function total_notification_count(int $userId): int
 {
     $st = db()->prepare('SELECT COUNT(*) FROM notifications WHERE user_id = ?');

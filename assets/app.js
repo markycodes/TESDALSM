@@ -847,13 +847,33 @@ if (dayFilter) {
   }
 
   /* -------- notifications: poll + dropdown -------- */
+  var lastUnread = 0;   /* newest known unread-notification count (drives the bell badge) */
   var notifBtn = document.getElementById('lh-notif-btn');
   var panel = document.getElementById('lh-notif-panel');
   var list = document.getElementById('lh-notif-list');
+  function markAllRead() {
+    return fetch('mark_notifications_read.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'fetch' },
+      body: 'csrf=' + encodeURIComponent(csrf),
+    }).then(function (r) { return r.json().catch(function () { return null; }); }).then(function (d) {
+      if (d && d.ok && typeof d.unread === 'number') { lastUnread = d.unread; setBadge('lh-notif-badge', d.unread); }
+      return d;
+    });
+  }
   if (notifBtn && panel) {
     notifBtn.addEventListener('click', function (e) {
       e.preventDefault();
       panel.classList.toggle('hidden');
+      /* "seen": opening the panel counts as reading everything — the badge
+         clears once the fresh list confirms it; a new notification later
+         brings the badge back with the new count */
+      if (!panel.classList.contains('hidden')) {
+        refreshNotifs().then(function () {
+          if (lastUnread <= 0) return null;
+          return markAllRead().then(function () { return refreshNotifs(); });
+        }).catch(function () {});
+      }
       e.stopPropagation();
     });
     document.addEventListener('click', function (e) {
@@ -862,16 +882,15 @@ if (dayFilter) {
   }
   var readAllBtn = document.getElementById('lh-notif-read-all');
   if (readAllBtn) readAllBtn.addEventListener('click', function () {
-    fetch('mark_notifications_read.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'fetch' },
-      body: 'csrf=' + encodeURIComponent(csrf),
-    }).then(function (r) { return r.json(); }).then(function () { refreshNotifs(); }).catch(function () {});
+    markAllRead().then(function () { return refreshNotifs(); }).catch(function () {});
   });
   function refreshNotifs() {
     return lhSecureJson('realtime.php?v=notifications').then(function (d) {
       if (!d || !d.ok) return false;
-      setBadge('lh-notif-badge', (typeof d.total === 'number' ? d.total : (d.unread || 0)));
+      /* bell badge = UNREAD notifications only: clears when items are read/seen,
+         re-appears with the new count as soon as something new arrives */
+      lastUnread = d.unread || 0;
+      setBadge('lh-notif-badge', lastUnread);
       setBadge('lh-chat-badge', d.chat_unread || 0);
       setBadge('lh-chat-badge-side', d.chat_unread || 0);
       if (!list) return true;
@@ -908,6 +927,9 @@ if (dayFilter) {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'fetch' },
       body: 'csrf=' + encodeURIComponent(csrf) + '&id=' + encodeURIComponent(item.getAttribute('data-notif-id')),
+    }).then(function (r) { return r.json().catch(function () { return null; }); }).then(function (d) {
+      /* the clicked item is read — drop it from the badge immediately */
+      if (d && typeof d.unread === 'number') { lastUnread = d.unread; setBadge('lh-notif-badge', d.unread); }
     }).catch(function () {}).finally(function () { window.location.href = link; });
   });
   if (document.body.classList.contains('lh-app')) {
