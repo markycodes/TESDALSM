@@ -106,7 +106,15 @@ foreach ($records as $r) {
   if (empty($r['left_at']) && $isToday)
     $openCount++;
 }
-$fmtDur = fn(int $s): string => sprintf('%dm %02ds', (int) floor($s / 60), $s % 60);
+$fmtDur = function (int $s): string {          /* mirrors lmsDur() in app.js so the first live tick doesn't reformat the number */
+    $h = intdiv($s, 3600);
+    $m = intdiv($s % 3600, 60);
+    $out = [];
+    if ($h) $out[] = $h . 'h';
+    if ($m || $h) $out[] = $m . 'm';
+    if (!$h) $out[] = ($s % 60) . 's';
+    return $out ? implode(' ', $out) : '0s';
+};
 $onlineSet = array_flip(online_user_ids($recordUserIds));
 
 $page_title = 'Attendance';
@@ -170,21 +178,24 @@ require __DIR__ . '/header.php';
     ['🟢', 'In course now', (string) ($isToday ? $openCount : 0)],
     ['⏱', 'Total time', $fmtDur($totalSeconds)],
   ];
-  foreach ($stats as $s): ?>
+  foreach ($stats as $i => $s): ?>
     <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
       <p class="text-2xl"><?= $s[0] ?></p>
-      <p class="mt-2 text-3xl font-extrabold text-slate-900"><?= e((string) $s[2]) ?></p>
+      <p class="mt-2 text-3xl font-extrabold text-slate-900"
+        data-day-stat="<?= e(['total', 'students', 'now', 'time'][$i] ?? '') ?>"><?= e((string) $s[2]) ?></p>
       <p class="text-xs font-semibold uppercase tracking-wide text-slate-500"><?= e((string) $s[1]) ?></p>
     </div>
   <?php endforeach; ?>
 </div>
-<!-- Records -->
-<section class="mt-8">
+<!-- Records (live: stats + table refresh every 12 s via realtime.php?v=day) -->
+<section class="mt-8" data-live-scope="day">
   <div class="flex items-center justify-between">
-    <h2 class="text-lg font-bold text-slate-900">Recorded visits (<?= count($records) ?>)</h2>
+    <h2 class="text-lg font-bold text-slate-900">Recorded visits (<span
+        data-day-stat="total"><?= count($records) ?></span>)</h2>
     <?php if ($isToday): ?><span class="text-xs text-slate-400">Durations update live for open
         sessions</span><?php endif; ?>
   </div>
+  <div id="day-records">
   <?php if (!$records): ?>
     <div class="mt-4 rounded-2xl border-2 border-dashed border-slate-300 p-10 text-center text-slate-500">
       <p class="text-4xl">🗓</p>
@@ -253,6 +264,7 @@ require __DIR__ . '/header.php';
       </table>
     </div>
   <?php endif; ?>
+  </div>
 </section>
 
 <?php require __DIR__ . '/footer.php'; ?>
