@@ -118,7 +118,7 @@ Every lesson can carry a **multiple-choice quiz** taken **once** per student:
 
 ## Upload size limits
 
-The included `.htaccess` raises PHP limits to **512 MB** (works with XAMPP's default `mod_php`).
+The included `.htaccess` raises PHP limits to **4 GB** (works with XAMPP's default `mod_php`; the matching `.user.ini` covers CGI/FastCGI setups). A 1 GB fallback applies on 32-bit PHP.
 If pages return **HTTP 500** after this file was added, your PHP runs as CGI/FastCGI:
 
 1. Delete the `php_value …` lines from `.htaccess`

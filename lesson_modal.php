@@ -33,7 +33,7 @@
         <input name="description" maxlength="200" placeholder="What is this material about?" class="<?= $inp ?>">
       </div>
       <div>
-        <label class="block text-sm font-medium text-slate-700">Document file * (PDF · DOCX · PPTX · XLSX · TXT · MD · images)</label>
+        <label class="block text-sm font-medium text-slate-700">Document file * (PDF · DOCX · PPTX · XLSX · TXT · MD · images — up to <?= e(max_upload_label()) ?>)</label>
         <input type="file" name="file" required accept="<?= e('.' . implode(',.', DOC_EXTS)) ?>"
                class="mt-1 w-full rounded-xl border border-slate-300 p-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-indigo-700 hover:file:bg-indigo-100">
       </div>
@@ -80,8 +80,11 @@
       <div>
         <label class="block text-sm font-medium text-slate-700">Video files * (MP4 · WebM · MOV — hold Ctrl/Cmd to pick several)</label>
         <input id="video-files" type="file" name="file[]" multiple required accept="<?= e('.' . implode(',.', VIDEO_EXTS)) ?>,video/*"
+               data-max-bytes="<?= (int) max_upload_bytes() ?>"
                class="mt-1 w-full rounded-xl border border-slate-300 p-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-indigo-700 hover:file:bg-indigo-100">
-        <p id="video-files-note" class="mt-1 text-xs text-slate-400">Tip: MP4 (H.264) plays in every browser. Huge uploads may need the php.ini limits in README.md.</p>
+        <p class="mt-1 text-xs text-slate-400">Tip: MP4 (H.264) plays in every browser. Up to <b><?= e(max_upload_label()) ?></b> per file — room for a full 1080p lesson.</p>
+        <!-- JS writes into this line only (see app.js) — keep the tip above it separate. -->
+        <p id="video-files-note" class="mt-1 text-xs text-slate-400"></p>
       </div>
       <button class="w-full rounded-xl bg-indigo-600 py-2.5 font-semibold text-white shadow-sm hover:bg-indigo-700">Upload video(s)</button>
     </form>

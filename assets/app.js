@@ -247,13 +247,34 @@ document.addEventListener('click', (e) => {
   });
 })();
 
-/* ---------- Multi-file video input: live "N selected" hint ---------- */
+/* ---------- Multi-file video input: live count / size hint + oversize warning ----------
+   The per-file ceiling comes from PHP (data-max-bytes) so the browser and the
+   server can never disagree. Catching an oversize file here avoids a long upload
+   that would only be rejected at the end. */
 const videoFilesInput = document.getElementById('video-files');
 if (videoFilesInput) {
   const videoNote = document.getElementById('video-files-note');
+  const maxBytes = parseInt(videoFilesInput.getAttribute('data-max-bytes') || '0', 10);
+  const fmtSize = (bytes) => {
+    if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(1) + ' GB';
+    if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
+    if (bytes >= 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return bytes + ' B';
+  };
   videoFilesInput.addEventListener('change', () => {
-    const n = (videoFilesInput.files || []).length;
-    if (videoNote && n) videoNote.textContent = n + ' video file(s) selected — each becomes its own lesson.';
+    const files = Array.from(videoFilesInput.files || []);
+    if (!videoNote || !files.length) return;
+    const total = files.reduce((sum, f) => sum + (f.size || 0), 0);
+    const tooBig = maxBytes ? files.filter((f) => f.size > maxBytes) : [];
+    let text = files.length + ' video file(s) selected · ' + fmtSize(total) + ' total — each becomes its own lesson.';
+    if (tooBig.length) {
+      text += ' ⚠ ' + tooBig.length + ' file(s) exceed the ' + fmtSize(maxBytes) + ' limit and will be refused: '
+        + tooBig.map((f) => f.name).join(', ');
+      videoNote.className = 'mt-1 text-xs font-semibold text-red-600';
+    } else {
+      videoNote.className = 'mt-1 text-xs text-slate-400';
+    }
+    videoNote.textContent = text;
   });
 }
 

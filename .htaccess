@@ -1,22 +1,32 @@
 # LearnHub LMS — Apache config (portable: XAMPP subfolder or shared hosts like InfinityFree)
 
-# Raise upload limits for video lessons.
-# Only applied when PHP runs as mod_php (XAMPP). On CGI/FastCGI hosts
-# (InfinityFree and most shared hosting) php_value is not supported and
-# would trigger an HTTP 500 — these blocks are simply skipped there.
+# Raise upload limits for video lessons (4 GB fits a 1080p hour-long video).
+# Only applied when PHP runs as mod_php. On CGI/FastCGI hosts (InfinityFree and
+# most shared hosting) php_value is not supported and would trigger an HTTP 500
+# — these blocks are simply skipped there. A matching .user.ini covers
+# CGI/FastCGI setups (also skipped by InfinityFree).
+# The module identifier differs per build: PHP 8 registers "mod_php.c" on
+# XAMPP and most distros, some distros use "mod_php8.c", PHP 7 "mod_php7.c".
+<IfModule mod_php.c>
+    php_value upload_max_filesize 4096M
+    php_value post_max_size 4096M
+    php_value max_execution_time 1200
+    php_value max_input_time 7200
+    php_value memory_limit 512M
+</IfModule>
 <IfModule mod_php8.c>
-    php_value upload_max_filesize 512M
-    php_value post_max_size 512M
-    php_value max_execution_time 300
-    php_value max_input_time 300
-    php_value memory_limit 256M
+    php_value upload_max_filesize 4096M
+    php_value post_max_size 4096M
+    php_value max_execution_time 1200
+    php_value max_input_time 7200
+    php_value memory_limit 512M
 </IfModule>
 <IfModule mod_php7.c>
-    php_value upload_max_filesize 512M
-    php_value post_max_size 512M
-    php_value max_execution_time 300
-    php_value max_input_time 300
-    php_value memory_limit 256M
+    php_value upload_max_filesize 4096M
+    php_value post_max_size 4096M
+    php_value max_execution_time 1200
+    php_value max_input_time 7200
+    php_value memory_limit 512M
 </IfModule>
 
 # Never serve raw app data or docs
@@ -68,3 +78,6 @@
     RewriteCond %{REQUEST_FILENAME} -f
     RewriteRule ^ - [L]
 </IfModule>
+
+# allow multi-GB bodies (default is unlimited, but make it explicit)
+LimitRequestBody 0

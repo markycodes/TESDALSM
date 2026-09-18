@@ -12,7 +12,7 @@ if (session_status() === PHP_SESSION_NONE) {
 define('LMS_ROOT', __DIR__);
 define('DATA_DIR', LMS_ROOT . '/data');        // legacy JSON storage location (auto-imported once)
 define('UPLOAD_DIR', LMS_ROOT . '/uploads');
-define('MAX_UPLOAD_BYTES', 512 * 1024 * 1024); // 512 MB (php.ini may cap lower)
+define('MAX_UPLOAD_BYTES', (PHP_INT_SIZE >= 8 ? 4 : 1) * 1024 * 1024 * 1024); // 4 GB on 64-bit PHP (1 GB fallback on 32-bit) — fits 1080p hour-long videos; php.ini/.htaccess may cap lower
 
 /* ---- MySQL connection settings --------------------------------------------
  * Defaults are the XAMPP ones. For other hosts (InfinityFree, etc.) create a
@@ -1224,6 +1224,44 @@ function format_size(int $bytes): string
     return $bytes . ' B';
 }
 
+/** Parse a php.ini shorthand size ("512M", "4G", "2048K", "1048576") into bytes.
+ *  ini_parse_quantity() exists only in PHP >= 8.2, so this stays portable. */
+function ini_bytes(string $val): int
+{
+    $val = trim($val);
+    if ($val === '') return 0;
+    $n = (int) $val;
+    return match (strtolower(substr($val, -1))) {
+        'g' => $n * 1024 * 1024 * 1024,
+        'm' => $n * 1024 * 1024,
+        'k' => $n * 1024,
+        default => $n,
+    };
+}
+
+/** The REAL ceiling for one uploaded file, in bytes.
+ *  The smallest of three independent limits wins — the app's own cap and the
+ *  two PHP settings that silently abort bigger uploads:
+ *    • upload_max_filesize — per-file cap (a multi-GB video dies here first)
+ *    • post_max_size       — whole-request cap
+ *  Reading them at runtime means the UI can show teachers the truth for the
+ *  machine the app is actually running on, instead of a hard-coded number. */
+function max_upload_bytes(): int
+{
+    $caps = [MAX_UPLOAD_BYTES];
+    foreach (['upload_max_filesize', 'post_max_size'] as $k) {
+        $v = ini_bytes((string) ini_get($k));
+        if ($v > 0) $caps[] = $v;          // 0 or -1 means "no limit set here"
+    }
+    return min($caps);
+}
+
+/** Human-readable form of max_upload_bytes() — e.g. "4 GB". */
+function max_upload_label(): string
+{
+    return format_size(max_upload_bytes());
+}
+
 function ext_of(string $name): string
 {
     return strtolower(pathinfo($name, PATHINFO_EXTENSION));
@@ -1344,10 +1382,15 @@ function ext_color(string $ext): string
 function upload_error_message(int $code): string
 {
     return match ($code) {
-        UPLOAD_ERR_INI_SIZE  => 'File exceeds the server upload limit (upload_max_filesize). Raise it in php.ini — see README.md.',
+        // PHP never even handed the file to the script: it died in the ini layer,
+        // so name the limit the teacher actually hit instead of a vague "too big".
+        UPLOAD_ERR_INI_SIZE  => 'That file is larger than this server allows (' . max_upload_label() . '). Try a lower-bitrate export, or add it as a YouTube/Vimeo link instead.',
         UPLOAD_ERR_FORM_SIZE => 'File exceeds the form size limit.',
         UPLOAD_ERR_PARTIAL   => 'The upload was interrupted — please try again.',
         UPLOAD_ERR_NO_FILE   => 'No file was selected.',
+        UPLOAD_ERR_NO_TMP_DIR => 'The server has no temporary folder for uploads.',
+        UPLOAD_ERR_CANT_WRITE => 'The server could not write the file to disk.',
+        UPLOAD_ERR_EXTENSION  => 'A PHP extension blocked this upload.',
         default              => 'The server could not store that file.',
     };
 }
@@ -1364,7 +1407,7 @@ function handle_upload(string $field, array $allowedExts): array
     }
     $err = (int) ($f['error'] ?? UPLOAD_ERR_NO_FILE);
     if ($err !== UPLOAD_ERR_OK) throw new RuntimeException(upload_error_message($err));
-    if ((int) $f['size'] > MAX_UPLOAD_BYTES) throw new RuntimeException('File is larger than 512 MB.');
+    if ((int) $f['size'] > max_upload_bytes()) throw new RuntimeException('File is larger than ' . max_upload_label() . '.');
     $ext = ext_of((string) $f['name']);
     if ($ext === '' || !in_array($ext, $allowedExts, true)) {
         throw new RuntimeException('File type ".' . $ext . '" is not allowed. Allowed: ' . implode(', ', $allowedExts));
@@ -1392,7 +1435,7 @@ function handle_uploads(string $field, array $allowedExts): array
         $err = is_array($f['error'] ?? null) ? (int) ($f['error'][$i] ?? UPLOAD_ERR_NO_FILE) : (int) ($f['error'] ?? UPLOAD_ERR_OK);
         if ($err !== UPLOAD_ERR_OK) throw new RuntimeException(upload_error_message($err));
         $size = is_array($f['size'] ?? null) ? (int) ($f['size'][$i] ?? 0) : (int) ($f['size'] ?? 0);
-        if ($size > MAX_UPLOAD_BYTES) throw new RuntimeException('A file is larger than 512 MB.');
+        if ($size > max_upload_bytes()) throw new RuntimeException('A file is larger than ' . max_upload_label() . '.');
         $ext = ext_of($orig);
         if ($ext === '' || !in_array($ext, $allowedExts, true)) {
             throw new RuntimeException('File type ".' . $ext . '" is not allowed. Allowed: ' . implode(', ', $allowedExts));
