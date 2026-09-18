@@ -49,6 +49,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'clear_key') {
         setting_set('mail_api_key', '');
         set_flash('success', 'Saved API key removed. E-mail is now disabled unless config.php defines one.');
+    } elseif ($action === 'save_google') {
+        $cid = trim((string) ($_POST['google_client_id'] ?? ''));
+        if ($cid !== '') setting_set('google_client_id', $cid);
+        $sec = trim((string) ($_POST['google_client_secret'] ?? ''));
+        if ($sec !== '') setting_set('google_client_secret', $sec);   /* blank keeps the saved secret */
+        set_flash('success', google_configured()
+            ? 'Google Sign-In saved — the button is now live on the login and register pages.'
+            : 'Saved, but BOTH a Client ID and a Client Secret are needed before the Google button appears.');
+    } elseif ($action === 'clear_google') {
+        setting_set('google_client_id', '');
+        setting_set('google_client_secret', '');
+        set_flash('success', 'Google Sign-In turned off (saved credentials removed).');
     }
     header('Location: settings.php');
     exit;
@@ -59,6 +71,11 @@ $savedKey = setting_get('mail_api_key', '');
 $provName = setting_get('mail_provider_name', 'brevo');
 $masked   = $savedKey === '' ? '' : (strlen($savedKey) > 6 ? '••••••••' . substr($savedKey, -6) : '••••••••');
 $lastLog  = setting_get('mail_last', '');
+$gId        = setting_get('google_client_id', '');
+$gSecretRaw = setting_get('google_client_secret', '');
+$gSecSaved  = $gSecretRaw !== '';
+$gMasked    = $gSecSaved ? '••••••••' . substr($gSecretRaw, -6) : '';
+$gRedirect  = function_exists('google_redirect_uri') ? google_redirect_uri() : '';
 /* which values are pinned by config.php (they override anything saved here)? */
 $pinned = [];
 if (EMAIL_API_KEY !== '') $pinned[] = 'EMAIL_API_KEY';
@@ -168,6 +185,51 @@ require __DIR__ . '/header.php';
       <?php endif; ?>
     </div>
   </form>
+
+  <div class="reveal lh-plain rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+    <h2 class="text-base font-bold text-slate-900">Continue with Google</h2>
+    <p class="mt-1 flex items-center gap-2 text-sm">
+      <span class="font-semibold <?= google_configured() ? 'text-emerald-700' : 'text-slate-500' ?>">
+        <?= google_configured() ? '✅ Enabled — the button is live on the login and register pages' : 'Disabled — fill in both fields below to switch it on' ?>
+      </span>
+    </p>
+    <form method="post" class="mt-4 space-y-4">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="save_google">
+      <div>
+        <label class="block text-sm font-medium text-slate-700" for="google_client_id">Client ID</label>
+        <input id="google_client_id" name="google_client_id" type="text" value="<?= e($gId) ?>"
+          placeholder="1234567890-abcdefg.apps.googleusercontent.com"
+          class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700" for="google_client_secret">Client secret</label>
+        <input id="google_client_secret" name="google_client_secret" type="password" autocomplete="off"
+          placeholder="<?= $gSecSaved ? e('Saved: ' . $gMasked . ' — leave blank to keep it') : 'GOCSPX-…' ?>"
+          class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none">
+        <p class="mt-1 text-xs text-slate-500">Both come from <b>console.cloud.google.com</b> → APIs &amp; Services → Credentials →
+          OAuth client ID (type <i>Web application</i>). Stored in the database, never shown in full again.</p>
+      </div>
+      <div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+        ⚠️ In the Google Console you must add this <b>Authorized redirect URI</b> for this site:<br>
+        <code class="mt-1 block select-all rounded-lg bg-white px-2 py-1 font-mono text-[11px] text-slate-800"><?= e($gRedirect) ?></code>
+      </div>
+      <p class="text-xs text-slate-500">New Google users must still enter their <b>full name</b> and a
+        <b>course invitation code</b> (students) or <b>teacher access code</b> (teachers) before any account is created.
+        People whose e-mail already has an account simply sign in.</p>
+      <div class="flex flex-wrap items-center gap-3 pt-1">
+        <button type="submit"
+          class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700">
+          Save Google settings</button>
+        <?php if ($gSecSaved || $gId !== ''): ?>
+          <button type="submit" name="action" value="clear_google"
+            class="rounded-xl border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50">
+            Turn off Google Sign-In</button>
+        <?php endif; ?>
+      </div>
+    </form>
+  </div>
+
 <div class="reveal lh-plain rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
     <h2 class="text-base font-bold text-slate-900">Which e-mails are sent automatically</h2>
     <ul class="mt-2 space-y-1.5 text-sm text-slate-600">

@@ -1041,6 +1041,155 @@ function verify_csrf(): void
     }
 }
 
+/* ---------------- Google Sign-In ("Continue with Google") --------------------
+ * Optional. Once a Client ID + Client Secret are saved (Settings page, or
+ * config.php constants), the login and register pages show a "Continue with
+ * Google" button. A NEW Google user is never created silently: after Google
+ * verifies their e-mail they land on the register page in a special mode where
+ * they MUST type their full name and a code — a course invitation code makes
+ * them a student enrolled in that exact course, a teacher access code makes
+ * them a teacher. Exactly like password registration, minus the password
+ * (an unusable random one is stored, so the account stays password-less until
+ * an administrator assigns one). Existing users just sign in.
+ * -------------------------------------------------------------------------- */
+
+function google_client_id(): string
+{
+    return defined('GOOGLE_CLIENT_ID') && GOOGLE_CLIENT_ID !== ''
+        ? (string) GOOGLE_CLIENT_ID
+        : setting_get('google_client_id', '');
+}
+function google_client_secret(): string
+{
+    return defined('GOOGLE_CLIENT_SECRET') && GOOGLE_CLIENT_SECRET !== ''
+        ? (string) GOOGLE_CLIENT_SECRET
+        : setting_get('google_client_secret', '');
+}
+function google_configured(): bool
+{
+    return google_client_id() !== '' && google_client_secret() !== '';
+}
+
+/** The exact URL that must be registered as "Authorized redirect URI" in the
+ *  Google Cloud Console. Derived from the current request, so it is correct
+ *  on localhost (…/LMS/google_login.php) and on the deployed domain. */
+function google_redirect_uri(): string
+{
+    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https'
+        || (string) ($_SERVER['SERVER_PORT'] ?? '') === '443';
+    $host = (string) ($_SERVER['HTTP_HOST'] ?? 'localhost');
+    $dir  = rtrim(str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/'))), '/');
+    return ($https ? 'https' : 'http') . '://' . $host . $dir . '/google_login.php';
+}
+
+/** The Google consent-screen URL. $state is a one-time CSRF value stored in
+ *  the session by google_login.php before redirecting here. */
+function google_auth_url(string $state): string
+{
+    return 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query([
+        'client_id'     => google_client_id(),
+        'redirect_uri'  => google_redirect_uri(),
+        'response_type' => 'code',
+        'scope'         => 'openid email profile',
+        'access_type'   => 'online',
+        'prompt'        => 'select_account',
+        'state'         => $state,
+        'include_granted_scopes' => 'true',
+    ]);
+}
+
+/** Trade the ?code= from Google for the user's identity.
+ *  Returns ['sub', 'email', 'name', 'email_verified'] or null on any failure. */
+function google_exchange_code(string $code): ?array
+{
+    $tokenRes = lh_http('https://oauth2.googleapis.com/token', 'POST', [
+        'Content-Type: application/x-www-form-urlencoded',
+        'Accept: application/json',
+    ], http_build_query([
+        'code'          => $code,
+        'client_id'     => google_client_id(),
+        'client_secret' => google_client_secret(),
+        'redirect_uri'  => google_redirect_uri(),
+        'grant_type'    => 'authorization_code',
+    ]), 15);
+    if ($tokenRes['code'] !== 200) { lms_error_log('google token exchange failed: HTTP ' . $tokenRes['code'] . ' ' . substr($tokenRes['body'], 0, 200)); return null; }
+    $token = json_decode($tokenRes['body'], true);
+    if (empty($token['access_token'])) return null;
+
+    $uiRes = lh_http('https://openidconnect.googleapis.com/v1/userinfo', 'GET', [
+        'Authorization: Bearer ' . (string) $token['access_token'],
+        'Accept: application/json',
+    ], '', 15);
+    if ($uiRes['code'] !== 200) { lms_error_log('google userinfo failed: HTTP ' . $uiRes['code']); return null; }
+    $ui = json_decode($uiRes['body'], true);
+    if (!is_array($ui) || empty($ui['sub']) || empty($ui['email'])) return null;
+    return [
+        'sub'            => (string) $ui['sub'],
+        'email'          => strtolower((string) $ui['email']),
+        'name'           => (string) ($ui['name'] ?? ''),
+        'email_verified' => !empty($ui['email_verified']),
+    ];
+}
+
+/** Finish a Google sign-up: validate name + code, create the account, redeem
+ *  the code (enroll code -> student enrolled in that course; teacher access
+ *  code -> teacher), log the user in, send the welcome mail.
+ *  Returns ['ok' => bool, 'errors' => string[], 'role' => string, 'course_id' => int]. */
+function google_complete_signup(string $name, string $code, array $pending): array
+{
+    $out   = ['ok' => false, 'errors' => [], 'role' => '', 'course_id' => 0];
+    $name  = trim($name);
+    $code  = strtoupper(trim($code));
+    $email = strtolower((string) ($pending['email'] ?? ''));
+
+    if (strlen($name) < 2) $out['errors'][] = 'Please enter your full name.';
+    if (strlen($code) < 4) $out['errors'][] = 'Enter your code — students: the course invitation code from your teacher; teachers: the access code from the main administrator.';
+    if (!$out['errors'] && !filter_var($email, FILTER_VALIDATE_EMAIL)) $out['errors'][] = 'Your Google account did not return a usable e-mail — please register with a password instead.';
+    if (!$out['errors'] && email_exists($email)) $out['errors'][] = 'That Google e-mail is already registered — use “Continue with Google” on the login page to sign in.';
+    if ($out['errors']) return $out;
+
+    $cRow = enroll_code_lookup($code);
+    $tRow = teacher_code_lookup($code);
+    if ($cRow && empty($cRow['used_by'])) {
+        $out['role'] = 'student';
+    } elseif ($tRow && empty($tRow['used_by'])) {
+        $out['role'] = 'teacher';
+    } elseif ($cRow) {
+        $out['errors'][] = 'That invitation code has already been used — ask your teacher for a fresh one.';
+    } elseif ($tRow) {
+        $out['errors'][] = 'That access code has already been used — ask the administrator for a fresh one.';
+    } else {
+        $out['errors'][] = 'That code is not valid. Students: ask your teacher for a course invitation code. Teachers: use the access code from the main administrator.';
+    }
+    if ($out['errors']) return $out;
+
+    /* a password nobody knows: the account is Google-only until an admin assigns one */
+    $userId = create_user($name, $email, password_hash('google-' . bin2hex(random_bytes(16)), PASSWORD_DEFAULT), $out['role']);
+    user_meta_set($userId, 'auth_provider', 'google');
+    if ((string) ($pending['sub'] ?? '') !== '') user_meta_set($userId, 'google_sub', (string) $pending['sub']);
+
+    if ($out['role'] === 'student') {
+        $courseId = redeem_enroll_code($code, $userId);
+        if ($courseId === null) {          /* claimed by someone else in the meantime */
+            db()->prepare('DELETE FROM users WHERE id = ?')->execute([$userId]);
+            $out['errors'][] = 'That invitation code was just claimed by someone else — ask your teacher for a fresh one.';
+            return $out;
+        }
+        $out['course_id'] = $courseId;
+    } elseif (!redeem_teacher_code($code, $userId)) {
+        db()->prepare('DELETE FROM users WHERE id = ?')->execute([$userId]);
+        $out['errors'][] = 'That access code was just claimed by someone else — ask the administrator for a fresh one.';
+        return $out;
+    }
+
+    session_regenerate_id(true);
+    $_SESSION['user_id'] = $userId;
+    try { send_welcome_email($userId, $out['course_id']); } catch (Throwable $e) { /* mail must never break signup */ }
+    $out['ok'] = true;
+    return $out;
+}
+
 /* ---------------- flash messages ---------------- */
 
 function set_flash(string $type, string $msg): void
