@@ -420,7 +420,7 @@ function db_error_page(string $message): void
         /* The raw PDO text names the host, the database user and the table — that is
            for the log file, not for a visitor. A live domain only sees the notice. */
         . '<p style="margin:0 0 10px;color:#334155;font-size:14px;line-height:1.6">'
-        . ($local ? e($message) : 'The site cannot reach its database right now. Please try again in a moment.') . '</p>';
+        . ($local ? e($message) : 'The site database is unreachable or not ready right now. Please try again in a moment.') . '</p>';
     if ($local) {
         echo '<p style="margin:0;color:#64748b;font-size:14px;line-height:1.6">'
             . '📍 Trying <code>' . e(DB_HOST) . '</code> — '
@@ -475,9 +475,18 @@ function db(): PDO
         db_error_page('Could not open the `' . DB_NAME . '` database. (' . $e->getMessage() . ') '
             . 'On shared hosting, create the database in the control panel and set DB_NAME / DB_USER / DB_PASS / DB_HOST in config.php (see config.sample.php).');
     }
-    db_ensure_schema($pdo);
-    db_migrate_legacy_json($pdo);
-    db_seed_if_empty($pdo);
+    try {
+        db_ensure_schema($pdo);
+        db_migrate_legacy_json($pdo);
+        db_seed_if_empty($pdo);
+    } catch (Throwable $e) {
+        /* Schema/seed problems (missing DDL privileges, hosting quota, a
+           partially-created database, …) must never surface as the bare
+           "Something broke" page: route them through the same channel as
+           connection failures so the exact reason lands in data/error.log
+           and the visitor gets the database notice page instead. */
+        db_error_page('Database setup failed while preparing tables/seed data. (' . $e->getMessage() . ')');
+    }
     return $pdo;
 }
 function db_ensure_schema(PDO $pdo): void
