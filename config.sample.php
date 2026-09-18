@@ -71,11 +71,3 @@ define('DB_PASS_LOCAL', '');            define('DB_PASS_PROD', 'your-mysql-passw
 // define('EMAIL_API_KEY', 'xkeysib-xxxxx');
 // define('APP_URL',       'https://lmshub.wuaze.com'); // used for links inside e-mails
 
-/* ---- Continue with Google (optional) ---------------------------------------
- * Easiest: leave these empty and set the Client ID + Secret in the app's
- * Settings page (admin only) — no file upload needed there. Values here would
- * override the Settings page. Get them at console.cloud.google.com →
- * APIs & Services → Credentials → OAuth client ID (Web application), and add
- * https://YOUR-DOMAIN/google_login.php as an Authorized redirect URI. */
-// define('GOOGLE_CLIENT_ID',     '');
-// define('GOOGLE_CLIENT_SECRET', '');

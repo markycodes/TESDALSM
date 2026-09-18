@@ -1,10 +1,10 @@
-<?php
+﻿<?php
 /**
- * E-mail settings — configurable FROM THE DEPLOYED SITE.
+ * E-mail settings â€” configurable FROM THE DEPLOYED SITE.
  *
  * Why this page exists: config.php is git-ignored, so a fresh upload to the
  * server carries the database details but usually NOT the e-mail API key.
- * Without a key the app can only try PHP mail(), which free hosting disables —
+ * Without a key the app can only try PHP mail(), which free hosting disables â€”
  * so registration e-mails silently never leave the server. Saving the key here
  * stores it in the database, where it is available on every request, with no
  * FTP access needed.
@@ -21,7 +21,7 @@ if (($user['role'] ?? '') !== 'admin') {
 $nav_active = 'settings';
 
 const MAIL_PROVIDERS = [
-    'brevo'    => 'Brevo (free 300/day — recommended)',
+    'brevo'    => 'Brevo (free 300/day â€” recommended)',
     'sendgrid' => 'SendGrid (free 100/day)',
     'resend'   => 'Resend (free 100/day)',
 ];
@@ -45,22 +45,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         setting_set('mail_from', trim((string) ($_POST['mail_from'] ?? '')));
         setting_set('mail_app_url', trim((string) ($_POST['mail_app_url'] ?? '')));
-        set_flash('success', 'E-mail settings saved. Press “Send test e-mail” to confirm delivery.');
+        set_flash('success', 'E-mail settings saved. Press â€œSend test e-mailâ€ to confirm delivery.');
     } elseif ($action === 'clear_key') {
         setting_set('mail_api_key', '');
         set_flash('success', 'Saved API key removed. E-mail is now disabled unless config.php defines one.');
-    } elseif ($action === 'save_google') {
-        $cid = trim((string) ($_POST['google_client_id'] ?? ''));
-        if ($cid !== '') setting_set('google_client_id', $cid);
-        $sec = trim((string) ($_POST['google_client_secret'] ?? ''));
-        if ($sec !== '') setting_set('google_client_secret', $sec);   /* blank keeps the saved secret */
-        set_flash('success', google_configured()
-            ? 'Google Sign-In saved — the button is now live on the login and register pages.'
-            : 'Saved, but BOTH a Client ID and a Client Secret are needed before the Google button appears.');
-    } elseif ($action === 'clear_google') {
-        setting_set('google_client_id', '');
-        setting_set('google_client_secret', '');
-        set_flash('success', 'Google Sign-In turned off (saved credentials removed).');
     }
     header('Location: settings.php');
     exit;
@@ -69,13 +57,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $diag     = mail_diagnostics();
 $savedKey = setting_get('mail_api_key', '');
 $provName = setting_get('mail_provider_name', 'brevo');
-$masked   = $savedKey === '' ? '' : (strlen($savedKey) > 6 ? '••••••••' . substr($savedKey, -6) : '••••••••');
+$masked   = $savedKey === '' ? '' : (strlen($savedKey) > 6 ? 'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢' . substr($savedKey, -6) : 'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢');
 $lastLog  = setting_get('mail_last', '');
-$gId        = setting_get('google_client_id', '');
-$gSecretRaw = setting_get('google_client_secret', '');
-$gSecSaved  = $gSecretRaw !== '';
-$gMasked    = $gSecSaved ? '••••••••' . substr($gSecretRaw, -6) : '';
-$gRedirect  = function_exists('google_redirect_uri') ? google_redirect_uri() : '';
 /* which values are pinned by config.php (they override anything saved here)? */
 $pinned = [];
 if (EMAIL_API_KEY !== '') $pinned[] = 'EMAIL_API_KEY';
@@ -89,7 +72,7 @@ require __DIR__ . '/header.php';
 
 <div class="mx-auto max-w-3xl space-y-6">
   <div class="reveal">
-    <h1 class="text-2xl font-bold text-slate-900">⚙️ E-mail &amp; delivery settings</h1>
+    <h1 class="text-2xl font-bold text-slate-900">âš™ï¸ E-mail &amp; delivery settings</h1>
     <p class="mt-1 text-sm text-slate-500">Configure the outgoing mail service for this site. It is saved in the
       database, so it applies to the deployed site without editing any file.</p>
   </div>
@@ -107,14 +90,14 @@ require __DIR__ . '/header.php';
         <dd class="min-w-0 truncate font-semibold text-slate-800"><?= e((string) ($diag['app_url'] ?? '')) ?></dd></div>
       <div class="flex justify-between gap-3"><dt class="text-slate-500">Provider reachable</dt>
         <dd class="font-semibold <?= ($diag['reachable'] ?? null) === false ? 'text-rose-600' : 'text-emerald-700' ?>">
-          <?= ($diag['reachable'] ?? null) === null ? 'not checked' : (($diag['reachable'] ?? null) ? 'yes ✅' : 'no ❌') ?></dd></div>
+          <?= ($diag['reachable'] ?? null) === null ? 'not checked' : (($diag['reachable'] ?? null) ? 'yes âœ…' : 'no âŒ') ?></dd></div>
       <div class="flex justify-between gap-3"><dt class="text-slate-500">Sender validated</dt>
         <dd class="font-semibold <?= ($diag['sender_ok'] ?? null) === false ? 'text-rose-600' : 'text-emerald-700' ?>">
-          <?= ($diag['sender_ok'] ?? null) === null ? 'n/a' : (($diag['sender_ok'] ?? null) ? 'yes ✅' : 'no ') ?></dd></div>
+          <?= ($diag['sender_ok'] ?? null) === null ? 'n/a' : (($diag['sender_ok'] ?? null) ? 'yes âœ…' : 'no ') ?></dd></div>
     </dl>
     <?php if (!empty($diag['notes'])): ?>
       <ul class="mt-4 space-y-1.5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-        <?php foreach ($diag['notes'] as $note): ?><li>⚠️ <?= e((string) $note) ?></li><?php endforeach; ?>
+        <?php foreach ($diag['notes'] as $note): ?><li>âš ï¸ <?= e((string) $note) ?></li><?php endforeach; ?>
       </ul>
     <?php endif; ?>
     <?php if ($lastLog !== ''): ?>
@@ -122,7 +105,7 @@ require __DIR__ . '/header.php';
     <?php endif; ?>
     <button type="button" id="lh-settings-test"
       class="mt-4 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700">
-      <span>✉️</span><span id="lh-settings-test-label">Send test e-mail to me</span>
+      <span>âœ‰ï¸</span><span id="lh-settings-test-label">Send test e-mail to me</span>
     </button>
     <p id="lh-settings-test-out"
       class="mt-3 hidden whitespace-pre-wrap rounded-xl border border-slate-200 bg-slate-50 p-3 font-mono text-[11px] text-slate-700"></p>
@@ -133,7 +116,7 @@ require __DIR__ . '/header.php';
     <h2 class="text-base font-bold text-slate-900">Mail service</h2>
     <?php if ($pinned): ?>
       <p class="rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800">
-        This server's <b>config.php</b> already defines <?= e(implode(', ', $pinned)) ?> — those values take priority
+        This server's <b>config.php</b> already defines <?= e(implode(', ', $pinned)) ?> â€” those values take priority
         over this page. Remove them from config.php if you want to manage e-mail here instead.
       </p>
     <?php endif; ?>
@@ -151,7 +134,7 @@ require __DIR__ . '/header.php';
     <div>
       <label class="block text-sm font-medium text-slate-700" for="api_key">API key</label>
       <input id="api_key" name="api_key" type="password" autocomplete="off"
-        placeholder="<?= $savedKey !== '' ? e('Saved: ' . $masked . ' — leave blank to keep it') : 'paste the provider API key' ?>"
+        placeholder="<?= $savedKey !== '' ? e('Saved: ' . $masked . ' â€” leave blank to keep it') : 'paste the provider API key' ?>"
         class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none">
       <p class="mt-1 text-xs text-slate-500">Brevo keys start with <code>xkeysib-</code>; SendGrid with <code>SG.</code>.
         Stored in your database and never displayed again in full.</p>
@@ -163,7 +146,7 @@ require __DIR__ . '/header.php';
         placeholder="LearnHub LMS &lt;your-verified-sender@gmail.com&gt;"
         class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none">
       <p class="mt-1 text-xs text-slate-500">Must be an address you validated <b>at the provider</b>
-        (Brevo → Senders &amp; IP → Senders); otherwise every message is refused at delivery.</p>
+        (Brevo â†’ Senders &amp; IP â†’ Senders); otherwise every message is refused at delivery.</p>
     </div>
 
     <div>
@@ -187,57 +170,13 @@ require __DIR__ . '/header.php';
   </form>
 
   <div class="reveal lh-plain rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-    <h2 class="text-base font-bold text-slate-900">Continue with Google</h2>
-    <p class="mt-1 flex items-center gap-2 text-sm">
-      <span class="font-semibold <?= google_configured() ? 'text-emerald-700' : 'text-slate-500' ?>">
-        <?= google_configured() ? '✅ Enabled — the button is live on the login and register pages' : 'Disabled — fill in both fields below to switch it on' ?>
-      </span>
-    </p>
-    <form method="post" class="mt-4 space-y-4">
-      <?= csrf_field() ?>
-      <input type="hidden" name="action" value="save_google">
-      <div>
-        <label class="block text-sm font-medium text-slate-700" for="google_client_id">Client ID</label>
-        <input id="google_client_id" name="google_client_id" type="text" value="<?= e($gId) ?>"
-          placeholder="1234567890-abcdefg.apps.googleusercontent.com"
-          class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none">
-      </div>
-      <div>
-        <label class="block text-sm font-medium text-slate-700" for="google_client_secret">Client secret</label>
-        <input id="google_client_secret" name="google_client_secret" type="password" autocomplete="off"
-          placeholder="<?= $gSecSaved ? e('Saved: ' . $gMasked . ' — leave blank to keep it') : 'GOCSPX-…' ?>"
-          class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none">
-        <p class="mt-1 text-xs text-slate-500">Both come from <b>console.cloud.google.com</b> → APIs &amp; Services → Credentials →
-          OAuth client ID (type <i>Web application</i>). Stored in the database, never shown in full again.</p>
-      </div>
-      <div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-        ⚠️ In the Google Console you must add this <b>Authorized redirect URI</b> for this site:<br>
-        <code class="mt-1 block select-all rounded-lg bg-white px-2 py-1 font-mono text-[11px] text-slate-800"><?= e($gRedirect) ?></code>
-      </div>
-      <p class="text-xs text-slate-500">New Google users must still enter their <b>full name</b> and a
-        <b>course invitation code</b> (students) or <b>teacher access code</b> (teachers) before any account is created.
-        People whose e-mail already has an account simply sign in.</p>
-      <div class="flex flex-wrap items-center gap-3 pt-1">
-        <button type="submit"
-          class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700">
-          Save Google settings</button>
-        <?php if ($gSecSaved || $gId !== ''): ?>
-          <button type="submit" name="action" value="clear_google"
-            class="rounded-xl border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50">
-            Turn off Google Sign-In</button>
-        <?php endif; ?>
-      </div>
-    </form>
-  </div>
-
-<div class="reveal lh-plain rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
     <h2 class="text-base font-bold text-slate-900">Which e-mails are sent automatically</h2>
     <ul class="mt-2 space-y-1.5 text-sm text-slate-600">
-      <li>👋 <b>Welcome e-mail</b> — every successful registration, to the new student's or teacher's own address.</li>
-      <li>📚 <b>New lesson</b> / 🧪 <b>new quiz</b> — every enrolled student, when a teacher publishes them.</li>
-      <li>✅ <b>Quiz result</b> — the student who took the quiz.</li>
-      <li>💬 <b>New private message</b> — the recipient.</li>
-      <li>🔔 <b>Daily catch-up reminder</b> — at most once a day, and only when updates, unread messages,
+      <li>ðŸ‘‹ <b>Welcome e-mail</b> â€” every successful registration, to the new student's or teacher's own address.</li>
+      <li>ðŸ“š <b>New lesson</b> / ðŸ§ª <b>new quiz</b> â€” every enrolled student, when a teacher publishes them.</li>
+      <li>âœ… <b>Quiz result</b> â€” the student who took the quiz.</li>
+      <li>ðŸ’¬ <b>New private message</b> â€” the recipient.</li>
+      <li>ðŸ”” <b>Daily catch-up reminder</b> â€” at most once a day, and only when updates, unread messages,
         quizzes still to take or lessons still to finish are waiting.</li>
     </ul>
   </div>
@@ -252,8 +191,8 @@ require __DIR__ . '/header.php';
   var out = document.getElementById('lh-settings-test-out');
   var csrf = (document.querySelector('meta[name="csrf"]') || {}).content || '';
   btn.addEventListener('click', function () {
-    btn.disabled = true; lab.textContent = 'Sending…';
-    out.classList.remove('hidden'); out.textContent = 'Contacting the mail service…';
+    btn.disabled = true; lab.textContent = 'Sendingâ€¦';
+    out.classList.remove('hidden'); out.textContent = 'Contacting the mail serviceâ€¦';
     fetch('mailtest.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'fetch' },
@@ -267,9 +206,9 @@ require __DIR__ . '/header.php';
       } else if (!d.ok) {
         msg = '\u274C The mail service refused the request.';
       } else if (d.state === 'delivered') {
-        msg = '\u2705 Delivered — the provider handed it to the recipient. Check your inbox (and spam): ' + d.to;
+        msg = '\u2705 Delivered â€” the provider handed it to the recipient. Check your inbox (and spam): ' + d.to;
       } else if (d.state === 'queued') {
-        msg = '\u23F3 Accepted and queued — check your inbox (and spam) in a minute: ' + d.to;
+        msg = '\u23F3 Accepted and queued â€” check your inbox (and spam) in a minute: ' + d.to;
       } else if (d.state === 'error') {
         msg = '\u274C Accepted, then REJECTED at delivery to ' + d.to + '.\n\nThe provider said:\n' + (d.reason || '(no reason given)');
       } else {
