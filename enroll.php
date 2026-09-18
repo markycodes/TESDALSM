@@ -16,7 +16,7 @@ $back = 'course.php?id=' . $courseId;
 
 if (($user['role'] ?? '') !== 'student') {
     set_flash('error', 'Only student accounts can manage enrollment.');
-    header('Location: ' . $back); exit;
+    header('Location: ' . lh_enc_url($back)); exit;
 }
 
 // Existing student redeeming an invitation code for THIS course.
@@ -33,20 +33,20 @@ if ($code !== '') {
         $enrolledCourseId = redeem_enroll_code($code, $userId);
         if ($enrolledCourseId === $courseId) {
             set_flash('success', 'Code redeemed — welcome to "' . $course['title'] . '"! Happy learning! 🎉');
-            header('Location: course.php?id=' . $courseId); exit;
+            header('Location: ' . lh_enc_url('course.php?id=' . $courseId)); exit;
         }
         set_flash('error', 'That code was just claimed by someone else — ask your teacher for a fresh one.');
     }
-    header('Location: ' . $back); exit;
+    header('Location: ' . lh_enc_url($back)); exit;
 }
 
 // Students can only LEAVE a course they are already in.
 if (!is_enrolled_id($courseId, $userId)) {
     set_flash('error', 'Enrollment is by invitation only — register with the invitation code you got from the teacher to join this course.');
-    header('Location: ' . $back); exit;
+    header('Location: ' . lh_enc_url($back)); exit;
 }
 
 db()->prepare('DELETE FROM enrollments WHERE course_id = ? AND user_id = ?')->execute([$courseId, $userId]);
 set_flash('success', 'You left "' . $course['title'] . '". Your progress was kept.');
-header('Location: ' . $back);
+header('Location: ' . lh_enc_url($back));
 exit;

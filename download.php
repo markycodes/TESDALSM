@@ -48,4 +48,9 @@ if ($mime === '') {
 }
 $name = (string) ($material['orig_name'] ?? basename($path));
 
+/* lib.php starts an output buffer to encrypt URL ids in page HTML; a file
+   stream must not sit in that buffer (a big video would be buffered whole in
+   memory), so hand the raw stream the empty buffer only. */
+while (ob_get_level() > 0) { @ob_end_clean(); }
+
 serve_file_with_range($path, $mime, $name, $disposition);

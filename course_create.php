@@ -20,5 +20,5 @@ if ($title === '') {
 
 $newCourseId = create_course((int) $user['id'], cut($title, 120), $category !== '' ? cut($category, 60) : 'General', cut($description, 2000));
 set_flash('success', 'Course "' . cut($title, 120) . '" created! Now add your first lesson.');
-header('Location: course.php?id=' . $newCourseId);
+header('Location: ' . lh_enc_url('course.php?id=' . $newCourseId));
 exit;

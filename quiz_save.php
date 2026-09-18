@@ -21,7 +21,7 @@ if ($ownerId !== (int) $user['id']) {
 }
 if (!course_material_exists($courseId, $materialId)) {
     set_flash('error', 'Lesson not found.');
-    header('Location: ' . $back);
+    header('Location: ' . lh_enc_url($back));
     exit;
 }
 
@@ -60,5 +60,5 @@ try {
 } catch (RuntimeException $e) {
     set_flash('error', $e->getMessage());
 }
-header('Location: ' . $back);
+header('Location: ' . lh_enc_url($back));
 exit;

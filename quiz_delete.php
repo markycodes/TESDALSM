@@ -22,5 +22,5 @@ if ($ownerId !== (int) $user['id']) {
 
 delete_quiz($materialId);
 set_flash('success', 'Quiz removed from the lesson.');
-header('Location: ' . $back);
+header('Location: ' . lh_enc_url($back));
 exit;

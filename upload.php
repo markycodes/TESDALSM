@@ -24,7 +24,7 @@ $back     = 'course.php?id=' . urlencode($courseId) . '&tab=' . (in_array($type,
 if (empty($_POST) && empty($_FILES)) {
     $limit = (string) (ini_get('post_max_size') ?: 'the server limit');
     set_flash('error', 'The upload was too large for the server to accept (request limit: ' . $limit . '). On free hosting (InfinityFree) uploads are capped at about 10 MB — upload smaller documents, or add big videos as a YouTube/Vimeo link instead.');
-    header('Location: ' . $back); exit;
+    header('Location: ' . lh_enc_url($back)); exit;
 }
 verify_csrf();
 
@@ -39,7 +39,7 @@ if ($ownerId !== (int) $user['id']) {
 }
 if ($title === '') {
     set_flash('error', 'Please give the lesson a title.');
-    header('Location: ' . $back); exit;
+    header('Location: ' . lh_enc_url($back)); exit;
 }
 
 $courseIdInt = (int) $courseId;
@@ -108,5 +108,5 @@ try {
 } catch (RuntimeException $e) {
     set_flash('error', $e->getMessage());
 }
-header('Location: ' . $back);
+header('Location: ' . lh_enc_url($back));
 exit;

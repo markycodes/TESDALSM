@@ -7,7 +7,7 @@ $user = require_login();
 $courseId = (int) ($_GET['course'] ?? 0);
 $course = $courseId > 0 ? course_row($courseId) : null;
 if (!$course) { header('Location: courses.php'); exit; }
-if (!is_enrolled_id($courseId, (int) $user['id'])) { header('Location: course.php?id=' . $courseId); exit; }
+if (!is_enrolled_id($courseId, (int) $user['id'])) { header('Location: ' . lh_enc_url('course.php?id=' . $courseId)); exit; }
 
 $pct = course_progress_pct((int) $user['id'], $courseId);
 $cert = $pct >= 100 ? certificate_ensure((int) $user['id'], $courseId) : null;

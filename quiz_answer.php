@@ -24,12 +24,12 @@ $isOwner = $ctx['isOwner'];
 
 if ($isOwner) {
     set_flash('error', 'Teacher previews are read-only — submissions are not recorded.');
-    header('Location: ' . $back);
+    header('Location: ' . lh_enc_url($back));
     exit;
 }
 if (quiz_result_for((int) $quiz['id'], $userId) !== null) {
     set_flash('error', 'This quiz was already completed — each student gets one attempt.');
-    header('Location: ' . $back);
+    header('Location: ' . lh_enc_url($back));
     exit;
 }
 
@@ -40,7 +40,7 @@ foreach ($quiz['questions'] as $q) {
 }
 if (!$valid) {
     set_flash('error', 'Invalid answer submission.');
-    header('Location: ' . $back);
+    header('Location: ' . lh_enc_url($back));
     exit;
 }
 
@@ -58,5 +58,5 @@ if (count($answers) >= count($quiz['questions'])) {
         }
     }
 }
-header('Location: ' . $back);
+header('Location: ' . lh_enc_url($back));
 exit;

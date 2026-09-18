@@ -113,6 +113,132 @@ if (!lms_is_local()) {
     @ini_set('log_errors', '1');
 }
 
+/* ---- encrypted URL parameters ----------------------------------------------
+ * Numeric ids in URLs (course.php?id=3, download.php?c=3&m=9, …) are encrypted
+ * on the way out and decrypted on the way in, so visitors can never read, guess
+ * or enumerate other users'/courses' ids by editing the address bar. Links keep
+ * working either way: a plain `?id=3` (old e-mails, GET form submits, hand-
+ * typed) is still accepted, it just reveals nothing new.
+ * The key lives in data/url-secret.key (auto-created, folder web-blocked).
+ * -------------------------------------------------------------------------- */
+
+/** Secret key for URL encryption; generated once, then stable — links must not
+ *  expire when a page is reloaded. Rotating the file invalidates old tokens
+ *  (they simply fall back to "not found" — nothing breaks). */
+function lh_url_secret(): string
+{
+    static $key = null;
+    if ($key !== null) return $key;
+    $file = DATA_DIR . '/url-secret.key';
+    $key = is_file($file) ? trim((string) @file_get_contents($file)) : '';
+    if (strlen($key) < 64) {
+        $key = bin2hex(random_bytes(32));
+        @file_put_contents($file, $key);
+    }
+    return $key;
+}
+
+/** URL-safe base64 (no +/= padding, so tokens paste cleanly into any URL). */
+function lh_b64url(string $bin): string
+{
+    return rtrim(strtr(base64_encode($bin), '+/', '-_'), '=');
+}
+function lh_b64url_decode(string $s): string
+{
+    return (string) base64_decode(strtr($s, '-_', '+/'));
+}
+
+/** Encrypt one URL parameter value. Non-numeric values pass through untouched
+ *  (dates, categories, verification codes …) — only ids are worth hiding. */
+function lh_enc_id(int|string $v): string
+{
+    $v = (string) $v;
+    if ($v === '' || !ctype_digit($v)) return $v;
+    $enc = hash('sha256', lh_url_secret() . ':enc', true);   /* 32-byte AES key */
+    $mac = hash('sha256', lh_url_secret() . ':mac', true);   /* 32-byte MAC key */
+    if (function_exists('openssl_encrypt')) {
+        $iv = random_bytes(16);
+        $ct = (string) openssl_encrypt($v, 'aes-256-cbc', $enc, OPENSSL_RAW_DATA, $iv);
+        return 'e' . lh_b64url($iv . $ct . substr(hash_hmac('sha256', $iv . $ct, $mac, true), 0, 16));
+    }
+    /* no openssl on this host: still tamper-proof (signed), just not hidden */
+    return 'p' . $v . '.' . lh_b64url(substr(hash_hmac('sha256', 'p' . $v, $mac, true), 0, 12));
+}
+
+/** Decrypt one URL parameter. Accepts encrypted tokens AND plain numbers (old
+ *  links / form submits keep working). Unknown or tampered token -> 0, which
+ *  every page already treats as "not found". */
+function lh_dec_id(int|string $v): int
+{
+    $v = (string) $v;
+    if ($v === '') return 0;
+    if (ctype_digit($v)) return (int) $v;
+    $mac = hash('sha256', lh_url_secret() . ':mac', true);
+    if (strlen($v) > 2 && $v[0] === 'p' && preg_match('/^p(\d+)\.([A-Za-z0-9_-]+)$/', $v, $m)) {
+        $want = lh_b64url(substr(hash_hmac('sha256', 'p' . $m[1], $mac, true), 0, 12));
+        return hash_equals($want, $m[2]) ? (int) $m[1] : 0;
+    }
+    if (strlen($v) < 40 || $v[0] !== 'e' || !preg_match('/^e[A-Za-z0-9_-]+$/', $v)) return 0;
+    if (!function_exists('openssl_decrypt')) return 0;
+    $raw = lh_b64url_decode(substr($v, 1));
+    if (strlen($raw) < 48) return 0;
+    $iv = substr($raw, 0, 16);
+    $ct = substr($raw, 16, -16);
+    $tag = substr($raw, -16);
+    if (!hash_equals(substr(hash_hmac('sha256', $iv . $ct, $mac, true), 0, 16), $tag)) return 0;
+    $enc = hash('sha256', lh_url_secret() . ':enc', true);
+    $plain = openssl_decrypt($ct, 'aes-256-cbc', $enc, OPENSSL_RAW_DATA, $iv);
+    return ($plain !== false && ctype_digit($plain)) ? (int) $plain : 0;
+}
+
+/** Inbound: decrypt the known id params ONCE, in place, before any page logic
+ *  runs — pages keep reading `$_GET['c']` exactly as before. */
+function lh_decrypt_incoming(): void
+{
+    foreach (['id', 'c', 'm', 'with', 'course'] as $k) {
+        if (isset($_GET[$k]) && is_string($_GET[$k])) $_GET[$k] = lh_dec_id($_GET[$k]);
+    }
+    /* presence.php?ids=1,2,3 — a comma list of user ids */
+    if (isset($_GET['ids']) && is_string($_GET['ids']) && str_contains($_GET['ids'], 'e')) {
+        $_GET['ids'] = implode(',', array_map('lh_dec_id', explode(',', $_GET['ids'])));
+    }
+}
+
+/** Encrypt the id parameters inside ONE url string — used for `Location:`
+ *  redirect headers, which the output filter cannot touch (headers are not
+ *  part of the buffered body). Non-id params and non-numeric values pass
+ *  through untouched, so anchors (&disp=inline, #tab, …) survive. */
+function lh_enc_url(string $url): string
+{
+    if ($url === '' || !str_contains($url, '=')) return $url;
+    return (string) preg_replace_callback(
+        '~(\?|&(?:amp;)?)(id|c|m|with|course|ids)=(\d+(?:,\d+)*)~i',
+        static function (array $m): string {
+            $parts = explode(',', $m[3]);
+            foreach ($parts as $i => $p) $parts[$i] = lh_enc_id($p);
+            return $m[1] . $m[2] . '=' . implode(',', $parts);
+        },
+        $url
+    );
+}
+
+/** Outbound: rewrite every numeric id parameter in the rendered page into an
+ *  encrypted token. Covers href/src/action attributes AND the same URLs inside
+ *  inline JavaScript, so fetch() calls made by app.js stay encrypted too. */
+function lh_url_encrypt_html(string $html): string
+{
+    if ($html === '' || !str_contains($html, '.php')) return $html;
+    return (string) preg_replace_callback(
+        '~(\?|&(?:amp;)?)(id|c|m|with|course|ids)=(\d+(?:,\d+)*)~i',
+        static function (array $m): string {
+            $parts = explode(',', $m[3]);
+            foreach ($parts as $i => $p) $parts[$i] = lh_enc_id($p);
+            return $m[1] . $m[2] . '=' . implode(',', $parts);
+        },
+        $html
+    );
+}
+
 /* ---- e-mail (greeting / updates / reminders) -------------------------------
  * Set EMAIL_API_URL + EMAIL_API_KEY in config.php to deliver through a
  * provider HTTP API — e.g. Brevo (free 300/day), SendGrid or Resend.
@@ -3028,3 +3154,8 @@ function user_meta_ensure(): void
 }
 
 ensure_storage();
+/* URLs: decrypt ids coming in (old plain links keep working), then start the
+   output buffer that encrypts every id link the page produces. lib.php is
+   included at the top of every page, before any output or $_GET read. */
+lh_decrypt_incoming();
+ob_start('lh_url_encrypt_html');

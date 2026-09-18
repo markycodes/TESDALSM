@@ -15,18 +15,18 @@ if (!$course) {
 }
 if (($user['role'] ?? '') !== 'teacher' || (int) $course['teacher_id'] !== (int) $user['id']) {
     set_flash('error', 'Only the course teacher can delete lessons.');
-    header('Location: course.php?id=' . $courseId); exit;
+    header('Location: ' . lh_enc_url('course.php?id=' . $courseId)); exit;
 }
 
 $material = delete_material_row($courseId, $materialId); // cascades its progress rows
 if (!$material) {
     set_flash('error', 'Lesson not found.');
-    header('Location: course.php?id=' . $courseId); exit;
+    header('Location: ' . lh_enc_url('course.php?id=' . $courseId)); exit;
 }
 
 if (in_array($material['type'], ['file', 'video'], true) && !empty($material['filename'])) {
     delete_uploaded_file((string) $material['filename']);
 }
 set_flash('success', 'Lesson "' . $material['title'] . '" deleted.');
-header('Location: course.php?id=' . $courseId);
+header('Location: ' . lh_enc_url('course.php?id=' . $courseId));
 exit;
