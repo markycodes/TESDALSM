@@ -80,7 +80,7 @@ $records = [];
 if ($scopeIds) {
   $in = implode(',', array_fill(0, count($scopeIds), '?'));
   $sql = "SELECT a.id, a.user_id, a.entered_at, a.left_at, a.ip,
-                   u.name, u.email,
+                   u.name,
                    c.title AS course_title, c.category AS course_category
             FROM attendance a
             JOIN users u ON u.id = a.user_id

@@ -105,7 +105,7 @@ $onlineNow = count(array_filter($studentIds, fn ($id) => isset($online[$id])));
 $attLog = [];
 $logShow = '';
 if ($selCourse > 0) {
-    $stmt = db()->prepare('SELECT a.id, a.user_id, a.entered_at, a.left_at, a.ip, u.name, u.email
+    $stmt = db()->prepare('SELECT a.id, a.user_id, a.entered_at, a.left_at, a.ip, u.name
                            FROM attendance a JOIN users u ON u.id = a.user_id
                            WHERE a.course_id = ? ORDER BY a.id DESC LIMIT 200');
     $stmt->execute([$selCourse]);
@@ -202,7 +202,7 @@ require __DIR__ . '/header.php';
               <span class="font-semibold text-slate-900"><?= e((string) $u['name']) ?></span>
             </div>
           </td>
-          <td class="hidden px-4 py-3 text-slate-500 md:table-cell"><?= e((string) $u['email']) ?></td>
+          <td class="hidden px-4 py-3 text-slate-500 md:table-cell" title="Partially hidden for privacy"><?= e(mask_email((string) $u['email'])) ?></td>
           <td class="hidden px-4 py-3 lg:table-cell">
             <?php foreach ($coursesFor as $cn): ?>
               <span class="mr-1 mb-1 inline-block rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700"><?= e($cn['title']) ?></span>

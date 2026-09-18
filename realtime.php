@@ -157,7 +157,8 @@ if ($v === 'roster') {
         $coursesFor = $shareCourses[$sid] ?? [];
         $sum = $attSummary[$sid] ?? ['visits' => 0, 'last_at' => 0];
         $studentsOut[] = [
-            'id' => $sid, 'name' => (string) $u['name'], 'email' => (string) ($u['email'] ?? ''),
+            /* the address travels masked too, so the live payload can never leak it */
+            'id' => $sid, 'name' => (string) $u['name'], 'email' => mask_email((string) ($u['email'] ?? '')),
             'online' => isset($online[$sid]),
             'courses' => array_slice(array_map('strval', $coursesFor), 0, 3),
             'more_courses' => max(0, count($coursesFor) - 3),

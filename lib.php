@@ -1211,6 +1211,38 @@ function e(?string $s): string
     return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 }
 
+/**
+ * Partially hide an e-mail address before showing it to somebody else, so the
+ * roster / attendance screens never disclose a full address:
+ *   "maria.garcia@school.edu"  ->  "m***@s***.edu"
+ * Only the first character of the local part and of the domain survive, the TLD
+ * is kept so it still reads as an address, and the mask is a fixed "***" so the
+ * real length is not revealed either.  The stored address is never modified —
+ * masking happens at the point of display only.
+ */
+function mask_email(?string $email): string
+{
+    $email = trim((string) $email);
+    if ($email === '') return '';
+
+    $at = strrpos($email, '@');
+    if ($at === false || $at === 0 || $at === strlen($email) - 1) {
+        return cut($email, 1) . '***';   /* not a usable address — still never show it whole */
+    }
+
+    $local  = substr($email, 0, $at);
+    $domain = substr($email, $at + 1);
+
+    $tld = '';
+    $dot = strrpos($domain, '.');
+    if ($dot !== false && $dot > 0 && $dot < strlen($domain) - 1) {
+        $tld    = substr($domain, $dot); /* ".edu" — kept so it still looks like an address */
+        $domain = substr($domain, 0, $dot);
+    }
+
+    return cut($local, 1) . '***@' . cut($domain, 1) . '***' . $tld;
+}
+
 function cut(string $s, int $n): string
 {
     return function_exists('mb_substr') ? mb_substr($s, 0, $n) : substr($s, 0, $n);
