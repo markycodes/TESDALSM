@@ -31,12 +31,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name  = trim((string) ($_POST['name'] ?? ''));
     $email = strtolower(trim((string) ($_POST['email'] ?? '')));
     $password = (string) ($_POST['password'] ?? '');
+    $password2 = (string) ($_POST['password2'] ?? '');
     $role = ($_POST['role'] ?? '') === 'teacher' ? 'teacher' : 'student';
     $code = strtoupper(trim((string) ($_POST['code'] ?? '')));
 
     if (strlen($name) < 2) $errors[] = 'Please enter your full name.';
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'Please enter a valid email address.';
-    if (strlen($password) < 6) $errors[] = 'Password must be at least 6 characters.';
+    if (strlen($password) < 6) {
+        $errors[] = 'Password must be at least 6 characters.';
+    } elseif ($password2 === '') {
+        $errors[] = 'Please confirm your password.';
+    } elseif ($password2 !== $password) {
+        $errors[] = 'The passwords do not match — please retype them.';
+    }
     if ($role === 'student') {
         if (strlen($code) < 4) {
             $errors[] = 'Students need an invitation code — ask your teacher for one.';
@@ -191,6 +198,12 @@ $gEmail   = (string) ($gPending['email'] ?? '');
         <input id="password" name="password" type="password" required minlength="6" placeholder="At least 6 characters"
                class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
       </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700" for="password2">Confirm password</label>
+        <input id="password2" name="password2" type="password" required minlength="6" placeholder="Retype your password"
+               class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
+        <p id="password2-note" class="mt-1 text-xs text-slate-400">Type the same password again to be sure.</p>
+      </div>
       <button class="w-full rounded-xl bg-indigo-600 py-2.5 font-semibold text-white shadow-sm hover:bg-indigo-700">Create account</button>
     </form>
     <p class="mt-6 text-center text-sm text-slate-500">Already have an account? <a href="login.php" class="font-semibold text-indigo-600 hover:underline">Log in</a></p>
@@ -210,6 +223,32 @@ $gEmail   = (string) ($gPending['email'] ?? '');
   }
   radios.forEach(function (r) { r.addEventListener('change', sync); });
   sync();
+})();
+
+/* live "do the passwords match?" feedback — the server re-checks this anyway */
+(function () {
+  var p1 = document.getElementById('password');
+  var p2 = document.getElementById('password2');
+  var note = document.getElementById('password2-note');
+  if (!p1 || !p2 || !note) return;
+  var base = note.textContent;
+  function check() {
+    if (!p2.value) {
+      note.textContent = base;
+      note.className = 'mt-1 text-xs text-slate-400';
+      p2.setCustomValidity('');
+      return;
+    }
+    var match = p1.value === p2.value;
+    note.textContent = match ? '✓ Passwords match' : '✗ Passwords do not match yet';
+    note.className = 'mt-1 text-xs ' + (match ? 'text-emerald-600' : 'text-rose-500');
+    p2.setCustomValidity(match ? '' : 'Passwords do not match.');
+  }
+  p1.addEventListener('input', check);
+  p2.addEventListener('input', check);
+  var form = p2.closest('form');
+  if (form) form.addEventListener('submit', check);
+  check();
 })();
 </script>
 
