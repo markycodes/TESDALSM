@@ -78,7 +78,7 @@ require __DIR__ . '/header.php';
       <div>
         <p class="lh-kicker text-emerald-700"><?= date('l, M j') ?></p>
         <h1 class="mt-2 break-words text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
-          <?= e($displayName) ?></h1>
+          <?= e($displayName)?> Dashboard</h1>
         <p class="mt-1.5 max-w-2xl text-sm text-slate-600">
           <?= $isTeacher ? 'Here is what is happening in your courses today.' : 'Ready to continue learning?' ?></p>
       </div>
