@@ -807,6 +807,67 @@ if ($user) {
   display: none !important
 }
 
+/* Rolling live stats: when the realtime poll changes a number (e.g. the
+   "Total time" card on the attendance day page), the old value slides up and
+   out while the new value slides in from the bottom. app.js adds .lh-rolling
+   to the stat element only while the animation runs, so layout at rest is
+   untouched. */
+.lh-rolling {
+  position: relative;
+  overflow: hidden;
+  display: inline-block
+}
+
+.lh-roll-in {
+  display: inline-block;
+  animation: lhRollIn .42s cubic-bezier(.2, .7, .3, 1) both
+}
+
+.lh-roll-out {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: inline-block;
+  pointer-events: none;
+  animation: lhRollOut .42s cubic-bezier(.2, .7, .3, 1) both
+}
+
+@keyframes lhRollIn {
+  from {
+    transform: translateY(110%);
+    opacity: 0
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1
+  }
+}
+
+@keyframes lhRollOut {
+  from {
+    transform: translateY(0);
+    opacity: 1
+  }
+
+  to {
+    transform: translateY(-110%);
+    opacity: 0
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .lh-roll-in,
+  .lh-roll-out {
+    animation: none
+  }
+
+  .lh-roll-out {
+    display: none
+  }
+}
+
 /* browsers without dvh support keep the old viewport maths */
 @supports not (height: 100dvh) {
   .lh-panel {

@@ -1228,6 +1228,37 @@ if (dayFilter) {
     });
   }
 
+  /* Slide a live stat to its new value: the old number slides up and out while
+     the new one slides in from the bottom (odometer-style). Plain swap when the
+     value is unchanged or the visitor prefers reduced motion. The CSS classes
+     (.lh-rolling/.lh-roll-in/.lh-roll-out) live in header.php's stylesheet. */
+  function lhRollText(el, next) {
+    next = String(next);
+    var rolling = el.querySelector('.lh-roll-in');
+    var current = rolling ? rolling.textContent : el.textContent;
+    if (current === next) return;   /* unchanged — also keeps a roll already in flight coherent */
+    if (el.lhRollTimer) { clearTimeout(el.lhRollTimer); el.lhRollTimer = null; }
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      el.textContent = next;
+      return;
+    }
+    var out = document.createElement('span');
+    out.className = 'lh-roll-out';
+    out.textContent = current;
+    var inn = document.createElement('span');
+    inn.className = 'lh-roll-in';
+    inn.textContent = next;
+    el.classList.add('lh-rolling');
+    el.textContent = '';
+    el.appendChild(out);
+    el.appendChild(inn);
+    el.lhRollTimer = setTimeout(function () {
+      el.lhRollTimer = null;
+      el.classList.remove('lh-rolling');
+      el.textContent = next;
+    }, 460);
+  }
+
   /* ---------------- dashboard (teacher + student) ---------------- */
   if (scope === 'teacher-dash' || scope === 'student-dash') {
     var dashUrl = scope === 'teacher-dash' ? 'realtime.php?v=dash' : 'realtime.php?v=dash-student';
@@ -1335,8 +1366,7 @@ if (dayFilter) {
       document.querySelectorAll('[data-day-stat]').forEach(function (el) {
         var k = el.getAttribute('data-day-stat');
         if (!(k in st)) return;
-        if (k === 'time') { el.textContent = lmsDur(st.time); return; }
-        el.textContent = st[k];
+        lhRollText(el, k === 'time' ? lmsDur(st.time) : st[k]);
       });
       var sec = document.getElementById('day-records');
       if (!sec) return;
