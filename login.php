@@ -44,6 +44,7 @@ require __DIR__ . '/header.php';
       <button class="w-full rounded-xl bg-indigo-600 py-2.5 font-semibold text-white shadow-sm hover:bg-indigo-700">Log in</button>
     </form>
     <p class="mt-6 text-center text-sm text-slate-500">No account? <a href="register.php" class="font-semibold text-indigo-600 hover:underline">Create one free</a></p>
+    <p class="mt-2 text-center text-sm text-slate-500">Forgot your password? <a href="reset_password.php" class="font-semibold text-indigo-600 hover:underline">Reset it by e-mail</a></p>
   </div>
 
 </div>

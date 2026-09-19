@@ -1199,6 +1199,83 @@ function can_view_lessons(array $course, array $user): bool
     return true;
 }
 
+/* ---------------- password reset via e-mail ---------------- */
+
+const PW_RESET_TTL = 1800;          /* reset links live 30 minutes */
+const PW_RESET_THROTTLE = 60;       /* one e-mail per account per minute */
+
+/** Issue a reset token for $email and mail the link. Returns the raw token
+ *  (callers e-mail it; the page ignores the value) or '' when no account
+ *  matches OR a fresh link is already pending (callers show the SAME generic
+ *  message either way, so the endpoint can never be used to discover which
+ *  e-mails are registered). Only the SHA-256 of the token is stored, so a
+ *  database leak cannot be replayed against the reset form. */
+function password_reset_request(string $email): string
+{
+    $u = find_user_by_email(trim($email));
+    if (!$u || !filter_var((string) ($u['email'] ?? ''), FILTER_VALIDATE_EMAIL)) return '';
+    user_meta_ensure();
+    $uid = (int) $u['id'];
+
+    /* throttle: a pending link is kept while it is still young — the first
+     * e-mail's link stays valid, no mail-bombing */
+    $prev = user_meta_get($uid, 'pw_reset');
+    if ($prev !== '') {
+        $prevExp = (int) substr($prev, strrpos($prev, '|') + 1);
+        if ($prevExp - time() > PW_RESET_TTL - PW_RESET_THROTTLE) return '';
+    }
+
+    $token = bin2hex(random_bytes(32));
+    user_meta_set($uid, 'pw_reset', hash('sha256', $token) . '|' . (time() + PW_RESET_TTL));
+    $link = app_link('reset_password.php?t=' . $token);
+    $inner = '<p style="margin:0;font-size:14px;line-height:1.6;color:#334155">We received a request to reset the password for your account (<b>' . e((string) $u['email']) . '</b>). This link works once and expires in 30 minutes.</p>'
+        . '<p style="margin:10px 0 0;font-size:13px;color:#64748b">Did not ask for this? Ignore this e-mail — your password stays unchanged.</p>'
+        . email_button($link, 'Choose a new password');
+    send_email((string) $u['email'], 'Reset your LearnHub password', email_shell('Password reset', $inner));
+    return $token;
+}
+
+/** Validate a reset token. Returns the user row while the token is unused and
+ *  unexpired, null otherwise (expired/unknown tokens are cleaned up). */
+function password_reset_user(string $token): ?array
+{
+    $token = trim($token);
+    if ($token === '' || strlen($token) !== 64 || !ctype_xdigit($token)) return null;
+    $given = hash('sha256', $token);
+    user_meta_ensure();
+    $st = db()->prepare("SELECT m.user_id, m.v FROM user_meta m WHERE m.k = 'pw_reset'");
+    $st->execute();
+    foreach ($st->fetchAll() as $row) {
+        $v = (string) $row['v'];
+        $sep = strrpos($v, '|');
+        if ($sep === false) continue;
+        if (!hash_equals(substr($v, 0, $sep), $given)) continue;
+        $exp = (int) substr($v, $sep + 1);
+        $uid = (int) $row['user_id'];
+        if ($exp < time()) { db()->prepare('DELETE FROM user_meta WHERE user_id = ? AND k = ?')->execute([$uid, 'pw_reset']); return null; }
+        return find_user_by_id($uid);
+    }
+    return null;
+}
+
+/** Set a new password from a validated token (single-use) and e-mail a
+ *  confirmation. Returns true when the password was changed. */
+function password_reset_apply(string $token, string $newPassword): bool
+{
+    $u = password_reset_user($token);
+    if (!$u) return false;
+    db()->prepare('UPDATE users SET password = ? WHERE id = ?')
+        ->execute([password_hash($newPassword, PASSWORD_DEFAULT), (int) $u['id']]);
+    db()->prepare('DELETE FROM user_meta WHERE user_id = ? AND k = ?')->execute([(int) $u['id'], 'pw_reset']);
+    $mail = (string) ($u['email'] ?? '');
+    if (filter_var($mail, FILTER_VALIDATE_EMAIL)) {
+        send_email($mail, 'Your LearnHub password was changed',
+            email_shell('Password changed', '<p style="margin:0;font-size:14px;line-height:1.6;color:#334155">Your password was just reset. If this was not you, contact the administrator immediately — whoever has your e-mail inbox can request another reset.</p>'));
+    }
+    return true;
+}
+
+
 function course_progress(array $course, int|string $userId): array
 {
     $total = count($course['materials'] ?? []);
