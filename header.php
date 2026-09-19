@@ -17,20 +17,8 @@ if ($user) {
   <?php if (!empty($attendance_course)): ?>
     <meta name="attendance-course" content="<?= (int) $attendance_course ?>"><?php endif; ?>
   <title><?= e($page_title) ?> · LearnHub LMS</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="assets/tailwind.min.css">
   <link rel="icon" href="logo/logo.png" type="image/png">
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-            display: ['Fraunces', 'Georgia', 'Times New Roman', 'serif']
-          }
-        }
-      }
-    };
-  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link

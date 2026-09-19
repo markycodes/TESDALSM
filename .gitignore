@@ -3,6 +3,9 @@ _*
 *.log
 *.ps1.bak
 
+# --- local Tailwind build tool (rebuilt css is committed; the exe is not) ---
+/tailwindcss.exe
+
 # --- per-environment database settings (never commit credentials) ---
 config.php
 

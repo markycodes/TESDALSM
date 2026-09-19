@@ -2206,7 +2206,7 @@ function quiz_gate_page(int $code, string $icon, string $title, string $msg, str
 {
     http_response_code($code);
     echo '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
-        . '<title>' . e($title) . ' · LearnHub</title><script src="https://cdn.tailwindcss.com"></script>'
+        . '<title>' . e($title) . ' · LearnHub</title><link rel="stylesheet" href="assets/tailwind.min.css">'
         . '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"></head>'
         . '<body class="min-h-screen bg-slate-100 font-sans text-slate-800">'
         . '<div class="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-4 text-center">'
