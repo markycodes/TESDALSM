@@ -1199,6 +1199,21 @@ function can_view_lessons(array $course, array $user): bool
     return true;
 }
 
+/* ---------------- password policy ---------------- */
+
+/** The one password rule for every place a password is set or changed
+ *  (registration, e-mail reset, admin panel). Strong = at least 8 characters
+ *  with an uppercase letter, a lowercase letter and a number. Returns the
+ *  user-facing error message, or null when the password is acceptable. */
+function password_strength_error(string $pw): ?string
+{
+    if (strlen($pw) < 8) return 'Password must be at least 8 characters long.';
+    if (!preg_match('/[A-Z]/', $pw) || !preg_match('/[a-z]/', $pw) || !preg_match('/\d/', $pw)) {
+        return 'Password must mix an uppercase letter, a lowercase letter and a number.';
+    }
+    return null;
+}
+
 /* ---------------- password reset via e-mail ---------------- */
 
 const PW_RESET_TTL = 1800;          /* reset links live 30 minutes */

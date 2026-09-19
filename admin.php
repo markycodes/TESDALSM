@@ -33,8 +33,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $cur = (string) ($_POST['current'] ?? '');
         $new = (string) ($_POST['new'] ?? '');
         $conf = (string) ($_POST['confirm'] ?? '');
-        if (strlen($new) < 8) {
-            set_flash('error', 'New password must be at least 8 characters.');
+        $pwError = password_strength_error($new);
+        if ($pwError !== null) {
+            set_flash('error', $pwError);
         } elseif ($new !== $conf) {
             set_flash('error', 'New password and confirmation do not match.');
         } elseif (!password_verify($cur, (string) $user['password'])) {
@@ -266,7 +267,7 @@ require __DIR__ . '/header.php';
         <input type="hidden" name="action" value="change_password">
         <input name="current" type="password" required placeholder="Current password"
           class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
-        <input name="new" type="password" required minlength="8" placeholder="New password (min 8 characters)"
+        <input name="new" type="password" required minlength="8" placeholder="New password (min 8 — UPPER + lower + number)"
           class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
         <input name="confirm" type="password" required minlength="8" placeholder="Repeat new password"
           class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">

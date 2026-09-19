@@ -15,8 +15,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (strlen($name) < 2) $errors[] = 'Please enter your full name.';
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'Please enter a valid email address.';
-    if (strlen($password) < 6) {
-        $errors[] = 'Password must be at least 6 characters.';
+    $pwError = password_strength_error($password);
+    if ($pwError !== null) {
+        $errors[] = $pwError;
     } elseif ($password2 === '') {
         $errors[] = 'Please confirm your password.';
     } elseif ($password2 !== $password) {
@@ -123,12 +124,13 @@ require __DIR__ . '/header.php';
       </div>
       <div>
         <label class="block text-sm font-medium text-slate-700" for="password">Password</label>
-        <input id="password" name="password" type="password" required minlength="6" placeholder="At least 6 characters"
+        <input id="password" name="password" type="password" required minlength="8" placeholder="Min 8 characters — UPPER + lowercase + number"
                class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
+        <p class="mt-1 text-xs text-slate-400">Strong passwords: at least 8 characters with an uppercase letter, a lowercase letter and a number.</p>
       </div>
       <div>
         <label class="block text-sm font-medium text-slate-700" for="password2">Confirm password</label>
-        <input id="password2" name="password2" type="password" required minlength="6" placeholder="Retype your password"
+        <input id="password2" name="password2" type="password" required minlength="8" placeholder="Retype your password"
                class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
         <p id="password2-note" class="mt-1 text-xs text-slate-400">Type the same password again to be sure.</p>
       </div>

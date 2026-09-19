@@ -76,7 +76,7 @@ Uploaded files themselves live in `uploads/` (filenames are stored in `materials
 
 ## Features
 
-- 🔐 Register/login with roles (Teacher/Student), hashed passwords, session hardening, CSRF tokens on every form
+- 🔐 Register/login with roles (Teacher/Student), hashed passwords, session hardening, CSRF tokens on every form, and a **strong password policy** (min 8 characters with an uppercase letter, a lowercase letter and a number) enforced on registration, e-mail reset and the admin panel
 - 🔑 **Forgot password** (`reset_password.php`, linked from the login page): e-mailed single-use reset link — 32 random bytes, only its SHA-256 is stored (in `user_meta`), 30-minute expiry, throttled to one e-mail per account per minute, no user enumeration (unknown addresses get the same confirmation), confirmation e-mail on change. Delivery uses the configured provider (Brevo API key in admin Settings / `config.php`); every attempt is logged to `data/mail.log`
 - 📚 Teachers: create/delete courses, upload documents &amp; videos, add YouTube/Vimeo links, paste material text, delete lessons
 - ✍️ **Paste a whole material**: no file needed — the "✍️ Paste text" tab saves pasted content (Markdown supported) as a reader page

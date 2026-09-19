@@ -27,8 +27,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'apply') {
         $new = (string) ($_POST['password'] ?? '');
         $new2 = (string) ($_POST['password2'] ?? '');
-        if (strlen($new) < 6) {
-            $errors[] = 'Password must be at least 6 characters.';
+        $pwError = password_strength_error($new);
+        if ($pwError !== null) {
+            $errors[] = $pwError;
         } elseif ($new2 !== $new) {
             $errors[] = 'The passwords do not match — please retype them.';
         } elseif (!password_reset_apply($token, $new)) {
@@ -60,12 +61,13 @@ require __DIR__ . '/header.php';
         <input type="hidden" name="t" value="<?= e($token) ?>">
         <div>
           <label class="block text-sm font-medium text-slate-700" for="password">New password</label>
-          <input id="password" name="password" type="password" required minlength="6" placeholder="••••••••"
+          <input id="password" name="password" type="password" required minlength="8" placeholder="Min 8 characters — UPPER + lowercase + number"
             class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
+          <p class="mt-1 text-xs text-slate-400">At least 8 characters with an uppercase letter, a lowercase letter and a number.</p>
         </div>
         <div>
           <label class="block text-sm font-medium text-slate-700" for="password2">Confirm new password</label>
-          <input id="password2" name="password2" type="password" required minlength="6" placeholder="••••••••"
+          <input id="password2" name="password2" type="password" required minlength="8" placeholder="••••••••"
             class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
         </div>
         <button class="w-full rounded-xl bg-indigo-600 py-2.5 font-semibold text-white shadow-sm hover:bg-indigo-700">Save new password</button>
