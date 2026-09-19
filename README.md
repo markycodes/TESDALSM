@@ -132,7 +132,7 @@ If pages return **HTTP 500** after this file was added, your PHP runs as CGI/Fas
 LMS/
 ├── index.php           landing page
 ├── login.php / register.php / logout.php
-├── dashboard.php       role-based dashboard (teacher/student)
+├── dashboard.php       role-based dashboard, hero heading greets the user by name (teacher/student)
 ├── courses.php         browse + search + category filter
 ├── course.php          course page (players, materials, progress)
 ├── lessons_section.php / lesson_modal.php / course_modal.php   partials
