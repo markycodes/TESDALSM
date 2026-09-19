@@ -109,7 +109,7 @@ $courseQuiz = course_quizzes((int) $course['id'], true);
             <?php endif; ?>
           </div>
         <?php endif; ?>
-        <?php if ($isVimeo && ($enrolled || $isOwner)): ?>
+        <?php if ($isVimeo && !$done && ($enrolled || $isOwner)): ?>
         <div class="mt-3">
           <button type="button" class="js-vimeo-done rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
                   data-course="<?= e((string) $course['id']) ?>" data-material="<?= e((string) $mid) ?>">✓ I finished watching this video</button>

@@ -559,6 +559,10 @@ function setLessonState(materialId, text, done) {
     el.classList.toggle('text-slate-600', !done);
   });
 }
+/* Lessons we already celebrated — the completion toast must pop exactly once.
+   The server answers complete:true on EVERY progress update for a finished
+   lesson, so without this the "completed" popup would repeat forever. */
+const completedToasts = new Set();
 async function sendWatch(courseId, materialId, watched, duration, position) {
   const body = new URLSearchParams({
     csrf: csrfToken(), course: courseId, material: materialId,
@@ -574,7 +578,10 @@ async function sendWatch(courseId, materialId, watched, duration, position) {
   applyCourseProgress(courseId, data);
   const pct = data.percent || 0;
   setLessonState(materialId, data.complete ? '✓ Completed' : (pct > 0 ? '▶ ' + pct + '% watched' : 'Not started'), !!data.complete);
-  if (data.complete) showToast('Video lesson completed 🎉');
+  if (data.complete && !completedToasts.has(String(materialId))) {
+    completedToasts.add(String(materialId));
+    showToast('Video lesson completed 🎉');
+  }
   return data;
 }
 function trackUploadedVideo(video) {
@@ -586,6 +593,7 @@ function trackUploadedVideo(video) {
   let duration = 0;
   let lastSent = Math.floor(watched);
   let done = video.getAttribute('data-done') === '1';
+  if (done) completedToasts.add(materialId); /* already finished: never toast again */
   const overlay = document.querySelector('[data-overlay-for="' + materialId + '"]');
   const overlayOn = () => !!(overlay && !overlay.classList.contains('hidden'));
   const park = () => { try { if (!video.paused) video.pause(); } catch (e) { } };
@@ -611,12 +619,16 @@ function trackUploadedVideo(video) {
     if (done) return;
     if (Math.floor(watched) - lastSent >= 5) {
       lastSent = Math.floor(watched);
-      sendWatch(courseId, materialId, Math.round(watched), Math.round(duration), Math.round(t));
+      /* once the server confirms completion, stop reporting — otherwise every
+         further heartbeat/pause re-"completes" the lesson and re-pops the toast */
+      sendWatch(courseId, materialId, Math.round(watched), Math.round(duration), Math.round(t))
+        .then((d) => { if (d && d.complete) done = true; });
     }
   });
   ['pause', 'ended'].forEach((ev) => video.addEventListener(ev, () => {
     if (done) return;
-    sendWatch(courseId, materialId, Math.round(watched), Math.round(duration), Math.round(video.currentTime || 0));
+    sendWatch(courseId, materialId, Math.round(watched), Math.round(duration), Math.round(video.currentTime || 0))
+      .then((d) => { if (d && d.complete) done = true; });
   }));
   window.addEventListener('pagehide', () => {
     if (done) return;
@@ -667,6 +679,7 @@ function trackYouTube(el) {
   let lastSent = Math.floor(watched);
   let lastTime = -1;
   let done = el.getAttribute('data-done') === '1';
+  if (done) completedToasts.add(materialId); /* already finished: never toast again */
   const overlay = document.querySelector('[data-overlay-for="' + materialId + '"]');
   const overlayOn = () => !!(overlay && !overlay.classList.contains('hidden'));
   let player = null;
@@ -694,7 +707,8 @@ function trackYouTube(el) {
     try { duration = player.getDuration() || duration; } catch (e) { }
     if (Math.floor(watched) - lastSent >= 5) {
       lastSent = Math.floor(watched);
-      sendWatch(courseId, materialId, Math.round(watched), Math.round(duration), Math.round(t));
+      sendWatch(courseId, materialId, Math.round(watched), Math.round(duration), Math.round(t))
+        .then((d) => { if (d && d.complete) done = true; });
     }
   }
   ytReady().then(() => {
@@ -725,8 +739,10 @@ function trackYouTube(el) {
             return;
           }
           if (e.data === YT.PlayerState.ENDED || e.data === YT.PlayerState.PAUSED) {
+            if (done) return; /* finished lesson: the overlay auto-pause must not re-report + re-toast */
             const t = player.getCurrentTime ? player.getCurrentTime() : 0;
-            sendWatch(courseId, materialId, Math.round(watched), Math.round(duration), Math.round(t || 0));
+            sendWatch(courseId, materialId, Math.round(watched), Math.round(duration), Math.round(t || 0))
+              .then((d) => { if (d && d.complete) done = true; });
           }
         },
       },
