@@ -247,36 +247,156 @@ document.addEventListener('click', (e) => {
   });
 })();
 
-/* ---------- Multi-file video input: live count / size hint + oversize warning ----------
+/* ---------- File inputs: live count / size hint ----------
    The per-file ceiling comes from PHP (data-max-bytes) so the browser and the
-   server can never disagree. Catching an oversize file here avoids a long upload
-   that would only be rejected at the end. */
-const videoFilesInput = document.getElementById('video-files');
-if (videoFilesInput) {
-  const videoNote = document.getElementById('video-files-note');
-  const maxBytes = parseInt(videoFilesInput.getAttribute('data-max-bytes') || '0', 10);
-  const fmtSize = (bytes) => {
-    if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(1) + ' GB';
-    if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
-    if (bytes >= 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return bytes + ' B';
-  };
-  videoFilesInput.addEventListener('change', () => {
-    const files = Array.from(videoFilesInput.files || []);
-    if (!videoNote || !files.length) return;
+   server can never disagree. Big files are posted in pieces (see the chunked
+   uploader below), so the host's per-request cap no longer limits the size. */
+const lhFmtSize = (bytes) => {
+  if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(1) + ' GB';
+  if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
+  if (bytes >= 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return bytes + ' B';
+};
+
+document.querySelectorAll('input[type="file"][data-chunk-url]').forEach((input) => {
+  const note = document.getElementById(input.id + '-note');
+  const maxBytes = parseInt(input.getAttribute('data-max-bytes') || '0', 10);
+  const multiple = input.hasAttribute('multiple');
+  input.addEventListener('change', () => {
+    if (!note) return;
+    const files = Array.from(input.files || []);
+    if (!files.length) { note.textContent = ''; return; }
     const total = files.reduce((sum, f) => sum + (f.size || 0), 0);
     const tooBig = maxBytes ? files.filter((f) => f.size > maxBytes) : [];
-    let text = files.length + ' video file(s) selected · ' + fmtSize(total) + ' total — each becomes its own lesson.';
+    let text = files.length + (multiple ? ' file(s) selected · ' + lhFmtSize(total) + ' total — each becomes its own lesson.'
+      : ' file selected · ' + lhFmtSize(total) + '.');
     if (tooBig.length) {
-      text += ' ⚠ ' + tooBig.length + ' file(s) exceed the ' + fmtSize(maxBytes) + ' limit and will be refused: '
-        + tooBig.map((f) => f.name).join(', ');
-      videoNote.className = 'mt-1 text-xs font-semibold text-red-600';
+      text += ' ⚠ exceeds the ' + lhFmtSize(maxBytes) + ' limit: ' + tooBig.map((f) => f.name).join(', ');
+      note.className = 'mt-1 text-xs font-semibold text-red-600';
     } else {
-      videoNote.className = 'mt-1 text-xs text-slate-400';
+      note.className = 'mt-1 text-xs text-slate-400';
     }
-    videoNote.textContent = text;
+    note.textContent = text;
+  });
+});
+
+/* ---------- Chunked upload: post large files piece by piece ----------
+   Shared hosts cap a SINGLE request (post_max_size / upload_max_filesize — often
+   10–20 MB), which is why a big video was refused before it ever reached the
+   server. The file is sliced here instead and each piece is POSTed to
+   upload_chunk.php, which appends it to a part file on disk and — on the last
+   piece — publishes the file into uploads/ and creates the lesson. The database
+   only ever stores lesson metadata; the video bytes stay on disk. */
+function lhRandomHex32() {
+  const a = new Uint8Array(16);
+  if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(a);
+  else for (let i = 0; i < 16; i++) a[i] = Math.floor(Math.random() * 256);
+  return Array.from(a).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** POST one piece; resolves with the server's JSON reply. */
+function lhPostPiece(url, fields, blob, name, onLoaded) {
+  return new Promise((resolve, reject) => {
+    const fd = new FormData();
+    Object.keys(fields).forEach((k) => fd.append(k, fields[k]));
+    fd.append('chunk', blob, name);
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url, true);
+    xhr.onload = () => {
+      let data = null;
+      try { data = JSON.parse(xhr.responseText); } catch (e) { data = null; }
+      if (!data) { reject(new Error('The server did not answer properly (HTTP ' + xhr.status + ').')); return; }
+      if (!data.ok) { reject(new Error(data.error || 'The upload was refused by the server.')); return; }
+      resolve(data);
+    };
+    xhr.onerror = () => reject(new Error('Network error while uploading — check your connection and try again.'));
+    xhr.upload.onprogress = (e) => { if (onLoaded && e.lengthComputable) onLoaded(e.loaded); };
+    xhr.send(fd);
   });
 }
+
+/** Slice every selected file and post the pieces in order; resolves with the last reply. */
+function lhUploadPieces(url, base, files, chunkBytes, onProgress) {
+  const ids = files.map(() => lhRandomHex32());
+  let chain = Promise.resolve(null);
+  const done = { bytes: 0, total: files.reduce((s, f) => s + f.size, 0) };
+  files.forEach((file, fi) => {
+    chain = chain.then(() => {
+      const pieces = Math.max(1, Math.ceil(file.size / chunkBytes));
+      let step = Promise.resolve(null);
+      for (let i = 0; i < pieces; i++) {
+        const start = i * chunkBytes;
+        const blob = file.slice(start, Math.min(start + chunkBytes, file.size));
+        const fields = Object.assign({}, base, {
+          upload_id: ids[fi],
+          name: file.name,
+          size: String(file.size),
+          index: String(i),
+          total: String(pieces),
+          file_index: String(fi),
+        });
+        step = step.then(() => lhPostPiece(url, fields, blob, file.name, (loaded) => {
+          if (onProgress) onProgress({ file: file.name, fileIndex: fi + 1, fileCount: files.length, sent: start + loaded, fileSize: file.size, allSent: done.bytes + start + loaded, allTotal: done.total });
+        }));
+      }
+      return step.then((res) => { done.bytes += file.size; return res; });
+    });
+  });
+  return chain;
+}
+
+/* Intercept submits on forms whose file input is chunk-enabled: upload the pieces,
+   then follow the redirect the server hands back. Without JS the form still posts
+   normally (and stays subject to the host's per-request cap). */
+document.querySelectorAll('input[type="file"][data-chunk-url]').forEach((input) => {
+  const form = input.form;
+  if (!form) return;
+  form.addEventListener('submit', (e) => {
+    if (form.dataset.lhUploading === '1') { e.preventDefault(); return; }
+    const files = Array.from(input.files || []);
+    if (!files.length) return;                                  /* let the browser flag "required" */
+    const maxBytes = parseInt(input.getAttribute('data-max-bytes') || '0', 10);
+    if (maxBytes && files.some((f) => f.size > maxBytes)) { e.preventDefault(); return; }  /* note already warns */
+    if (typeof FormData === 'undefined' || !window.XMLHttpRequest || !File.prototype.slice) return;  /* let the server try */
+
+    e.preventDefault();
+    form.dataset.lhUploading = '1';
+    const note = document.getElementById(input.id + '-note');
+    const buttons = Array.from(form.querySelectorAll('button'));
+    buttons.forEach((b) => { b.disabled = true; });
+    const label = buttons.map((b) => b.textContent);
+    if (note) note.className = 'mt-1 text-xs font-semibold text-indigo-700';
+
+    const chunkBytes = parseInt(input.getAttribute('data-chunk-bytes') || '0', 10) || 4194304;
+    const url = input.getAttribute('data-chunk-url');
+    const base = {
+      csrf: (form.querySelector('[name="csrf"]') || {}).value || '',
+      course_id: (form.querySelector('[name="course_id"]') || {}).value || '',
+      lesson_type: (form.querySelector('[name="lesson_type"]') || {}).value || 'video',
+      title: (form.querySelector('[name="title"]') || {}).value || '',
+      description: (form.querySelector('[name="description"]') || {}).value || '',
+      chunk_size: String(chunkBytes),
+      file_count: String(files.length),
+    };
+
+    lhUploadPieces(url, base, files, chunkBytes, (p) => {
+      if (!note) return;
+      const pct = p.allTotal ? Math.floor((p.allSent / p.allTotal) * 100) : 0;
+      note.textContent = '⏳ Uploading ' + p.file + (p.fileCount > 1 ? ' (' + p.fileIndex + '/' + p.fileCount + ')' : '')
+        + ' — ' + pct + '% (' + lhFmtSize(p.allSent) + ' of ' + lhFmtSize(p.allTotal) + '). Keep this tab open.';
+    }).then((res) => {
+      if (note) note.textContent = '✅ Upload complete — opening your course…';
+      window.location.href = (res && res.redirect) ? res.redirect : 'dashboard.php';
+    }).catch((err) => {
+      form.dataset.lhUploading = '';
+      buttons.forEach((b, i) => { b.disabled = false; if (label[i]) b.textContent = label[i]; });
+      if (note) {
+        note.className = 'mt-1 text-xs font-semibold text-red-600';
+        note.textContent = '⚠ ' + (err && err.message ? err.message : 'The upload failed — please try again.');
+      }
+    });
+  });
+});
 
 /* ---------- Confirm dialogs (styled modal, replaces window.confirm) ---------- */
 /* Every form/link marked [data-confirm] opens this modal instead of the native

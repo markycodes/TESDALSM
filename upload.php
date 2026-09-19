@@ -19,11 +19,12 @@ $desc     = trim((string) ($_POST['description'] ?? ''));
 $back     = 'course.php?id=' . urlencode($courseId) . '&tab=' . (in_array($type, ['document', 'text'], true) ? 'docs' : 'videos');
 
 /* If the request body exceeds the host's post_max_size, PHP empties $_POST and
-   $_FILES entirely — free hosts like InfinityFree cap it at ~10MB. Answer with
-   a clear explanation instead of the confusing CSRF failure. */
+   $_FILES entirely — free hosts like InfinityFree cap it at ~10MB. This is the
+   no-JavaScript fallback path: with JS on, large files are sent in pieces to
+   upload_chunk.php and never hit this limit. */
 if (empty($_POST) && empty($_FILES)) {
     $limit = (string) (ini_get('post_max_size') ?: 'the server limit');
-    set_flash('error', 'The upload was too large for the server to accept (request limit: ' . $limit . '). On free hosting (InfinityFree) uploads are capped at about 10 MB — upload smaller documents, or add big videos as a YouTube/Vimeo link instead.');
+    set_flash('error', 'The upload was too large for the server to accept as one request (request limit: ' . $limit . '). Enable JavaScript so large files can be sent in pieces — or upload a smaller file, or add big videos as a YouTube/Vimeo link instead.');
     header('Location: ' . lh_enc_url($back)); exit;
 }
 verify_csrf();

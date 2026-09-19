@@ -1450,6 +1450,226 @@ function handle_uploads(string $field, array $allowedExts): array
     return $rows;
 }
 
+/* ---------------- chunked uploads (big lessons on capped hosts) -------------
+ * Shared hosting caps ONE request — post_max_size / upload_max_filesize are
+ * commonly 10–20 MB (InfinityFree and its resellers), and anything bigger is
+ * dropped by PHP before a line of this app runs. A 200 MB lesson video can
+ * therefore never arrive in a single POST.
+ *
+ * So the browser slices the file and posts it piece by piece instead. The
+ * server appends every piece to a part file inside uploads/.parts/ (web-blocked
+ * like uploads/ itself) and only moves the finished file into uploads/ once the
+ * last piece has arrived. The database keeps metadata only — file bytes never
+ * travel through MySQL.
+ * -------------------------------------------------------------------------- */
+
+/** Bytes one piece may carry — always comfortably under the host's request cap. */
+function upload_chunk_bytes(): int
+{
+    $half = (int) floor(max_upload_bytes() / 2);          /* leave room for multipart + the other fields */
+    return max(256 * 1024, min($half, 8 * 1024 * 1024));  /* 256 KB … 8 MB (≈25 pieces for a 200 MB video) */
+}
+
+/** The real ceiling for a CHUNKED upload — the host's per-request cap no longer applies. */
+function max_chunked_bytes(): int
+{
+    return MAX_UPLOAD_BYTES;
+}
+
+/** Human-readable form of max_chunked_bytes() — e.g. "4 GB". */
+function max_chunked_label(): string
+{
+    return format_size(max_chunked_bytes());
+}
+
+/** Folder holding in-flight part files (inside uploads/, so it is already web-blocked). */
+function upload_parts_dir(): string
+{
+    $dir = UPLOAD_DIR . '/.parts';
+    if (!is_dir($dir)) @mkdir($dir, 0777, true);
+    deny_web_access($dir);
+    return $dir;
+}
+
+/** Delete part files abandoned by uploads that never finished (closed tab, lost connection). */
+function upload_parts_sweep(int $olderThanSeconds = 21600): int
+{
+    $dir = UPLOAD_DIR . '/.parts';
+    if (!is_dir($dir)) return 0;
+    $removed = 0;
+    foreach ((array) glob($dir . '/*.part') as $f) {
+        if (is_file($f) && (time() - (int) @filemtime($f)) > $olderThanSeconds && @unlink($f)) $removed++;
+    }
+    return $removed;
+}
+
+/** Append one piece to its part file, streamed in 256 KB blocks (never loads the piece in memory). */
+function append_upload_chunk(string $partPath, string $tmpName): int
+{
+    $in = @fopen($tmpName, 'rb');
+    if (!$in) throw new RuntimeException('The uploaded piece could not be read.');
+    $out = @fopen($partPath, 'ab');
+    if (!$out) {
+        fclose($in);
+        throw new RuntimeException('Could not write to the uploads folder (check folder permissions).');
+    }
+    $written = 0;
+    while (!feof($in)) {
+        $buf = fread($in, 262144);
+        if ($buf === false || $buf === '') break;
+        $n = fwrite($out, $buf);
+        if ($n === false) break;
+        $written += $n;
+    }
+    fclose($in);
+    fclose($out);
+    return $written;
+}
+
+/**
+ * Accept ONE piece of a chunked upload and — on the final piece — save the lesson.
+ *
+ * The browser sends: course_id, lesson_type (video|document), name (original file
+ * name), title, description, upload_id (32 hex), index, total, size, chunk_size,
+ * file_index, file_count. Everything is validated here; nothing is trusted.
+ *
+ * @param array $user the signed-in teacher
+ * @param array $in   the request fields
+ * @param array $file the $_FILES entry carrying the piece
+ * @return array{received:int,total:int,done:bool,material_id:?int,title:?string,redirect:?string}
+ */
+function receive_upload_chunk(array $user, array $in, array $file): array
+{
+    $courseId  = (int) ($in['course_id'] ?? 0);
+    $isVideo   = ((string) ($in['lesson_type'] ?? 'video')) !== 'document';
+    $uploadId  = strtolower(trim((string) ($in['upload_id'] ?? '')));
+    $index     = (int) ($in['index'] ?? -1);
+    $total     = (int) ($in['total'] ?? 0);
+    $size      = (int) ($in['size'] ?? 0);
+    $chunkSize = (int) ($in['chunk_size'] ?? 0);
+    $fileIndex = (int) ($in['file_index'] ?? 0);
+    $fileCount = (int) ($in['file_count'] ?? 1);
+    $title     = trim((string) ($in['title'] ?? ''));
+    $desc      = trim((string) ($in['description'] ?? ''));
+    $name      = trim((string) ($in['name'] ?? ''));
+
+    /* --- who may upload where ------------------------------------------- */
+    $course = course_row($courseId);
+    if (!$course) throw new RuntimeException('Course not found.');
+    if ((int) $course['teacher_id'] !== (int) $user['id']) {
+        throw new RuntimeException('You can only add lessons to your own courses.');
+    }
+
+    /* --- shape of the request ------------------------------------------- */
+    if (!preg_match('/^[a-f0-9]{32}$/', $uploadId)) throw new RuntimeException('Invalid upload id — please reload the page and try again.');
+    if ($title === '') throw new RuntimeException('Please give the lesson a title.');
+    if ($total < 1 || $total > 20000 || $index < 0 || $index >= $total) throw new RuntimeException('Invalid upload (piece numbering).');
+    if ($fileCount < 1 || $fileCount > 50) $fileCount = 1;
+    if ($fileIndex < 0 || $fileIndex >= $fileCount) $fileIndex = 0;
+    if ($chunkSize < 1 || $chunkSize > max_upload_bytes()) throw new RuntimeException('Invalid upload (piece size).');
+
+    /* --- the file itself ------------------------------------------------- */
+    $size = min($size, max_chunked_bytes());   /* never promise more than the app allows */
+    if ($size < 1) throw new RuntimeException('Invalid upload (file size).');
+    $allowed = $isVideo ? VIDEO_EXTS : DOC_EXTS;
+    $ext = ext_of($name);
+    if ($ext === '' || !in_array($ext, $allowed, true)) {
+        throw new RuntimeException('File type ".' . $ext . '" is not allowed. Allowed: ' . implode(', ', $allowed));
+    }
+    $pieceBytes = (int) ($file['size'] ?? 0);
+    if ($pieceBytes < 1) throw new RuntimeException('The uploaded piece was empty.');
+    if ($pieceBytes > $chunkSize) throw new RuntimeException('Invalid upload (piece too large).');
+
+    return receive_upload_chunk_store($uploadId, $index, $total, $size, $chunkSize, $fileIndex, $fileCount,
+        $title, $desc, $name, $ext, $isVideo, $courseId, $file);
+}
+
+/** Assemble a chunked upload: append the piece, and on the last one publish the lesson. */
+function receive_upload_chunk_store(
+    string $uploadId,
+    int $index,
+    int $total,
+    int $size,
+    int $chunkSize,
+    int $fileIndex,
+    int $fileCount,
+    string $title,
+    string $desc,
+    string $name,
+    string $ext,
+    bool $isVideo,
+    int $courseId,
+    array $file
+): array {
+    $parts = upload_parts_dir();
+    upload_parts_sweep();                       /* cheap opportunistic clean-up */
+    $part  = $parts . '/' . $uploadId . '.part';
+    $have  = is_file($part) ? (int) filesize($part) : 0;
+    if ($have !== $index * $chunkSize) {        /* a gap or a repeat: the sequence is void */
+        @unlink($part);
+        throw new RuntimeException('Upload out of sync — please try again.');
+    }
+
+    /* best-effort disk-space guard: the file must actually fit */
+    $free = @disk_free_space($parts);
+    if (is_float($free) || is_int($free)) {
+        if (($size - $have) > ((int) $free - 16 * 1024 * 1024)) {
+            @unlink($part);
+            throw new RuntimeException('The server does not have enough free disk space for a file this size.');
+        }
+    }
+
+    $written  = append_upload_chunk($part, (string) ($file['tmp_name'] ?? ''));
+    $received = $have + $written;
+    if ($written < 1) {
+        @unlink($part);
+        throw new RuntimeException('The uploaded piece was empty.');
+    }
+    if ($received > $size) {                    /* more bytes than announced — refuse */
+        @unlink($part);
+        throw new RuntimeException('Upload is larger than announced — rejected.');
+    }
+
+    /* --- more pieces to come? ------------------------------------------- */
+    if ($index < $total - 1) {
+        return ['received' => $received, 'total' => $size, 'done' => false,
+                'material_id' => null, 'title' => null, 'redirect' => null];
+    }
+    if ($received !== $size) {
+        @unlink($part);
+        throw new RuntimeException('Upload incomplete (' . format_size($received) . ' of ' . format_size($size) . ') — please try again.');
+    }
+
+    /* --- last piece: publish the file, then create the lesson ------------ */
+    $stored = date('Ymd_His') . '_' . bin2hex(random_bytes(6)) . '.' . $ext;
+    if (!@rename($part, UPLOAD_DIR . '/' . $stored)) {
+        /* Windows/antivirus can hold a freshly closed file briefly — copy instead */
+        if (!@copy($part, UPLOAD_DIR . '/' . $stored)) {
+            @unlink($part);
+            throw new RuntimeException('Could not save the uploaded file (check folder permissions).');
+        }
+        @unlink($part);
+    }
+
+    /* extra files pick up "(2)", "(3)"… exactly like the single-request upload */
+    $lessonTitle = $fileIndex === 0 ? $title : cut($title, 115) . ' (' . ($fileIndex + 1) . ')';
+    $materialId = add_material($courseId, $isVideo ? 'video' : 'file', cut($lessonTitle, 120), cut($desc, 200), [
+        'stored' => $stored,
+        'orig'   => $name,
+        'mime'   => mime_for_ext($ext),
+        'size'   => $size,
+    ]);
+
+    return [
+        'received'    => $received,
+        'total'       => $size,
+        'done'        => true,
+        'material_id' => $materialId,
+        'title'       => $lessonTitle,
+        'redirect'    => lh_enc_url('course.php?id=' . $courseId),
+    ];
+}
+
 function mime_for_ext(string $ext): string
 {
     /* authoritative type by the file's real extension — mime_content_type() mislabels
@@ -1565,6 +1785,7 @@ function ensure_storage(): void
 {
     if (!is_dir(UPLOAD_DIR)) @mkdir(UPLOAD_DIR, 0777, true);
     deny_web_access(UPLOAD_DIR);
+    upload_parts_dir();          /* uploads/.parts — in-flight chunked uploads */
     /* data/ holds admin-credentials.txt, mail.log and error.log — files with the
        DB/e-mail secrets and the password of the auto-created admin. Block it at
        the folder level too, so a missing root .htaccess cannot expose them. */
