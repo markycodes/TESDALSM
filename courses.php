@@ -42,6 +42,7 @@ require __DIR__ . '/header.php';
 <div class="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
   <?php foreach ($courses as $c):
     $owner = ($user['role'] ?? '') === 'teacher' && (int) ($c['teacher_id'] ?? 0) === (int) $user['id'];
+    $canLessons = can_view_lessons($c, $user);
     $enrolled = is_enrolled($c, (string) $user['id']);
     $certReady = false;
     if ($enrolled && ($user['role'] ?? '') === 'student') {
@@ -59,7 +60,9 @@ require __DIR__ . '/header.php';
     </div>
     <h3 class="mt-2 text-lg font-bold text-slate-900"><?= e((string) $c['title']) ?></h3>
     <p class="mt-1 line-clamp-2 flex-1 text-sm text-slate-500"><?= e((string) ($c['description'] ?? '')) ?></p>
-    <p class="mt-3 text-xs text-slate-500">👩‍🏫 <?= e((string) ($c['teacher_name'] ?? '')) ?> · 📦 <span data-live-c-lessons="<?= (int) $c['id'] ?>"><?= count($c['materials'] ?? []) ?></span> lessons · 👥 <span data-live-c-students="<?= (int) $c['id'] ?>"><?= count($c['enrolled'] ?? []) ?></span></p>
+    <p class="mt-3 text-xs text-slate-500">👩‍🏫 <?= e((string) ($c['teacher_name'] ?? '')) ?> ·
+      <?php if ($canLessons): ?>📦 <span data-live-c-lessons="<?= (int) $c['id'] ?>"><?= count($c['materials'] ?? []) ?></span> lessons ·
+      <?php else: ?>🔒 lessons private · <?php endif; ?>👥 <span data-live-c-students="<?= (int) $c['id'] ?>"><?= count($c['enrolled'] ?? []) ?></span></p>
     <a href="course.php?id=<?= e((string) $c['id']) ?>"
        class="mt-4 rounded-xl px-4 py-2 text-center text-sm font-semibold <?= $owner || $enrolled ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'border border-indigo-600 text-indigo-600 hover:bg-indigo-50' ?>">
       <?= $owner ? 'Manage' : ($enrolled ? 'Continue' : ((($user['role'] ?? '') === 'student') ? '🔑 Enter invitation code' : 'View course')) ?>

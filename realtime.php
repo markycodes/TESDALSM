@@ -290,7 +290,10 @@ if ($v === 'courses') {
     $out = [];
     foreach (load_courses() as $c) {
         $cid = (int) $c['id'];
-        $out[] = ['id' => $cid, 'lessons' => $lessons[$cid] ?? 0, 'students' => $enr[$cid] ?? 0];
+        /* lesson counts are private to the owning teacher: other teachers get 0
+           (their cards render "lessons private" without the live hook anyway) */
+        $private = $isTeacher && (int) $c['teacher_id'] !== $me;
+        $out[] = ['id' => $cid, 'lessons' => $private ? 0 : ($lessons[$cid] ?? 0), 'students' => $enr[$cid] ?? 0];
     }
     echo json_encode(['ok' => true, 'courses' => $out]);
     exit;

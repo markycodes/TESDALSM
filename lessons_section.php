@@ -1,5 +1,8 @@
 <?php /** Lesson list — included from course.php when the user can view materials.
- * Progress is automatic: videos count watch time, materials count reading depth/time. */
+ * Progress is automatic: videos count watch time, materials count reading depth/time.
+ * Lessons are private: owning teacher + enrolled students only — this guard keeps
+ * the list from rendering even if a future caller forgets to check. */
+if (!can_view_lessons($course, $user)) return;
 $mstates = material_user_states($userId, (int) $course['id']);
 $progressSet = $course['progress'][$userId] ?? [];
 $courseQuiz = course_quizzes((int) $course['id'], true);

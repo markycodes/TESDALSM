@@ -1185,6 +1185,20 @@ function is_enrolled(array $course, int|string $userId): bool
     return in_array((int) $userId, $course['enrolled'] ?? [], true);
 }
 
+/** May this user see a course's lessons (the list AND its counts)?
+ *  The owning teacher: always. Any OTHER teacher: never — lessons are private
+ *  to the teacher who uploaded them and their enrolled students (teachers can
+ *  never enroll, so ownership is the only teacher path). Students, admins and
+ *  everyone else keep the previous behaviour: enrolled students open the
+ *  lessons, everybody else sees the invite-only lock screen. */
+function can_view_lessons(array $course, array $user): bool
+{
+    if (($user['role'] ?? '') === 'teacher') {
+        return (int) ($course['teacher_id'] ?? 0) === (int) ($user['id'] ?? 0);
+    }
+    return true;
+}
+
 function course_progress(array $course, int|string $userId): array
 {
     $total = count($course['materials'] ?? []);

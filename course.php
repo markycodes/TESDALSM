@@ -23,8 +23,11 @@ if ($canView && ($user['role'] ?? '') === 'student') {
     $attendance_course = (int) $course['id']; // lets the footer send a "leave" beacon
 }
 
-$videos = array_values(array_filter($course['materials'] ?? [], fn ($m) => in_array($m['type'] ?? '', ['video', 'youtube'], true)));
-$docs   = array_values(array_filter($course['materials'] ?? [], fn ($m) => ($m['type'] ?? '') === 'file'));
+/* lesson contents are private: only the owning teacher and enrolled students
+   get the real lists (and even the counts) — other teachers see "private" */
+$canLessons = can_view_lessons($course, $user);
+$videos = $canLessons ? array_values(array_filter($course['materials'] ?? [], fn ($m) => in_array($m['type'] ?? '', ['video', 'youtube'], true))) : [];
+$docs   = $canLessons ? array_values(array_filter($course['materials'] ?? [], fn ($m) => ($m['type'] ?? '') === 'file')) : [];
 
 /* realtime "online now" chip — initial value (kept fresh by app.js polling) */
 $onlineNow = 0;
@@ -56,7 +59,8 @@ require __DIR__ . '/header.php';
           <?= e((string) ($course['teacher_name'] ?? '')) ?>
         </span>
         <span>👥 <?= count($course['enrolled'] ?? []) ?> enrolled</span>
-        <span>📦 <?= count($course['materials'] ?? []) ?> lessons</span>
+        <?php if ($canLessons): ?><span>📦 <?= count($course['materials'] ?? []) ?> lessons</span>
+        <?php else: ?><span>🔒 Lessons private</span><?php endif; ?>
         <span>📅 <?= date('M j, Y', (int) ($course['created_at'] ?? time())) ?></span>
         <?php if ($enrolled || $isOwner): ?>
         <span id="course-online-chip" class="flex items-center gap-1.5 font-medium text-emerald-700">
@@ -118,11 +122,19 @@ require __DIR__ . '/header.php';
 <?php require __DIR__ . '/lessons_section.php'; ?>
 <?php if ($isOwner) { require __DIR__ . '/lesson_modal.php'; require __DIR__ . '/quiz_modal.php'; } ?>
 <?php else: ?>
+<?php if (($user['role'] ?? '') === 'teacher'): ?>
+<div class="mt-6 rounded-2xl border-2 border-dashed border-slate-300 p-12 text-center">
+  <p class="text-5xl">🔒</p>
+  <h2 class="mt-4 text-xl font-bold text-slate-900">Lessons are private</h2>
+  <p class="mt-1 text-sm text-slate-500">Only the course teacher and their enrolled students can see this course's lessons.</p>
+</div>
+<?php else: ?>
 <div class="mt-6 rounded-2xl border-2 border-dashed border-slate-300 p-12 text-center">
   <p class="text-5xl">🔒</p>
   <h2 class="mt-4 text-xl font-bold text-slate-900"><?= count($course['materials'] ?? []) ?> lessons are locked</h2>
   <p class="mt-1 text-sm text-slate-500">This course is invite-only — register with the invitation code from <?= e((string) ($course['teacher_name'] ?? 'the teacher')) ?> to unlock the lessons.</p>
 </div>
+<?php endif; ?>
 <?php endif; ?>
 
 <?php require __DIR__ . '/footer.php'; ?>
