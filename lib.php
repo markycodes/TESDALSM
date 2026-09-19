@@ -1045,7 +1045,7 @@ function verify_csrf(): void
 {
     $t = $_POST['csrf'] ?? '';
     if (!is_string($t) || $t === '' || !hash_equals($_SESSION['csrf'] ?? '', $t)) {
-        http_response_code(419);
+        http_response_code(403);   /* 419 is not in this PHP build's status table — it degrades to 500 */
         exit('Invalid form token — please go back and try again.');
     }
 }

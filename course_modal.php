@@ -1,3 +1,4 @@
+<?php if (!function_exists('db')) { http_response_code(403); exit('Forbidden'); } /* include-only partial: no direct URL access */ ?>
 <!-- Create-course modal (teacher only) -->
 <div id="course-modal" class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 p-4">
   <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">

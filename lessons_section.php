@@ -2,6 +2,7 @@
  * Progress is automatic: videos count watch time, materials count reading depth/time.
  * Lessons are private: owning teacher + enrolled students only — this guard keeps
  * the list from rendering even if a future caller forgets to check. */
+if (!function_exists('db')) { http_response_code(403); exit('Forbidden'); } /* include-only partial: no direct URL access */
 if (!can_view_lessons($course, $user)) return;
 $mstates = material_user_states($userId, (int) $course['id']);
 $progressSet = $course['progress'][$userId] ?? [];
