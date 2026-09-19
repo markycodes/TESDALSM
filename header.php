@@ -789,12 +789,21 @@ if ($user) {
   overscroll-behavior: contain
 }
 
-/* The bell in app.js toggles Tailwind's `.hidden` — which has exactly the same
-   specificity as `.lh-panel` above. Tailwind is injected at runtime by its CDN
-   script, so which of the two wins depends on stylesheet order: without this
-   rule the panel can end up permanently open, or permanently closed. Pin the
-   closed state explicitly so the toggle always works. */
+/* app.js pins the "closed" state of these components by toggling Tailwind's
+   `.hidden` (a single class = 0-1-0 specificity). `.lh-panel` and `.lh-badge`
+   both declare their own `display` (flex / grid) further up in THIS stylesheet,
+   so they collide with `.hidden` at identical specificity — and the winning
+   rule is simply the one that comes last. This inline <style> is emitted after
+   the linked assets/tailwind.min.css, so without the combined-selector rules
+   below the notification panel could never close and the badges stayed
+   permanently visible showing an empty "0". Re-assert the closed state with a
+   higher-specificity selector so the toggle always works, whatever the
+   stylesheet order. */
 .lh-panel.hidden {
+  display: none !important
+}
+
+.lh-badge.hidden {
   display: none !important
 }
 

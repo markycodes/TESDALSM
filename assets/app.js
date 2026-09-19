@@ -842,8 +842,18 @@ if (dayFilter) {
   function setBadge(id, n) {
     var b = document.getElementById(id);
     if (!b) return;
-    if (n > 0) { b.textContent = n > 99 ? '99+' : String(n); b.classList.remove('hidden'); }
-    else b.classList.add('hidden');
+    if (n > 0) {
+      b.textContent = n > 99 ? '99+' : String(n);
+      b.classList.remove('hidden');
+      b.style.display = '';   /* clear the inline hide — let .lh-badge pick grid/block */
+    } else {
+      /* hide by tweaking the class AND the inline style: the component class
+         (.lh-badge{display:grid}) and Tailwind's .hidden have identical
+         specificity, so the plain class toggle alone is stylesheet-order
+         dependent (a zero badge once stayed visible on the deployed build) */
+      b.classList.add('hidden');
+      b.style.display = 'none';
+    }
   }
 
   /* -------- notifications: poll + dropdown -------- */
