@@ -71,3 +71,13 @@ define('DB_PASS_LOCAL', '');            define('DB_PASS_PROD', 'your-mysql-passw
 // define('EMAIL_API_KEY', 'xkeysib-xxxxx');
 // define('APP_URL',       'https://lmshub.wuaze.com'); // used for links inside e-mails
 
+/* Live classes run through Jitsi Meet. The default is the free public
+ * meet.jit.si server — note it asks the class HOST to sign in once (Google /
+ * GitHub / Facebook) whenever 3+ people are in the room; until then the other
+ * participants wait in a lobby without audio/video. To remove that limit (or
+ * use your own server), point JITSI_DOMAIN at any Jitsi instance, e.g.:
+ *   define('JITSI_DOMAIN', 'jitsi.riot.im');      // public community server
+ *   define('JITSI_DOMAIN', 'meet.yourdomain');    // your self-hosted Jitsi
+ */
+// define('JITSI_DOMAIN', 'meet.jit.si');
+
