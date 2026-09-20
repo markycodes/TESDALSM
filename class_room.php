@@ -25,9 +25,14 @@ if (!$isHost && !is_enrolled($course, $userId)) {
 }
 
 $active = live_class_active($courseId);
-/* non-hosts can only sit in a room that is actually live */
-if (!$active && !$isHost) {
-    set_flash('error', 'No live class is running right now.');
+/* Nobody sits in a room that is not actually live. Students are told so; the
+   host is sent back to the course page to start one. (This also means we never
+   read properties off a null active-class row, which used to print PHP warnings
+   and "Started 56 years ago" if a teacher opened the room link directly.) */
+if (!$active) {
+    set_flash('error', $isHost
+        ? 'No live class is running — start one from the course page.'
+        : 'No live class is running right now.');
     header('Location: course.php?id=' . $courseId);
     exit;
 }
@@ -47,10 +52,7 @@ require __DIR__ . '/header.php';
 <div class="mt-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div class="flex items-center gap-3">
-      <span class="relative flex h-3 w-3">
-        <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75"></span>
-        <span class="relative inline-flex h-3 w-3 rounded-full bg-rose-500"></span>
-      </span>
+      <span class="lh-live-dot" aria-hidden="true"><span></span><span></span></span>
       <div>
         <h1 class="text-lg font-bold text-slate-900">🔴 Live class — <?= e((string) $course['title']) ?></h1>
         <p class="text-xs text-slate-500">Started <?= e(time_ago((int) $active['started_at'])) ?> · hosted by <?= e((string) ($course['teacher_name'] ?? 'the teacher')) ?></p>
@@ -60,23 +62,27 @@ require __DIR__ . '/header.php';
       <span id="lr-count" class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">… in room</span>
       <button id="lr-tiles" title="Gallery view — everyone's video at once" class="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">▦ Gallery</button>
       <button id="lr-fs" title="Full screen" class="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">⛶ Full screen</button>
-      <button id="lr-hand" class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100">✋ Raise hand</button>
+      <button id="lr-hand" class="lh-chip-amber rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">✋ Raise hand</button>
       <?php if ($isHost): ?>
       <button id="lr-end" data-confirm="End the live class for everyone?" class="rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700">End class</button>
       <?php endif; ?>
     </div>
   </div>
-  <div id="lr-meeting" class="mt-3 h-[calc(100vh-230px)] min-h-[460px] w-full overflow-hidden rounded-xl bg-slate-900"></div>
+  <div id="lr-meeting" class="lh-stage mt-3"></div>
   <div class="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-800 ring-1 ring-amber-100">
-    🔊 <b>No voice?</b> (1) Click the <b>mic icon</b> in the meeting's bottom bar — check that YOU and the others are unmuted.
+    🔊 <b>No voice? No mic button?</b> The meeting's bottom <b>control bar is now pinned</b> so it can no longer disappear — the <b>mic icon</b>
+    is its leftmost button (camera sits next to it). If you still can't see it, move the mouse over the video / tap the screen once, and on a phone
+    turn it to landscape.
+    (1) Check that YOU and the others are <b>unmuted</b> — a red slash over the mic means muted.
     (2) If the browser blocked the microphone, allow it via the padlock icon in the address bar → Microphone → Allow, then reload.
-    (3) On the free <b>meet.jit.si</b> server, when <b>3 or more people</b> are in the room the <b>host must sign in once</b> with the 🔒/login button inside the meeting — until then everyone else waits in the lobby with no audio or video.
+    (3) Keep the page on <b>https://</b> — browsers refuse camera/microphone access on plain http.
+    (4) On the free <b>meet.jit.si</b> server, when <b>3 or more people</b> are in the room the <b>host must sign in once</b> with the 🔒/login button inside the meeting — until then everyone else waits in the lobby with no audio or video.
     Self-hosting or another Jitsi server removes that limit: add <code>define('JITSI_DOMAIN','your.jitsi.server');</code> to <code>config.php</code>.
   </div>
 </div>
 
 <div class="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-  <h2 class="text-sm font-bold text-slate-900">In the room <span id="lr-hand-note" class="hidden font-normal text-amber-600">— ✋ a hand is raised</span></h2>
+  <h2 class="text-sm font-bold text-slate-900">In the room <span id="lr-hand-note" class="lh-soft hidden text-amber-600">— ✋ a hand is raised</span></h2>
   <ul id="lr-people" class="mt-2 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3"></ul>
 </div>
 
@@ -86,6 +92,18 @@ require __DIR__ . '/header.php';
   var me = <?= $userId ?>;
   var isHost = <?= $isHost ? 'true' : 'false' ?>;
   var csrf = document.querySelector('meta[name="csrf"]').content;
+
+  /* Browsers refuse camera/microphone on plain http:// (localhost excepted).
+     A room that silently has no audio/video is the worst case, so say it. */
+  if (!window.isSecureContext) {
+    var warn = document.createElement('div');
+    warn.style.cssText = 'margin-top:12px;padding:10px 14px;border-radius:12px;background:#fff1f2;color:#be123c;'
+      + 'font-size:12px;font-weight:600;line-height:1.6;box-shadow:0 0 0 1px #fecdd3';
+    warn.innerHTML = '⛔ This page is not on HTTPS, so the browser <b>blocks the camera and the microphone</b>. '
+      + 'Open the site with <b>https://</b> (localhost is fine) to be seen and heard.';
+    var stageEl = document.getElementById('lr-meeting');
+    stageEl.parentNode.insertBefore(warn, stageEl);
+  }
 
   function post(data) {
     var body = new URLSearchParams(Object.assign({ csrf: csrf, course: cid }, data));
@@ -111,11 +129,25 @@ require __DIR__ . '/header.php';
         startWithAudioMuted: false,
         startWithVideoMuted: false,
         startScreenSharing: false,
-        tileViewMaxColumns: 12,
         disableBeforeUnloadHandlers: true,
+        /* PIN THE CONTROL BAR. Jitsi hides its bottom toolbar a few seconds
+           after the mouse stops moving — that is why the mic/camera icons
+           seemed to be missing. Current builds read
+           config.toolbarConfig.alwaysVisible; older ones read
+           interfaceConfig.TOOLBAR_ALWAYS_VISIBLE (set below). */
+        toolbarConfig: { alwaysVisible: true },
+        /* keep the "Join meeting" pre-join screen on purpose: it shows the
+           mic / camera state and a device picker BEFORE entering, so nobody
+           lands in class muted without knowing why. Set enabled:false to skip. */
+        prejoinPageEnabled: true,
+        prejoinConfig: { enabled: true },
+        /* don't bounce phones out to the Jitsi app / store page */
+        disableDeepLinking: true,
       },
       interfaceConfigOverwrite: {
-        TILE_VIEW_MAX_COLUMNS: 12,
+        /* documented range for this option is 1..5 (12 was simply ignored) */
+        TILE_VIEW_MAX_COLUMNS: 5,
+        TOOLBAR_ALWAYS_VISIBLE: true,
         FILM_STRIP_MAX_HEIGHT: 140,
         SHOW_JITSI_WATERMARK: false,
         SHOW_POWERED_BY: false,
@@ -148,9 +180,9 @@ require __DIR__ . '/header.php';
   handBtn.addEventListener('click', function () {
     myHand = !myHand;
     handBtn.textContent = myHand ? '✋ Hand raised' : '✋ Raise hand';
-    handBtn.className = 'rounded-xl px-3 py-1.5 text-xs font-semibold ' + (myHand
+    handBtn.className = 'lh-chip-amber rounded-xl px-3 py-1.5 text-xs font-semibold ' + (myHand
       ? 'border border-amber-400 bg-amber-200 text-amber-900'
-      : 'border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100');
+      : 'border border-amber-200 bg-amber-50 text-amber-700');
     post({ v: 'beat', hand: myHand ? '1' : '0' });
   });
 
@@ -178,10 +210,10 @@ require __DIR__ . '/header.php';
         ul.innerHTML = ps.map(function (p) {
           anyHand = anyHand || (p.hand && p.id !== me);
           return '<li class="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-1.5 text-sm">'
-            + '<span class="grid h-6 w-6 place-items-center rounded-full bg-indigo-600 text-[10px] font-bold text-white">' + (p.name || '?').charAt(0).toUpperCase() + '</span>'
+            + '<span class="lh-avatar">' + (p.name || '?').charAt(0).toUpperCase() + '</span>'
             + '<span class="font-medium text-slate-700">' + String(p.name || 'User').replace(/[<>&]/g, '') + '</span>'
             + (p.role === 'teacher' ? '<span class="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700">Host</span>' : '')
-            + (p.hand ? '<span class="ml-auto text-amber-500" title="Hand raised">✋</span>' : '');
+            + (p.hand ? '<span class="lh-hand" title="Hand raised">✋</span>' : '');
         }).join('');
         document.getElementById('lr-hand-note').classList.toggle('hidden', !anyHand);
         /* if the server lost my heartbeat (e.g. laptop slept) re-join automatically */

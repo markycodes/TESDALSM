@@ -128,17 +128,14 @@ $liveNow = live_class_active((int) $course['id']);
 <div id="live-class-box"><?php if ($liveNow): ?>
 <div id="live-class-banner" class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-rose-50 p-4 ring-1 ring-rose-200">
   <div class="flex items-center gap-3">
-    <span class="relative flex h-3 w-3">
-      <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75"></span>
-      <span class="relative inline-flex h-3 w-3 rounded-full bg-rose-500"></span>
-    </span>
+    <span class="lh-live-dot" aria-hidden="true"><span></span><span></span></span>
     <p class="text-sm font-bold text-rose-700">🔴 Live class running<?= $isOwner ? '' : ' — ' . e((string) ($course['teacher_name'] ?? 'your teacher')) ?> is waiting for you!</p>
   </div>
   <?php if ($isOwner): ?>
   <button id="lc-end" class="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700">End live class</button>
   <a href="class_room.php?course=<?= $courseId ?>" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">Re-enter room</a>
   <?php else: ?>
-  <a href="class_room.php?course=<?= $courseId ?>" class="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-700">🎥 Join now</a>
+  <a href="class_room.php?course=<?= $courseId ?>" class="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700">🎥 Join now</a>
   <?php endif; ?>
 </div>
 <?php endif; ?></div>

@@ -938,6 +938,115 @@ if ($user) {
   color: #fff
 }
 
+/* ============================================================
+   Live class room (class_room.php) + its course-page banner.
+   WHY PLAIN CSS: assets/tailwind.min.css is a PRECOMPILED Tailwind
+   subset — it contains min-h-[560px] / text-[10px] but NOT
+   h-[calc(100vh-230px)] or min-h-[460px]. The room asked for exactly
+   those, so #lr-meeting had no height at all (auto = 0), the Jitsi
+   iframe inside it collapsed to nothing and the meeting looked broken
+   with no mic/camera bar. These rules always exist.
+   ============================================================ */
+.lh-stage {
+  position: relative;
+  width: 100%;
+  /* 100dvh (not vh) so the bottom toolbar never hides behind mobile
+     browser chrome; the extra 245px leaves room for the page header,
+     the room toolbar and the help strip above/below. */
+  height: calc(100dvh - 245px);
+  min-height: 460px;
+  overflow: hidden;
+  border-radius: .75rem;
+  background: #0f172a
+}
+
+@supports not (height: 100dvh) {
+  .lh-stage {
+    height: calc(100vh - 245px)
+  }
+}
+
+@media (max-width: 900px) {
+  .lh-stage {
+    height: 64vh;
+    min-height: 340px
+  }
+}
+
+/* keep the embedded meeting filling its box no matter what Jitsi sets */
+.lh-stage>iframe {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  border: 0
+}
+
+/* pulsing red "live" dot (replaces bg-rose-500 + animate-ping, which are
+   not in the compiled CSS either) */
+.lh-live-dot {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  height: .75rem;
+  width: .75rem
+}
+
+.lh-live-dot>span:first-child {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: #fb7185;
+  opacity: .75;
+  animation: lh-ping 1.5s cubic-bezier(0, 0, .2, 1) infinite
+}
+
+.lh-live-dot>span:last-child {
+  display: block;
+  position: relative;
+  height: .75rem;
+  width: .75rem;
+  border-radius: 9999px;
+  background: #f43f5e
+}
+
+@keyframes lh-ping {
+
+  75%,
+  100% {
+    transform: scale(2.1);
+    opacity: 0
+  }
+}
+
+/* roster avatar: `.h-6 .w-6` were missing from the compiled CSS, so the
+   circles had no size and the initials rendered unstyled */
+.lh-avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  height: 1.5rem;
+  width: 1.5rem;
+  border-radius: 9999px;
+  background: #4f46e5;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700
+}
+
+.lh-hand {
+  margin-left: auto;
+  color: #f59e0b
+}
+
+.lh-soft {
+  font-weight: 400
+}
+
+.lh-chip-amber:hover {
+  background: #fef3c7
+}
+
 /* browsers without dvh support keep the old viewport maths */
 @supports not (height: 100dvh) {
   .lh-panel {
