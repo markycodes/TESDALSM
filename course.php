@@ -10,6 +10,7 @@ if ($idx === null) {
     exit;
 }
 $course = $courses[$idx];
+$courseId = (int) $course['id'];
 $userId = (int) $user['id'];
 $isOwner = ($user['role'] ?? '') === 'teacher' && (int) ($course['teacher_id'] ?? 0) === $userId;
 $enrolled = is_enrolled($course, $userId);
