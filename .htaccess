@@ -68,7 +68,7 @@
     # leaks into the URL and Apache 403s it. An absolute URL is passed through
     # verbatim — no RewriteBase and no filesystem->URL conversion needed.
     # 302 (not 301): browsers cache 301s permanently; 302 is always re-evaluated.
-    RewriteCond %{REQUEST_URI} !^/([^/]+/)?(realtime|ping|presence|read_progress|watch)\.php$ [NC]
+    RewriteCond %{REQUEST_URI} !^/([^/]+/)?(realtime|ping|presence|read_progress|watch|live_class)\.php$ [NC]
     RewriteCond %{THE_REQUEST} \s(/[^\s?]+)(?=\.php) [NC]
     RewriteCond %{REQUEST_METHOD} =GET
     RewriteRule ^ http://%{HTTP_HOST}%1 [R=302,L,NE]

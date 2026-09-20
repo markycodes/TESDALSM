@@ -75,6 +75,7 @@ require __DIR__ . '/header.php';
         <div class="rounded-xl bg-amber-50 p-4 ring-1 ring-amber-100">
           <p class="text-xs font-semibold uppercase tracking-wide text-amber-700">You teach this course</p>
           <button data-modal-open="lesson-modal" class="mt-3 w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">＋ Add lesson</button>
+          <button id="lc-start" class="mt-2 w-full rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-700">🔴 Start live class</button>
           <form method="post" action="course_delete.php" data-confirm="Delete this course and all of its lessons?" class="mt-2">
             <?= csrf_field() ?><input type="hidden" name="course_id" value="<?= e((string) $course['id']) ?>">
             <button class="w-full rounded-xl border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50">Delete course</button>
@@ -119,6 +120,27 @@ require __DIR__ . '/header.php';
 </div>
 
 <?php if ($canView): ?>
+<?php
+/* live class: the one currently running (teacher control + student join banner) */
+$liveNow = live_class_active((int) $course['id']);
+?>
+<div id="live-class-box"><?php if ($liveNow): ?>
+<div id="live-class-banner" class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-rose-50 p-4 ring-1 ring-rose-200">
+  <div class="flex items-center gap-3">
+    <span class="relative flex h-3 w-3">
+      <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75"></span>
+      <span class="relative inline-flex h-3 w-3 rounded-full bg-rose-500"></span>
+    </span>
+    <p class="text-sm font-bold text-rose-700">🔴 Live class running<?= $isOwner ? '' : ' — ' . e((string) ($course['teacher_name'] ?? 'your teacher')) ?> is waiting for you!</p>
+  </div>
+  <?php if ($isOwner): ?>
+  <button id="lc-end" class="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700">End live class</button>
+  <a href="class_room.php?course=<?= $courseId ?>" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">Re-enter room</a>
+  <?php else: ?>
+  <a href="class_room.php?course=<?= $courseId ?>" class="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-700">🎥 Join now</a>
+  <?php endif; ?>
+</div>
+<?php endif; ?></div>
 <?php require __DIR__ . '/lessons_section.php'; ?>
 <?php if ($isOwner) { require __DIR__ . '/lesson_modal.php'; require __DIR__ . '/quiz_modal.php'; } ?>
 <?php else: ?>

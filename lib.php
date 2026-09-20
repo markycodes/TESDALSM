@@ -581,6 +581,29 @@ function db_ensure_schema(PDO $pdo): void
             CONSTRAINT fk_att_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
             CONSTRAINT fk_att_course FOREIGN KEY (course_id) REFERENCES courses (id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        "CREATE TABLE IF NOT EXISTS live_classes (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            course_id INT UNSIGNED NOT NULL,
+            host_id INT UNSIGNED NOT NULL,
+            title VARCHAR(120) NOT NULL DEFAULT 'Live class',
+            status ENUM('live','ended') NOT NULL DEFAULT 'live',
+            started_at INT UNSIGNED NOT NULL DEFAULT 0,
+            ended_at INT UNSIGNED NULL,
+            INDEX idx_live_classes_course (course_id),
+            INDEX idx_live_classes_host (host_id),
+            CONSTRAINT fk_lc_course FOREIGN KEY (course_id) REFERENCES courses (id) ON DELETE CASCADE,
+            CONSTRAINT fk_lc_host FOREIGN KEY (host_id) REFERENCES users (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        "CREATE TABLE IF NOT EXISTS live_class_state (
+            class_id INT UNSIGNED NOT NULL,
+            user_id INT UNSIGNED NOT NULL,
+            joined_at INT UNSIGNED NOT NULL DEFAULT 0,
+            last_seen INT UNSIGNED NOT NULL DEFAULT 0,
+            hand_raised TINYINT UNSIGNED NOT NULL DEFAULT 0,
+            PRIMARY KEY (class_id, user_id),
+            CONSTRAINT fk_lcs_class FOREIGN KEY (class_id) REFERENCES live_classes (id) ON DELETE CASCADE,
+            CONSTRAINT fk_lcs_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
         "CREATE TABLE IF NOT EXISTS enroll_codes (
             id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
             code VARCHAR(20) NOT NULL,
@@ -2743,6 +2766,111 @@ function close_stale_attendance(int $closeBefore = 0): void
 function clear_presence(int $userId): void
 {
     db()->prepare('DELETE FROM presence WHERE user_id = ?')->execute([$userId]);
+}
+
+/* ---------------- live classes (teacher-initiated, Zoom-like) ---------------- */
+
+/** The one currently-live class for a course (null when none). */
+function live_class_active(int $courseId): ?array
+{
+    $st = db()->prepare("SELECT id, course_id, host_id, title, status, started_at FROM live_classes WHERE course_id = ? AND status = 'live' LIMIT 1");
+    $st->execute([$courseId]);
+    $row = $st->fetch();
+    return $row === false ? null : array_map(fn ($v) => is_numeric($v) ? (int) $v : $v, $row);
+}
+
+/** The live class a user is currently sitting in (across all courses), if any. */
+function live_class_for_user(int $userId): ?array
+{
+    $st = db()->prepare("SELECT lc.id, lc.course_id, lc.host_id, lc.title, lc.started_at, c.title AS course_title
+                         FROM live_class_state s
+                         JOIN live_classes lc ON lc.id = s.class_id AND lc.status = 'live'
+                         JOIN courses c ON c.id = lc.course_id
+                         WHERE s.user_id = ? AND s.last_seen >= ?
+                         ORDER BY s.last_seen DESC LIMIT 1");
+    $st->execute([$userId, time() - 90]);
+    $row = $st->fetch();
+    if ($row === false) return null;
+    $row['id'] = (int) $row['id'];
+    $row['course_id'] = (int) $row['course_id'];
+    $row['host_id'] = (int) $row['host_id'];
+    $row['started_at'] = (int) $row['started_at'];
+    return $row;
+}
+
+/** Teacher starts a class; returns the live row. Only one live class per course (DB-enforced). */
+function live_class_start(int $courseId, int $hostId, string $title = 'Live class'): array
+{
+    /* end any stale live row first (shouldn't exist thanks to the UNIQUE key, but be safe) */
+    db()->prepare("UPDATE live_classes SET status = 'ended', ended_at = ? WHERE course_id = ? AND status = 'live'")
+        ->execute([time(), $courseId]);
+    db()->prepare('INSERT INTO live_classes (course_id, host_id, title, status, started_at) VALUES (?,?,?,\'live\',?)')
+        ->execute([$courseId, $hostId, $title !== '' ? $title : 'Live class', time()]);
+    $id = (int) db()->lastInsertId();
+    /* the host is in the room from the start */
+    db()->prepare('INSERT INTO live_class_state (class_id, user_id, joined_at, last_seen, hand_raised) VALUES (?,?,?,?,0)
+                   ON DUPLICATE KEY UPDATE joined_at = VALUES(joined_at), last_seen = VALUES(last_seen)')
+        ->execute([$id, $hostId, time(), time()]);
+    $st = db()->prepare('SELECT id, course_id, host_id, title, started_at FROM live_classes WHERE id = ?');
+    $st->execute([$id]);
+    $row = $st->fetch();
+    $row['id'] = (int) $row['id'];
+    $row['course_id'] = (int) $row['course_id'];
+    $row['host_id'] = (int) $row['host_id'];
+    $row['started_at'] = (int) $row['started_at'];
+    return $row;
+}
+
+/** Teacher ends the class. Only the host may end it. */
+function live_class_end(int $classId, int $hostId): bool
+{
+    $st = db()->prepare("UPDATE live_classes SET status = 'ended', ended_at = ? WHERE id = ? AND host_id = ? AND status = 'live'");
+    $st->execute([time(), $classId, $hostId]);
+    return $st->rowCount() > 0;
+}
+
+/** Heartbeat from a participant still in the room (insert-or-refresh). */
+function live_class_heartbeat(int $classId, int $userId): void
+{
+    db()->prepare('INSERT INTO live_class_state (class_id, user_id, joined_at, last_seen, hand_raised) VALUES (?,?,?,?,0)
+                   ON DUPLICATE KEY UPDATE last_seen = VALUES(last_seen)')
+        ->execute([$classId, $userId, time(), time()]);
+}
+
+/** Raise / lower a participant's hand. */
+function live_class_set_hand(int $classId, int $userId, bool $raised): void
+{
+    db()->prepare('UPDATE live_class_state SET hand_raised = ? WHERE class_id = ? AND user_id = ?')
+        ->execute([$raised ? 1 : 0, $classId, $userId]);
+}
+
+/** Everyone currently in the room (fresh heartbeat in the last 90 s). */
+function live_class_participants(int $classId): array
+{
+    $st = db()->prepare('SELECT s.user_id, s.joined_at, s.hand_raised, u.name, u.role
+                         FROM live_class_state s JOIN users u ON u.id = s.user_id
+                         WHERE s.class_id = ? AND s.last_seen >= ?
+                         ORDER BY s.joined_at ASC');
+    $st->execute([$classId, time() - 90]);
+    return array_map(fn ($r) => [
+        'id' => (int) $r['user_id'],
+        'name' => (string) $r['name'],
+        'role' => (string) $r['role'],
+        'joined_at' => (int) $r['joined_at'],
+        'hand' => (int) $r['hand_raised'] === 1,
+    ], $st->fetchAll());
+}
+
+/** Send "live now" notifications to every enrolled student (skip the host). */
+function live_class_notify_students(int $courseId, int $hostId, string $courseTitle, int $classId): void
+{
+    $st = db()->prepare('SELECT e.user_id FROM enrollments e JOIN users u ON u.id = e.user_id
+                         WHERE e.course_id = ? AND u.role = \'student\' AND e.user_id <> ?');
+    $st->execute([$courseId, $hostId]);
+    $link = 'course.php?id=' . $courseId;
+    foreach ($st->fetchAll(PDO::FETCH_COLUMN) as $uid) {
+        add_notification((int) $uid, 'live', '🔴 ' . $courseTitle . ' is live now', 'Your teacher started a live class — join from the course page.', $link);
+    }
 }
 
 /** Small human helper: "2 min", "3 h", "just now"... */

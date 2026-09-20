@@ -1454,13 +1454,51 @@ if (dayFilter) {
     return;
   }
 
-  /* ---------------- course page: students online now ---------------- */
+  /* ---------------- course page: students online now + live class ---------------- */
   if (scope === 'course-online') {
     var cid = liveBox.getAttribute('data-course-id') || '0';
     var chip = document.getElementById('course-online-chip');
     livePoll('realtime.php?v=course&id=' + encodeURIComponent(cid), 15000, function (d) {
       if (!chip) return;
       chip.innerHTML = '<span class="relative flex h-2.5 w-2.5"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span></span> <span id="course-online-count">' + d.count + '</span> online now' + (d.students && d.students.length ? ': ' + d.students.slice(0, 3).map(lmsEsc).join(', ') + (d.students.length > 3 ? '…' : '') : '');
+    });
+
+    /* live class: poll state so the banner appears/disappears without a reload */
+    var lcCsrf = document.querySelector('meta[name="csrf"]').content;
+    function lcPost(data) {
+      var body = new URLSearchParams(Object.assign({ csrf: lcCsrf, course: cid }, data));
+      return fetch('live_class.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString(),
+      }).then(function (r) { return r.json(); });
+    }
+    var lcBox = document.getElementById('live-class-box');
+    var banner = document.getElementById('live-class-banner');
+    var liveSeen = !!banner; /* avoid a redundant immediate poll */
+    function lcPoll() {
+      fetch('live_class.php?v=state&course=' + encodeURIComponent(cid), { headers: { 'X-Requested-With': 'fetch' } })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (!d.ok) return;
+          if (d.live && !banner) location.reload(); /* class started while we were here */
+          if (!d.live && banner) location.reload(); /* class ended while we were here */
+        }).catch(function () { });
+    }
+    if (lcBox) setInterval(lcPoll, 8000);
+    var startBtn = document.getElementById('lc-start');
+    if (startBtn) startBtn.addEventListener('click', function () {
+      startBtn.disabled = true;
+      startBtn.textContent = 'Starting…';
+      lcPost({ v: 'start', title: 'Live class' }).then(function (d) {
+        if (d.ok) location.href = 'class_room.php?course=' + encodeURIComponent(cid);
+        else { startBtn.disabled = false; startBtn.textContent = '🔴 Start live class'; showToast(d.error || 'Could not start the class', 'error'); }
+      }).catch(function () { startBtn.disabled = false; startBtn.textContent = '🔴 Start live class'; });
+    });
+    var endBtn2 = document.getElementById('lc-end');
+    if (endBtn2) endBtn2.addEventListener('click', function () {
+      if (!window.confirm('End the live class for everyone?')) return;
+      lcPost({ v: 'end' }).then(function () { location.reload(); });
     });
     return;
   }
