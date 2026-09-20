@@ -66,8 +66,8 @@ if ($v === 'dash' && $isTeacher) {
         'visits' => $visits,
         'activity' => $activity,
         'attention' => $attention,
-        'activity_svg' => activity_chart_svg($ts['visits'], $ts['completions']),
-        'students_svg' => zigzag_svg($ts['enrollments'], '#4f46e5', 'rgba(79,70,229,0.16)'),
+        'activity_svg' => activity_chart_svg($ts['visits'], $ts['completions'], $ts['labels']),
+        'students_svg' => zigzag_svg($ts['enrollments'], '#4f46e5', 'rgba(79,70,229,0.16)', $ts['labels'], 'New enrollments'),
         'now' => time(),
     ]);
     exit;
@@ -86,7 +86,7 @@ if ($v === 'dash-student' && !$isTeacher) {
         'counts' => [
             'enrolled' => count($enrolled), 'done' => $totDone, 'avg' => $avg, 'total' => $totLessons,
         ],
-        'activity_svg' => activity_chart_svg($ss['visits'], $ss['completions']),
+        'activity_svg' => activity_chart_svg($ss['visits'], $ss['completions'], $ss['labels']),
         'now' => time(),
     ]);
     exit;

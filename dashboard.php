@@ -113,7 +113,7 @@ require __DIR__ . '/header.php';
             <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Students enrolled</p>
           </div>
           <div class="mt-4 h-16 sm:h-24" data-live-svg="students">
-            <?= zigzag_svg($ts['enrollments'], '#047857', 'rgba(4,120,87,0.14)') ?></div>
+            <?= zigzag_svg($ts['enrollments'], '#047857', 'rgba(4,120,87,0.14)', $ts['labels'], 'New enrollments') ?></div>
           <p class="mt-2 text-[10px] font-medium text-slate-400">New enrollments · last 14 days</p>
         </div>
         <!-- Right 2/3 — three compact cards, no graphs -->
@@ -135,13 +135,13 @@ require __DIR__ . '/header.php';
         <div class="flex flex-wrap items-center justify-between gap-2">
           <h2 class="text-base font-bold text-slate-900">Last 14 days</h2>
           <div class="flex items-center gap-4 text-xs font-semibold text-slate-500">
-            <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-emerald-600"></span> Course
+            <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-indigo-600"></span> Course
               visits</span>
-            <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-emerald-400"></span>
+            <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
               Completions</span>
           </div>
         </div>
-        <div class="mt-3" data-live-svg="activity"><?= activity_chart_svg($ts['visits'], $ts['completions']) ?></div>
+        <div class="mt-3" data-live-svg="activity"><?= activity_chart_svg($ts['visits'], $ts['completions'], $ts['labels']) ?></div>
         <div class="mt-1 flex justify-between text-[10px] font-medium text-slate-400">
           <span><?= e((string) $ts['labels'][0]) ?></span>
           <span><?= e((string) $ts['labels'][intdiv(count($ts['labels']), 2)]) ?></span>
@@ -291,7 +291,7 @@ require __DIR__ . '/header.php';
             done</span>
         </div>
       </div>
-      <div class="mt-3" data-live-svg="activity"><?= activity_chart_svg($ss['visits'], $ss['completions']) ?></div>
+      <div class="mt-3" data-live-svg="activity"><?= activity_chart_svg($ss['visits'], $ss['completions'], $ss['labels']) ?></div>
       <div class="mt-1 flex justify-between text-[10px] font-medium text-slate-400">
         <span><?= e((string) $ss['labels'][0]) ?></span>
         <span><?= e((string) $ss['labels'][intdiv(count($ss['labels']), 2)]) ?></span>

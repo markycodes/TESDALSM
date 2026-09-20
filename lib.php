@@ -2797,8 +2797,9 @@ function sparkline_svg(array $vals, string $stroke = '#4f46e5', string $fill = '
     return $svg;
 }
 
-/** Zigzag sparkline — sharp mountain-peak style used on the student stat cards. */
-function zigzag_svg(array $vals, string $stroke = '#4f46e5', string $fill = 'rgba(79,70,229,0.16)'): string
+/** Zigzag sparkline — sharp mountain-peak style used on the student stat cards.
+ *  Carries per-day hover strips (day label + value) for app.js's tooltip. */
+function zigzag_svg(array $vals, string $stroke = '#4f46e5', string $fill = 'rgba(79,70,229,0.16)', ?array $labels = null, string $metricName = 'Enrollments'): string
 {
     $vals = array_values(array_map('intval', $vals));
     if (!$vals) $vals = [0, 0];
@@ -2807,6 +2808,8 @@ function zigzag_svg(array $vals, string $stroke = '#4f46e5', string $fill = 'rgb
     $max = max($vals);
     if ($max <= 0) $max = 1;
     $n = count($vals);
+    if ($labels === null || !count($labels)) $labels = array_map(fn ($i) => 'Day ' . ($i + 1), range(0, $n - 1));
+    $labels = array_pad(array_values(array_map('strval', $labels)), $n, '');
     $step = $n > 1 ? ($w - 4) / ($n - 1) : 0;
     $peaks = [];
     foreach ($vals as $i => $v) {
@@ -2824,23 +2827,40 @@ function zigzag_svg(array $vals, string $stroke = '#4f46e5', string $fill = 'rgb
     }
     $line = trim($line);
     $last = $peaks[$n - 1];
-    $svg  = '<svg viewBox="0 0 100 30" preserveAspectRatio="none" class="h-full w-full" aria-hidden="true">';
+    $svg  = '<svg viewBox="0 0 100 30" preserveAspectRatio="none" class="lh-chart h-full w-full" aria-hidden="true">';
     $svg .= '<polygon points="2,' . $base . ' ' . $line . ' ' . $w . ',' . $base . '" fill="' . $fill . '"></polygon>';
     $svg .= '<line x1="0" y1="' . $base . '" x2="' . $w . '" y2="' . $base . '" stroke="#cbd5e1" stroke-width="1" vector-effect="non-scaling-stroke"></line>';
     $svg .= '<polyline points="' . $line . '" fill="none" stroke="' . $stroke . '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>';
     $svg .= '<circle cx="' . $last[0] . '" cy="' . $last[1] . '" r="2.6" fill="' . $stroke . '"></circle>';
+    /* hover layer: guide + highlight dot, hidden until a day strip is hovered */
+    $svg .= '<g class="js-chart-hover">'
+        . '<line class="js-chart-guide" x1="0" y1="' . $top . '" x2="0" y2="' . $base . '" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"></line>'
+        . '<circle class="js-chart-dot" data-k="1" r="3" fill="' . $stroke . '" stroke="#fff" stroke-width="2"></circle>'
+        . '</g>';
+    /* day strips last → they sit on top and catch the pointer */
+    for ($i = 0; $i < $n; $i++) {
+        $left  = $i === 0 ? 0 : ($peaks[$i - 1][0] + $peaks[$i][0]) / 2;
+        $right = $i === $n - 1 ? $w : ($peaks[$i][0] + $peaks[$i + 1][0]) / 2;
+        $svg .= '<rect class="js-chart-col" x="' . round($left, 1) . '" y="0" width="' . round($right - $left, 1) . '" height="' . $h . '" fill="transparent"'
+            . ' data-day="' . e((string) $labels[$i]) . '"'
+            . ' data-n1="' . e($metricName) . '" data-c1="' . $stroke . '" data-a="' . $vals[$i] . '" data-ay="' . $peaks[$i][1] . '"></rect>';
+    }
     $svg .= '</svg>';
     return $svg;
 }
 
-/** Dual-series area/line chart (14-day activity) as inline SVG. */
-function activity_chart_svg(array $visits, array $completions): string
+/** Dual-series area/line chart (14-day activity) as inline SVG.
+ *  Every day gets an invisible hover strip (js-chart-col) carrying the day label
+ *  and both series values — app.js shows a tooltip + guide line + dots on hover. */
+function activity_chart_svg(array $visits, array $completions, ?array $labels = null): string
 {
     $visits = array_values(array_map('intval', $visits));
     $completions = array_values(array_map('intval', $completions));
     $n = max(count($visits), count($completions), 2);
     $visits = array_pad($visits, $n, 0);
     $completions = array_pad($completions, $n, 0);
+    if ($labels === null || !count($labels)) $labels = array_map(fn ($i) => 'Day ' . ($i + 1), range(0, $n - 1));
+    $labels = array_pad(array_values(array_map('strval', $labels)), $n, '');
     $w = 300; $h = 90; $padX = 4; $padT = 6; $padB = 8;
     $max = max(max($visits), max($completions), 1);
     $plot = function (array $vals) use ($n, $w, $h, $padX, $padT, $padB, $max): array {
@@ -2860,13 +2880,28 @@ function activity_chart_svg(array $visits, array $completions): string
         $y = round($padT + $g * ($h - $padT - $padB), 1);
         $grid .= '<line x1="0" y1="' . $y . '" x2="' . $w . '" y2="' . $y . '" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"></line>';
     }
-    $svg = '<svg viewBox="0 0 300 90" preserveAspectRatio="none" class="h-40 w-full sm:h-44" aria-hidden="true">' . $grid;
+    $svg = '<svg viewBox="0 0 300 90" preserveAspectRatio="none" class="lh-chart h-40 w-full sm:h-44" aria-hidden="true">' . $grid;
     $svg .= '<polygon points="' . $toLine($vPts) . ' ' . $w . ',' . $h . ' 0,' . $h . '" fill="rgba(79,70,229,0.10)"></polygon>';
     $svg .= '<polyline points="' . $toLine($vPts) . '" fill="none" stroke="#4f46e5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>';
     $svg .= '<polyline points="' . $toLine($cPts) . '" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>';
     $lv = $vPts[$n - 1]; $lc = $cPts[$n - 1];
     $svg .= '<circle cx="' . $lv[0] . '" cy="' . $lv[1] . '" r="3" fill="#4f46e5"></circle>';
     $svg .= '<circle cx="' . $lc[0] . '" cy="' . $lc[1] . '" r="3" fill="#10b981"></circle>';
+    /* hover layer: guide + highlight dots, hidden until a day strip is hovered */
+    $svg .= '<g class="js-chart-hover">'
+        . '<line class="js-chart-guide" x1="0" y1="' . $padT . '" x2="0" y2="' . ($h - $padB) . '" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"></line>'
+        . '<circle class="js-chart-dot" data-k="1" r="4" fill="#4f46e5" stroke="#fff" stroke-width="2"></circle>'
+        . '<circle class="js-chart-dot" data-k="2" r="4" fill="#10b981" stroke="#fff" stroke-width="2"></circle>'
+        . '</g>';
+    /* day strips last → they sit on top and catch the pointer */
+    for ($i = 0; $i < $n; $i++) {
+        $left  = $i === 0 ? 0 : ($vPts[$i - 1][0] + $vPts[$i][0]) / 2;
+        $right = $i === $n - 1 ? $w : ($vPts[$i][0] + $vPts[$i + 1][0]) / 2;
+        $svg .= '<rect class="js-chart-col" x="' . round($left, 1) . '" y="0" width="' . round($right - $left, 1) . '" height="' . $h . '" fill="transparent"'
+            . ' data-day="' . e((string) $labels[$i]) . '"'
+            . ' data-n1="Course visits" data-c1="#4f46e5" data-a="' . $visits[$i] . '" data-ay="' . $vPts[$i][1] . '"'
+            . ' data-n2="Completions" data-c2="#10b981" data-b="' . $completions[$i] . '" data-by="' . $cPts[$i][1] . '"></rect>';
+    }
     $svg .= '</svg>';
     return $svg;
 }

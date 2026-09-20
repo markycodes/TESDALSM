@@ -868,6 +868,76 @@ if ($user) {
   }
 }
 
+/* Dashboard graph hover: lib.php embeds each day's label + values on invisible
+   strip rects; app.js moves the guide line / highlight dots and fills a shared
+   tooltip. The hover layer stays hidden until a strip is under the cursor. */
+.lh-chart .js-chart-col {
+  cursor: crosshair
+}
+
+.lh-chart .js-chart-hover {
+  visibility: hidden
+}
+
+.lh-chart.lh-chart-on .js-chart-hover {
+  visibility: visible
+}
+
+.lh-chart-tip {
+  position: fixed;
+  z-index: 70;
+  pointer-events: none;
+  min-width: 132px;
+  padding: 8px 11px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, .95);
+  color: #cbd5e1;
+  font-size: 11px;
+  line-height: 1.4;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, .28);
+  opacity: 0;
+  transform: translateY(3px);
+  transition: opacity .12s ease, transform .12s ease
+}
+
+.lh-chart-tip.lh-chart-tip-on {
+  opacity: 1;
+  transform: translateY(0)
+}
+
+.lh-chart-tip-day {
+  margin: 0 0 4px;
+  font-weight: 700;
+  color: #fff
+}
+
+.lh-chart-tip-row {
+  margin: 2px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 6px
+}
+
+.lh-chart-tip-row i {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px
+}
+
+.lh-chart-tip-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap
+}
+
+.lh-chart-tip-row b {
+  margin-left: auto;
+  padding-left: 12px;
+  font-weight: 700;
+  color: #fff
+}
+
 /* browsers without dvh support keep the old viewport maths */
 @supports not (height: 100dvh) {
   .lh-panel {

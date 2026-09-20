@@ -1275,6 +1275,55 @@ if (dayFilter) {
     }, 460);
   }
 
+  /* ---------------- dashboard graph hover tooltips ---------------- */
+  /* The graphs are plain inline SVGs whose per-day invisible strips carry the
+     day label and values as data attributes (embedded by lib.php). Listeners
+     are delegated on document, so they keep working when the live poll replaces
+     the SVG markup every few seconds. */
+  var chartTip = null;
+  function chartTipShow(col, px, py) {
+    if (!chartTip) {
+      chartTip = document.createElement('div');
+      chartTip.className = 'lh-chart-tip';
+      document.body.appendChild(chartTip);
+    }
+    var html = '<p class="lh-chart-tip-day">' + lmsEsc(col.getAttribute('data-day')) + '</p>';
+    for (var k = 1; k <= 2; k++) {
+      var val = col.getAttribute(k === 1 ? 'data-a' : 'data-b');
+      if (val === null) break;
+      html += '<p class="lh-chart-tip-row"><i style="background:' + col.getAttribute('data-c' + k) + '"></i>'
+        + '<span>' + lmsEsc(col.getAttribute('data-n' + k)) + '</span><b>' + lmsEsc(val) + '</b></p>';
+    }
+    chartTip.innerHTML = html;
+    chartTip.classList.add('lh-chart-tip-on');
+    var r = chartTip.getBoundingClientRect();
+    var x = px + 14, y = py + 14;
+    if (x + r.width > window.innerWidth - 8) x = px - r.width - 14;
+    if (y + r.height > window.innerHeight - 8) y = py - r.height - 14;
+    chartTip.style.left = x + 'px';
+    chartTip.style.top = y + 'px';
+  }
+  function chartTipHide() {
+    if (chartTip) chartTip.classList.remove('lh-chart-tip-on');
+    document.querySelectorAll('svg.lh-chart.lh-chart-on').forEach(function (s) { s.classList.remove('lh-chart-on'); });
+  }
+  document.addEventListener('mousemove', function (e) {
+    var t = e.target;
+    var col = t && t.closest ? t.closest('.js-chart-col') : null;
+    if (!col) { chartTipHide(); return; }
+    var svg = col.ownerSVGElement;
+    var cx = parseFloat(col.getAttribute('x')) + parseFloat(col.getAttribute('width')) / 2;
+    var guide = svg.querySelector('.js-chart-guide');
+    if (guide) { guide.setAttribute('x1', cx); guide.setAttribute('x2', cx); }
+    svg.querySelectorAll('.js-chart-dot').forEach(function (dot) {
+      dot.setAttribute('cx', cx);
+      dot.setAttribute('cy', dot.getAttribute('data-k') === '1' ? col.getAttribute('data-ay') : col.getAttribute('data-by'));
+    });
+    document.querySelectorAll('svg.lh-chart-on').forEach(function (s) { if (s !== svg) s.classList.remove('lh-chart-on'); });
+    svg.classList.add('lh-chart-on');
+    chartTipShow(col, e.clientX, e.clientY);
+  });
+
   /* ---------------- dashboard (teacher + student) ---------------- */
   if (scope === 'teacher-dash' || scope === 'student-dash') {
     var dashUrl = scope === 'teacher-dash' ? 'realtime.php?v=dash' : 'realtime.php?v=dash-student';
