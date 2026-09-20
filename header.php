@@ -982,6 +982,151 @@ if ($user) {
   border: 0
 }
 
+/* "Own window" mode: meet.jit.si refuses to be embedded (it hangs the call up
+   after 5 minutes), so the room shows this launch panel instead of an iframe
+   and the video runs in its own browser window (a fresh hour per unsigned
+   meeting — the teacher signing in lifts that cap). */
+.lh-launch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 420px;
+  padding: 30px 20px;
+  border-radius: .75rem;
+  background: linear-gradient(160deg, #0f172a, #1e293b);
+  color: #e2e8f0;
+  text-align: center
+}
+
+.lh-launch-icon {
+  font-size: 38px;
+  line-height: 1
+}
+
+.lh-launch h2 {
+  margin: 0;
+  max-width: 620px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff
+}
+
+.lh-launch p {
+  max-width: 660px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.75;
+  color: #cbd5e1
+}
+
+a.lh-launch-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 12px 28px;
+  border-radius: .75rem;
+  background: #059669;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 10px 24px rgba(5, 150, 105, .35)
+}
+
+a.lh-launch-go:hover {
+  background: #047857
+}
+
+.lh-launch .lh-launch-alt {
+  font-size: 11px;
+  color: #94a3b8
+}
+
+.lh-launch .lh-launch-alt button {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: #7dd3fc;
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer
+}
+
+/* Shown when an embedded call drops (e.g. the 5-minute cut on meet.jit.si). */
+.lh-drop {
+  margin-top: 12px;
+  padding: 12px 16px;
+  border-radius: .75rem;
+  background: #fff7ed;
+  box-shadow: 0 0 0 1px #fed7aa;
+  font-size: 12px;
+  line-height: 1.75;
+  color: #9a3412
+}
+
+.lh-drop b {
+  color: #7c2d12
+}
+
+.lh-drop a {
+  color: #c2410c;
+  font-weight: 700
+}
+
+/* Device notices (in-app-browser warning, phone "use the full page" hint). */
+.lh-inapp {
+  margin-top: 12px;
+  padding: 12px 16px;
+  border-radius: .75rem;
+  background: #fef2f2;
+  box-shadow: 0 0 0 1px #fecaca;
+  font-size: 12px;
+  line-height: 1.75;
+  color: #b91c1c
+}
+
+.lh-inapp b {
+  color: #991b1b
+}
+
+.lh-inapp a,
+.lh-inapp button {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer
+}
+
+/* Fingers need bigger targets than a mouse: bump every button in the room
+   toolbar on touch devices (phones, tablets — not touch-screen laptops). */
+@media (pointer: coarse) {
+  .lh-roombar>button {
+    min-height: 40px;
+    padding-top: 8px;
+    padding-bottom: 8px
+  }
+}
+
+@media (max-width: 900px) {
+  .lh-launch {
+    min-height: 340px;
+    padding: 22px 14px
+  }
+
+  .lh-launch h2 {
+    font-size: 16px
+  }
+}
+
 /* pulsing red "live" dot (replaces bg-rose-500 + animate-ping, which are
    not in the compiled CSS either) */
 .lh-live-dot {

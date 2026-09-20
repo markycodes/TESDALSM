@@ -2837,6 +2837,24 @@ function live_class_heartbeat(int $classId, int $userId): void
         ->execute([$classId, $userId, time(), time()]);
 }
 
+/**
+ * Attendance for live classes: the first heartbeat of a participant opens an
+ * attendance row for that course — the same table (and thus the same pages:
+ * attendance_day.php, enrollments.php, realtime.php) that records course-page
+ * visits. It is a no-op while a row is already open; the row then stays open
+ * until the participant leaves the site (pagehide beacon / stale-presence
+ * closer) and re-opens automatically if they drop and come back. Students
+ * only, exactly like course-page attendance (course.php).
+ */
+function live_class_attendance(int $userId, int $courseId, bool $isStudent = true): void
+{
+    if (!$isStudent) return;                 /* course.php logs student entries only */
+    $st = db()->prepare('SELECT id FROM attendance WHERE user_id = ? AND course_id = ? AND left_at IS NULL LIMIT 1');
+    $st->execute([$userId, $courseId]);
+    if ($st->fetchColumn()) return;          /* row already open — nothing to do */
+    record_attendance($userId, $courseId);   /* first join: open a fresh row (IP included) */
+}
+
 /** Raise / lower a participant's hand. */
 function live_class_set_hand(int $classId, int $userId, bool $raised): void
 {
@@ -2871,6 +2889,240 @@ function live_class_notify_students(int $courseId, int $hostId, string $courseTi
     foreach ($st->fetchAll(PDO::FETCH_COLUMN) as $uid) {
         add_notification((int) $uid, 'live', '🔴 ' . $courseTitle . ' is live now', 'Your teacher started a live class — join from the course page.', $link);
     }
+}
+
+/* ---------------- live-class video server (Jitsi) ----------------
+ * The free public server meet.jit.si will no longer be EMBEDDED. Inside an
+ * iframe it pops up
+ *   "Embedding meet.jit.si is only meant for demo purposes, so this call will
+ *    disconnect in 5 minutes. Please use Jitsi as a Service for production
+ *    embedding!"
+ * and then hangs the call up. That is an 8x8 policy for that one domain — not a
+ * bug here, and no config flag switches it off — so an hour-long class can never
+ * be embedded from meet.jit.si. Three ways out, all wired up below:
+ *
+ *   1. window — do not embed at all: the call opens in its OWN browser window,
+ *               free of the 5-minute embed cut. One catch: meet.jit.si still ends
+ *               meetings opened while nobody is signed in after 60 minutes
+ *               ("Meeting time limit reached") — the host lifts that cap by
+ *               signing in once in the meeting window. Free and instant; this is
+ *               what "auto" mode picks for meet.jit.si.
+ *   2. JaaS   — Jitsi as a Service (jaas.8x8.vc). Free plan: unlimited minutes,
+ *               25 endpoints, real embedding, host controls and no 5-minute cut.
+ *               Paste AppID + API key id + private key in Settings → Live class
+ *               video and this file signs the RS256 JWT for every member.
+ *   3. self   — your own Jitsi server: set JITSI_DOMAIN (see config.sample.php).
+ *
+ * Resolution order per value: config.php constant -> saved setting -> default.
+ * ------------------------------------------------------------------- */
+if (!defined('JITSI_DOMAIN'))                define('JITSI_DOMAIN', '');
+if (!defined('JITSI_EMBED'))                 define('JITSI_EMBED', '');
+if (!defined('JITSI_JAAS_APP_ID'))           define('JITSI_JAAS_APP_ID', '');
+if (!defined('JITSI_JAAS_KID'))              define('JITSI_JAAS_KID', '');
+if (!defined('JITSI_JAAS_PRIVATE_KEY'))      define('JITSI_JAAS_PRIVATE_KEY', '');
+if (!defined('JITSI_JAAS_PRIVATE_KEY_FILE')) define('JITSI_JAAS_PRIVATE_KEY_FILE', '');
+
+/** Domains that refuse to be embedded: they cut an iframed call after 5 min. */
+const LH_JITSI_DEMO_DOMAINS = ['meet.jit.si'];
+
+/** Can this PHP sign a JaaS token at all? */
+function jitsi_jwt_supported(): bool
+{
+    return function_exists('openssl_sign') && function_exists('openssl_pkey_get_private');
+}
+
+/** Keys pasted into a web form (or a one-line .env) lose their line breaks;
+ *  rebuild a valid PEM so OpenSSL accepts them again. */
+function jitsi_normalise_pem(string $key): string
+{
+    $key = trim(str_replace(["\r\n", "\r", '\\n', '\\r'], "\n", $key));
+    $key = trim($key, " \t\n\"'");
+    if ($key === '') return '';
+    /* clipboard damage also eats the spaces inside the banner:
+       "-----BEGINPRIVATEKEY-----" -> "-----BEGIN PRIVATE KEY-----" */
+    $key = (string) preg_replace('#-----\s*BEGIN\s*([A-Za-z]*?)\s*KEY\s*-----#', '-----BEGIN $1 KEY-----', $key);
+    $key = (string) preg_replace('#-----\s*END\s*([A-Za-z]*?)\s*KEY\s*-----#', '-----END $1 KEY-----', $key);
+    if (preg_match('#(-----BEGIN [A-Za-z ]*KEY-----)(.*?)(-----END [A-Za-z ]*KEY-----)#s', $key, $m)) {
+        $body = (string) preg_replace('#[^A-Za-z0-9+/=]#', '', $m[2]);
+        return $m[1] . "\n" . chunk_split($body, 64, "\n") . $m[3] . "\n";
+    }
+    /* body only, no markers: wrap it as a PKCS#8 private key */
+    $bare = (string) preg_replace('#\s#', '', $key);
+    if (strlen($bare) > 100 && preg_match('#^[A-Za-z0-9+/=]+$#', $bare)) {
+        return "-----BEGIN PRIVATE KEY-----\n" . chunk_split($bare, 64, "\n") . "-----END PRIVATE KEY-----\n";
+    }
+    return $key;
+}
+
+/** JaaS credentials — empty strings when JaaS is not configured. */
+function jitsi_jaas_cfg(): array
+{
+    $app = JITSI_JAAS_APP_ID !== '' ? trim((string) JITSI_JAAS_APP_ID) : trim(setting_get('jitsi_jaas_app_id', ''));
+    $kid = JITSI_JAAS_KID !== '' ? trim((string) JITSI_JAAS_KID) : trim(setting_get('jitsi_jaas_kid', ''));
+    $key = JITSI_JAAS_PRIVATE_KEY !== '' ? (string) JITSI_JAAS_PRIVATE_KEY : setting_get('jitsi_jaas_private_key', '');
+    if (trim($key) === '' && JITSI_JAAS_PRIVATE_KEY_FILE !== '' && is_readable((string) JITSI_JAAS_PRIVATE_KEY_FILE)) {
+        $key = (string) file_get_contents((string) JITSI_JAAS_PRIVATE_KEY_FILE);
+    }
+    $key = jitsi_normalise_pem($key);
+    /* the console shows only the key id; the JWT wants "<AppID>/<key id>" */
+    if ($app !== '' && $kid !== '' && strpos($kid, '/') === false) $kid = $app . '/' . $kid;
+    return ['app_id' => $app, 'kid' => $kid, 'key' => $key];
+}
+
+/** True when AppID + kid + private key are all present AND usable. The key must
+ *  really be readable: otherwise JaaS would be selected but the tokens would
+ *  come out empty and nobody could join the room. */
+function jitsi_jaas_ready(): bool
+{
+    $c = jitsi_jaas_cfg();
+    return $c['app_id'] !== '' && $c['kid'] !== '' && jitsi_key_ok($c['key']);
+}
+
+/** Is this private key actually readable by OpenSSL? (cached per key) */
+function jitsi_key_ok(string $key): bool
+{
+    if ($key === '' || !jitsi_jwt_supported()) return false;
+    static $cache = [];
+    $h = md5($key);
+    if (!array_key_exists($h, $cache)) $cache[$h] = @openssl_pkey_get_private($key) !== false;
+    return $cache[$h];
+}
+
+/** Which server live classes use ("8x8.vc" once JaaS is configured). */
+function jitsi_domain(): string
+{
+    if (jitsi_jaas_ready()) return '8x8.vc';
+    $d = trim((string) JITSI_DOMAIN);
+    if ($d === '') $d = trim(setting_get('jitsi_domain', ''));
+    if ($d === '') $d = 'meet.jit.si';
+    return strtolower($d);
+}
+
+/** True for the demo server that cuts embedded calls after 5 minutes. */
+function jitsi_is_demo_domain(?string $domain = null): bool
+{
+    $d = strtolower(trim($domain ?? jitsi_domain()));
+    $d = rtrim((string) preg_replace('#^https?://#', '', $d), '/');
+    return in_array($d, LH_JITSI_DEMO_DOMAINS, true);
+}
+
+/** 'iframe' (video inside this page) or 'window' (own browser window = no cap). */
+function jitsi_embed_mode(): string
+{
+    $mode = JITSI_EMBED !== '' ? strtolower(trim((string) JITSI_EMBED)) : strtolower(trim(setting_get('jitsi_embed', 'auto')));
+    if ($mode !== 'iframe' && $mode !== 'window') {
+        /* auto: never frame the demo server — it hangs up after 5 minutes */
+        $mode = jitsi_is_demo_domain() ? 'window' : 'iframe';
+    }
+    return $mode;
+}
+
+/** The external_api.js URL of this server (JaaS serves one per AppID). */
+function jitsi_api_script(): string
+{
+    $c = jitsi_jaas_cfg();
+    if (jitsi_jaas_ready()) return 'https://8x8.vc/' . rawurlencode($c['app_id']) . '/external_api.js';
+    return 'https://' . jitsi_domain() . '/external_api.js';
+}
+
+/** JaaS room names must carry the AppID prefix: "<AppID>/<room>". */
+function jitsi_room_name(string $base): string
+{
+    $c = jitsi_jaas_cfg();
+    return jitsi_jaas_ready() ? $c['app_id'] . '/' . $base : $base;
+}
+
+/** Sign one participant's JaaS token. Claims follow the 8x8 documentation
+ *  (developer.8x8.com/jaas/docs/api-keys-jwt): aud=jitsi, iss=chat, sub=AppID,
+ *  room=* and moderator as the string "true". '' when JaaS is not configured.
+ *  The token also carries `exp`, so it must comfortably outlive the class. */
+function jitsi_jaas_jwt(string $userId, string $userName, bool $moderator = false, int $hours = 12): string
+{
+    if (!jitsi_jaas_ready()) return '';
+    $c = jitsi_jaas_cfg();
+    $now = time();
+    $hours = max(1, min(24, $hours));
+    $header = ['alg' => 'RS256', 'kid' => $c['kid'], 'typ' => 'JWT'];
+    $payload = [
+        'aud' => 'jitsi',
+        'iss' => 'chat',
+        'sub' => $c['app_id'],
+        'room' => '*',
+        'nbf' => $now - 10,
+        'exp' => $now + $hours * 3600,          /* room for a long class */
+        'context' => [
+            /* only the display name and a stable id travel to 8x8 — no e-mail */
+            'user' => ['id' => $userId, 'name' => $userName, 'moderator' => $moderator ? 'true' : 'false'],
+            'features' => [
+                'livestreaming' => false,
+                'recording' => false,
+                'transcription' => false,
+                'outbound-call' => false,
+            ],
+            'room' => ['regex' => false],
+        ],
+    ];
+    $signing = lh_b64url((string) json_encode($header)) . '.' . lh_b64url((string) json_encode($payload));
+    $private = @openssl_pkey_get_private($c['key']);
+    if ($private === false) return '';
+    $sig = '';
+    if (!@openssl_sign($signing, $sig, $private, OPENSSL_ALGO_SHA256)) return '';
+    return $signing . '.' . lh_b64url($sig);
+}
+
+/** Direct meeting URL — used by "own window" mode (and a plain browser tab).
+ *  Jitsi reads its options from the #hash; values must be JSON-encoded. */
+function jitsi_room_url(string $room, string $displayName = '', string $jwt = '', bool $prejoin = true): string
+{
+    $url  = 'https://' . jitsi_domain() . '/' . str_replace('%2F', '/', rawurlencode($room));
+    $q    = $jwt !== '' ? '?jwt=' . rawurlencode($jwt) : '';
+    $hash = [
+        'config.disableDeepLinking' => 'true',
+        'config.prejoinPageEnabled' => $prejoin ? 'true' : 'false',
+        'config.toolbarConfig.alwaysVisible' => 'true',
+        'interfaceConfig.TOOLBAR_ALWAYS_VISIBLE' => 'true',
+        'config.startWithAudioMuted' => 'false',
+        'config.startWithVideoMuted' => 'false',
+        'config.subject' => json_encode('LearnHub live class'),
+    ];
+    if ($displayName !== '') $hash['userInfo.displayName'] = json_encode($displayName);
+    $frag = [];
+    foreach ($hash as $k => $v) $frag[] = rawurlencode($k) . '=' . rawurlencode((string) $v);
+    return $url . $q . '#' . implode('&', $frag);
+}
+
+/** Summary of the live-class video setup (shown on the Settings page). */
+function jitsi_status(): array
+{
+    $c = jitsi_jaas_cfg();
+    $mode = jitsi_embed_mode();
+    $has = $c['app_id'] !== '' || $c['kid'] !== '' || $c['key'] !== '';
+    $keyOk = $c['key'] !== '' && jitsi_key_ok($c['key']);
+    $warn = [];
+    if ($has && !jitsi_jaas_ready()) {
+        if (!jitsi_jwt_supported()) {
+            $warn[] = 'This server\'s PHP has no OpenSSL, so JaaS tokens cannot be signed. “Own window” mode and a self-hosted server still work.';
+        } elseif (!$keyOk) {
+            $warn[] = 'The JaaS private key could not be read — paste the complete PEM block, BEGIN and END lines included.';
+        } elseif ($c['app_id'] === '') {
+            $warn[] = 'JaaS is missing its AppID.';
+        } else {
+            $warn[] = 'JaaS is missing its API key id (kid).';
+        }
+    }
+    if ($mode === 'iframe' && !jitsi_jaas_ready() && jitsi_is_demo_domain()) {
+        $warn[] = 'meet.jit.si disconnects embedded calls after 5 minutes — use “own window”, JaaS or your own server.';
+    }
+    return [
+        'mode' => $mode,
+        'domain' => jitsi_domain(),
+        'demo' => jitsi_is_demo_domain(),
+        'jaas_has' => $has,
+        'jaas_ready' => jitsi_jaas_ready(),
+        'key_ok' => $keyOk,
+        'jwt_supported' => jitsi_jwt_supported(),
+        'warnings' => $warn,
+    ];
 }
 
 /** Small human helper: "2 min", "3 h", "just now"... */

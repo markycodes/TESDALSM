@@ -49,6 +49,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'clear_key') {
         setting_set('mail_api_key', '');
         set_flash('success', 'Saved API key removed. E-mail is now disabled unless config.php defines one.');
+    } elseif ($action === 'save_video') {
+        /* live-class video server (see the jitsi_*() block in lib.php) */
+        $dom = trim((string) ($_POST['jitsi_domain'] ?? ''));
+        $dom = rtrim((string) preg_replace('#^https?://#', '', $dom), '/');
+        setting_set('jitsi_domain', $dom);
+        $mode = strtolower(trim((string) ($_POST['jitsi_embed'] ?? 'auto')));
+        setting_set('jitsi_embed', in_array($mode, ['auto', 'window', 'iframe'], true) ? $mode : 'auto');
+        setting_set('jitsi_jaas_app_id', trim((string) ($_POST['jitsi_jaas_app_id'] ?? '')));
+        setting_set('jitsi_jaas_kid', trim((string) ($_POST['jitsi_jaas_kid'] ?? '')));
+        $jkey = (string) ($_POST['jitsi_jaas_private_key'] ?? '');
+        if (trim($jkey) !== '') setting_set('jitsi_jaas_private_key', jitsi_normalise_pem($jkey));   /* blank keeps the saved key */
+        set_flash('success', 'Live-class video settings saved.');
+    } elseif ($action === 'clear_jaas') {
+        setting_set('jitsi_jaas_app_id', '');
+        setting_set('jitsi_jaas_kid', '');
+        setting_set('jitsi_jaas_private_key', '');
+        set_flash('success', 'JaaS keys removed — live classes fall back to the Jitsi server above.');
     }
     header('Location: settings.php');
     exit;
@@ -66,15 +83,30 @@ if (EMAIL_API_URL !== '') $pinned[] = 'EMAIL_API_URL';
 if (EMAIL_FROM !== '')    $pinned[] = 'EMAIL_FROM';
 if (APP_URL !== '')       $pinned[] = 'APP_URL';
 
+/* live-class video (Jitsi): what is in effect, and which values config.php pins */
+$jstat = jitsi_status();
+$jitsiPinned = [];
+if (JITSI_DOMAIN !== '')                $jitsiPinned[] = 'JITSI_DOMAIN';
+if (JITSI_EMBED !== '')                 $jitsiPinned[] = 'JITSI_EMBED';
+if (JITSI_JAAS_APP_ID !== '')           $jitsiPinned[] = 'JITSI_JAAS_APP_ID';
+if (JITSI_JAAS_KID !== '')              $jitsiPinned[] = 'JITSI_JAAS_KID';
+if (JITSI_JAAS_PRIVATE_KEY !== '')      $jitsiPinned[] = 'JITSI_JAAS_PRIVATE_KEY';
+if (JITSI_JAAS_PRIVATE_KEY_FILE !== '') $jitsiPinned[] = 'JITSI_JAAS_PRIVATE_KEY_FILE';
+$jitsiModeSaved = strtolower(trim(setting_get('jitsi_embed', 'auto')));
+if (!in_array($jitsiModeSaved, ['auto', 'window', 'iframe'], true)) $jitsiModeSaved = 'auto';
+$jaasApp = setting_get('jitsi_jaas_app_id', '');
+$jaasKid = setting_get('jitsi_jaas_kid', '');
+$jaasKey = setting_get('jitsi_jaas_private_key', '');
+
 $page_title = 'Settings';
 require __DIR__ . '/header.php';
 ?>
 
 <div class="mx-auto max-w-3xl space-y-6">
   <div class="reveal">
-    <h1 class="text-2xl font-bold text-slate-900">⚙️ E-mail &amp; delivery settings</h1>
-    <p class="mt-1 text-sm text-slate-500">Configure the outgoing mail service for this site. It is saved in the
-      database, so it applies to the deployed site without editing any file.</p>
+    <h1 class="text-2xl font-bold text-slate-900">⚙️ E-mail &amp; live-class settings</h1>
+    <p class="mt-1 text-sm text-slate-500">Delivery e-mail and the live-class video server for this site. Both are saved in the
+      database, so they apply to the deployed site without editing (or re-uploading) any file.</p>
   </div>
 
   <div class="reveal lh-plain rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
@@ -169,6 +201,102 @@ require __DIR__ . '/header.php';
     </div>
   </form>
 
+  <form method="post" class="reveal lh-plain rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+    <?= csrf_field() ?>
+    <input type="hidden" name="action" value="save_video">
+    <h2 class="text-base font-bold text-slate-900">🎥 Live-class video (Jitsi)</h2>
+    <p class="mt-1 text-sm text-slate-600">
+      Live classes run on <b><?= e($jstat['domain']) ?></b><?= $jstat['jaas_ready'] ? ' through Jitsi as a Service' : '' ?>
+      in <b><?= $jstat['mode'] === 'window' ? 'own-window' : 'in-page' ?></b> mode.
+    </p>
+
+    <div class="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800">
+      <b>Why the video opens in a new window.</b> The free <b>meet.jit.si</b> server only allows embedded calls as a demo:
+      in an iframe it warns “Embedding meet.jit.si is only meant for demo purposes, so this call will disconnect in 5 minutes”
+      and then hangs up. That is an 8x8 rule for that one server and there is no switch for it — so live classes there open in
+      the browser's own window, which skips that 5-minute cut but still ends a meeting <b>nobody is signed in to</b> after
+      <b>60 minutes</b> (“Meeting time limit reached”); the teacher signing in once (Google / GitHub / Facebook) lifts the cap.
+      To run <b>longer classes with no caps</b>, use JaaS below (free) or your own Jitsi server.
+    </div>
+
+    <?php foreach ($jstat['warnings'] as $w): ?>
+      <p class="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">⚠️ <?= e($w) ?></p>
+    <?php endforeach; ?>
+
+    <?php if ($jitsiPinned): ?>
+      <p class="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800">
+        This server's <b>config.php</b> already defines <?= e(implode(', ', $jitsiPinned)) ?> — those values take priority over this page.
+      </p>
+    <?php endif; ?>
+
+    <div class="mt-4 grid gap-4 sm:grid-cols-2">
+      <div>
+        <label class="block text-sm font-medium text-slate-700" for="jitsi_embed">Where the video runs</label>
+        <select id="jitsi_embed" name="jitsi_embed"
+          class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none">
+          <option value="auto" <?= $jitsiModeSaved === 'auto' ? 'selected' : '' ?>>Automatic — recommended</option>
+          <option value="window" <?= $jitsiModeSaved === 'window' ? 'selected' : '' ?>>Own browser window (no 5-minute embed cut)</option>
+          <option value="iframe" <?= $jitsiModeSaved === 'iframe' ? 'selected' : '' ?>>Inside this page (embed)</option>
+        </select>
+        <p class="mt-1 text-xs text-slate-500">Automatic keeps <b>meet.jit.si</b> in its own window and embeds every other server.</p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700" for="jitsi_domain">Jitsi server</label>
+        <input id="jitsi_domain" name="jitsi_domain" type="text" value="<?= e(setting_get('jitsi_domain', '')) ?>"
+          placeholder="meet.jit.si"
+          class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none">
+        <p class="mt-1 text-xs text-slate-500">Blank = the free public server. Point this at your own Jitsi
+          (e.g. <code>meet.yourschool.com</code>) for unlimited, private classes.</p>
+      </div>
+    </div>
+    <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <h3 class="text-sm font-bold text-slate-900">Embed for hours: free Jitsi as a Service (JaaS)</h3>
+      <p class="mt-1 text-xs text-slate-600">
+        JaaS is the official way to embed Jitsi, and it is <b>free for unlimited minutes on up to 25 users</b> — one class fits.
+        <a class="font-semibold text-indigo-600" href="https://jaas.8x8.vc" target="_blank" rel="noopener">Sign up at jaas.8x8.vc</a>, then:
+        (1) copy the <b>AppID</b> (<code>vpaas-magic-cookie-…</code>); (2) under <b>API keys</b> generate a key and copy its
+        <b>key id (kid)</b>; (3) paste the matching <b>private key</b> (PEM) below. Every member then joins with a token this
+        server signs: the teacher is the host, students see no sign-in and no waiting room, and the 5-minute cut is gone.
+      </p>
+
+      <div class="mt-3 grid gap-4 sm:grid-cols-2">
+        <div>
+          <label class="block text-sm font-medium text-slate-700" for="jitsi_jaas_app_id">JaaS AppID</label>
+          <input id="jitsi_jaas_app_id" name="jitsi_jaas_app_id" type="text" value="<?= e($jaasApp) ?>"
+            placeholder="vpaas-magic-cookie-xxxxxxxx"
+            class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700" for="jitsi_jaas_kid">JaaS API key id (kid)</label>
+          <input id="jitsi_jaas_kid" name="jitsi_jaas_kid" type="text" value="<?= e($jaasKid) ?>"
+            placeholder="vpaas-magic-cookie-xxxxxxxx/abc123"
+            class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none">
+        </div>
+      </div>
+
+      <div class="mt-3">
+        <label class="block text-sm font-medium text-slate-700" for="jitsi_jaas_private_key">JaaS private key (PEM)</label>
+        <textarea id="jitsi_jaas_private_key" name="jitsi_jaas_private_key" rows="5"
+          placeholder="<?= $jaasKey !== '' ? 'A key is saved — leave this blank to keep it' : '-----BEGIN PRIVATE KEY----- …' ?>"
+          class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 font-mono text-xs focus:border-emerald-500 focus:outline-none"></textarea>
+        <p class="mt-1 text-xs text-slate-500">
+          <?= $jstat['jwt_supported'] ? '✅ This server can sign JaaS tokens.' : '⚠️ This server has no OpenSSL, so JaaS tokens cannot be signed — use own-window mode or your own server.' ?>
+          <?= $jaasKey !== '' ? ($jstat['key_ok'] ? ' A key is stored and readable by OpenSSL.' : ' A key is stored but OpenSSL cannot read it — paste the complete PEM block again.') : '' ?>
+        </p>
+      </div>
+    </div>
+
+    <div class="mt-4 flex flex-wrap items-center gap-3">
+      <button type="submit"
+        class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700">
+        Save video settings</button>
+      <?php if ($jaasKey !== '' || $jaasApp !== '' || $jaasKid !== ''): ?>
+        <button type="submit" name="action" value="clear_jaas"
+          class="rounded-xl border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50">
+          Remove JaaS keys</button>
+      <?php endif; ?>
+    </div>
+  </form>
   <div class="reveal lh-plain rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
     <h2 class="text-base font-bold text-slate-900">Which e-mails are sent automatically</h2>
     <ul class="mt-2 space-y-1.5 text-sm text-slate-600">

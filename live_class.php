@@ -57,6 +57,9 @@ if ($v === 'beat') {
     verify_csrf();
     $active = live_class_active($courseId);
     if (!$active) lj(['ok' => false, 'ended' => true]);
+    /* attendance: a student sitting in the live class counts as a course visit
+       — the same attendance rows the Attendance pages show for course visits */
+    live_class_attendance($me, $courseId, (($user['role'] ?? '') === 'student'));
     if (isset($_POST['hand'])) live_class_set_hand((int) $active['id'], $me, ($_POST['hand'] ?? '') === '1');
     live_class_heartbeat((int) $active['id'], $me);
     lj(['ok' => true]);
