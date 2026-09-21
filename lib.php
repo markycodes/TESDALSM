@@ -1237,6 +1237,145 @@ function password_strength_error(string $pw): ?string
     return null;
 }
 
+/* ---------------- registration: human check ---------------- */
+
+const REG_HUMAN_TTL = 1800;         /* a question stays answerable for 30 minutes */
+const REG_HUMAN_MIN_SECONDS = 2;    /* nobody reads a sentence in under two seconds */
+const REG_HUMAN_MAX_TRIES = 8;      /* wrong answers from one session before the lock */
+const REG_HUMAN_LOCK_SECONDS = 300; /* how long that lock lasts */
+
+/**
+ * A self-contained human check for the registration form: no third-party
+ * service and no API keys, so it works on shared hosting (and offline).
+ *
+ * The question travels to the browser; the ANSWER never does — it is kept in
+ * the session, single-use and short-lived. Two invisible traps ride along: a
+ * honeypot field and a "answered too fast" timing check.
+ *
+ * Honest limits: a targeted bot could still do the arithmetic, so this stops
+ * form spam and code-probing scripts, not a determined attacker. The real
+ * barrier for this app stays the one-time invitation / access code. If you
+ * ever want Google reCAPTCHA or Cloudflare Turnstile instead, replace the body
+ * of reg_human_check() (and the form field in register.php) — everything else
+ * stays the same.
+ */
+
+/** Issue (or reuse) the question shown on the form. Returns the text to render
+ *  plus whether this session already passed, so the form can hide the field. */
+function reg_human_new(): array
+{
+    $ch = $_SESSION['reg_human'] ?? null;
+    if (is_array($ch) && isset($ch['q'], $ch['a'], $ch['t'])
+        && (time() - (int) $ch['t']) <= REG_HUMAN_TTL) {
+        return ['q' => (string) $ch['q'], 'pass' => reg_human_pass()];
+    }
+
+    $a = mt_rand(3, 12);
+    $b = mt_rand(2, 9);
+    switch (mt_rand(1, 4)) {
+        case 1:
+            $q = "A class has $a students and $b more join. How many students are there now?";
+            $ans = $a + $b;
+            break;
+        case 2:
+            $m = mt_rand(2, 6);
+            $q = "One lesson lasts $m minutes and you watch $b lessons. How many minutes is that in total?";
+            $ans = $m * $b;
+            break;
+        case 3:
+            $c = mt_rand(6, 15);
+            $d = mt_rand(2, 5);
+            $q = "A course has $c lessons and you have finished $d of them. How many lessons are left?";
+            $ans = $c - $d;
+            break;
+        default:
+            $m = mt_rand(2, 8);
+            $q = "A room has $a rows of $m seats. How many seats is that in total?";
+            $ans = $a * $m;
+            break;
+    }
+    /* the number appears in the question, the answer is computed here only —
+       $ans is never rendered, and array keys stay short so a bot cannot read
+       the answer out of the session cookie (the session is server-side) */
+    $_SESSION['reg_human'] = ['q' => $q, 'a' => $ans, 't' => time()];
+    return ['q' => $q, 'pass' => reg_human_pass()];
+}
+
+/** True when this session already answered a question correctly. The pass is
+ *  spent by reg_human_consume() when an account is really created, so a
+ *  mistyped invitation code does not force a second sum. */
+function reg_human_pass(): bool
+{
+    $t = (int) ($_SESSION['reg_human_ok'] ?? 0);
+    return $t > 0 && (time() - $t) <= REG_HUMAN_TTL;
+}
+
+/** Spend the pass (called right before an account is created). */
+function reg_human_consume(): void
+{
+    unset($_SESSION['reg_human_ok'], $_SESSION['reg_human']);
+}
+
+/**
+ * Check a registration POST. Returns a user-facing error message, or null when
+ * the visitor looks human. Call it FIRST: while it fails, the caller should not
+ * look up invitation codes or touch the database.
+ */
+function reg_human_check(array $post): ?string
+{
+    /* trap 1 — the honeypot. Only a script fills a field it cannot see, so a
+       filled one is rejected without saying why. */
+    if (trim((string) ($post['lh_website'] ?? '')) !== '') {
+        return 'Registration failed — please try again.';
+    }
+
+    /* already answered (form re-submitted because another field was wrong) */
+    if (reg_human_pass()) return null;
+
+    /* too many wrong answers from this session: cool off */
+    $locked = (int) ($_SESSION['reg_human_locked'] ?? 0);
+    if ($locked > 0 && (time() - $locked) < REG_HUMAN_LOCK_SECONDS) {
+        return 'Too many wrong answers — please wait a few minutes and try again.';
+    }
+
+    $ch = $_SESSION['reg_human'] ?? null;
+    if (!is_array($ch) || !isset($ch['a'], $ch['t'])) {
+        return 'Please reload the page and answer the question again.';
+    }
+    if (time() - (int) $ch['t'] > REG_HUMAN_TTL) {
+        unset($_SESSION['reg_human']);
+        return 'That question expired — please answer the new one below.';
+    }
+    /* trap 2 — timing. Submitted faster than a person can read: reject, but keep
+       the question so a quick retry is not punished twice. Only the first submit
+       of a question is timed, so somebody who mistyped an answer (and is handed a
+       fresh sum) can resubmit as fast as they like. */
+    if ((int) ($_SESSION['reg_human_tries'] ?? 0) === 0
+        && time() - (int) $ch['t'] < REG_HUMAN_MIN_SECONDS) {
+        return 'That was too quick — please read the question and try again.';
+    }
+
+    $given = trim((string) ($post['human'] ?? ''));
+    if ($given === '') return 'Please answer the human check question.';
+
+    $ok = preg_match('/^\d+$/', $given) === 1 && (int) $given === (int) $ch['a'];
+    if (!$ok) {
+        $tries = (int) ($_SESSION['reg_human_tries'] ?? 0) + 1;
+        $_SESSION['reg_human_tries'] = $tries;
+        unset($_SESSION['reg_human']);           /* next render shows a fresh sum */
+        if ($tries >= REG_HUMAN_MAX_TRIES) {
+            $_SESSION['reg_human_locked'] = time();
+            return 'Too many wrong answers — please wait a few minutes and try again.';
+        }
+        return 'That answer is not right — please try the new question.';
+    }
+
+    /* a human: remember it, and clear the lockout counters */
+    $_SESSION['reg_human_ok'] = time();
+    unset($_SESSION['reg_human'], $_SESSION['reg_human_tries'], $_SESSION['reg_human_locked']);
+    return null;
+}
+
 /* ---------------- password reset via e-mail ---------------- */
 
 const PW_RESET_TTL = 1800;          /* reset links live 30 minutes */

@@ -13,6 +13,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $role = ($_POST['role'] ?? '') === 'teacher' ? 'teacher' : 'student';
     $code = strtoupper(trim((string) ($_POST['code'] ?? '')));
 
+    /* Human check FIRST: while it fails, nothing below runs — so a robot cannot
+       probe invitation codes or create accounts. `human` answers the question
+       reg_human_new() asked; `lh_website` is a field no person can see. */
+    $humanErr = reg_human_check($_POST);
+    if ($humanErr !== null) $errors[] = $humanErr;
+
     if (strlen($name) < 2) $errors[] = 'Please enter your full name.';
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'Please enter a valid email address.';
     $pwError = password_strength_error($password);
@@ -23,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($password2 !== $password) {
         $errors[] = 'The passwords do not match — please retype them.';
     }
-    if ($role === 'student') {
+    if ($role === 'student' && !$errors) {
         if (strlen($code) < 4) {
             $errors[] = 'Students need an invitation code — ask your teacher for one.';
         } else {
@@ -32,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             elseif (!empty($codeRow['used_by'])) $errors[] = 'That invitation code has already been used — ask your teacher for a fresh one.';
         }
     }
-    if ($role === 'teacher') {
+    if ($role === 'teacher' && !$errors) {
         if (strlen($code) < 4) {
             $errors[] = 'Teachers need an access code — ask the main administrator.';
         } else {
@@ -45,6 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'That email is already registered — try logging in.';
     }
     if (!$errors) {
+        reg_human_consume();   /* the pass is spent only when an account is really made */
         $newUserId = create_user($name, $email, password_hash($password, PASSWORD_DEFAULT), $role);
         if ($role === 'student') {
             $courseId = redeem_enroll_code($code, $newUserId);
@@ -78,6 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
+$human = reg_human_new();   /* the question for this render (reused while unanswered) */
 $page_title = 'Create account';
 require __DIR__ . '/header.php';
 ?>
@@ -133,6 +141,21 @@ require __DIR__ . '/header.php';
         <input id="password2" name="password2" type="password" required minlength="8" placeholder="Retype your password"
                class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
         <p id="password2-note" class="mt-1 text-xs text-slate-400">Type the same password again to be sure.</p>
+      </div>
+      <div style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden" aria-hidden="true">
+        <label for="lh_website">Website</label>
+        <input id="lh_website" name="lh_website" type="text" tabindex="-1" autocomplete="off">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700" for="human">Quick human check</label>
+        <?php if (!empty($human['pass'])): ?>
+          <p class="mt-1 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">✓ Verified — just finish the form below.</p>
+        <?php else: ?>
+          <p class="mt-1 rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700"><?= e((string) $human['q']) ?></p>
+          <input id="human" name="human" required inputmode="numeric" autocomplete="off" placeholder="Type the number"
+                 class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
+          <p class="mt-1 text-xs text-slate-400">A tiny sum, so we know you are a person and not a spam robot.</p>
+        <?php endif; ?>
       </div>
       <button class="w-full rounded-xl bg-indigo-600 py-2.5 font-semibold text-white shadow-sm hover:bg-indigo-700">Create account</button>
     </form>
