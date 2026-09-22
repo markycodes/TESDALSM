@@ -66,6 +66,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         setting_set('jitsi_jaas_kid', '');
         setting_set('jitsi_jaas_private_key', '');
         set_flash('success', 'JaaS keys removed — live classes fall back to the Jitsi server above.');
+    } elseif ($action === 'save_turnstile') {
+        /* registration human check (see the turnstile_*() block in lib.php) */
+        setting_set('turnstile_site_key', trim((string) ($_POST['turnstile_site_key'] ?? '')));
+        $tsSecretPosted = trim((string) ($_POST['turnstile_secret_key'] ?? ''));
+        if ($tsSecretPosted !== '') setting_set('turnstile_secret_key', $tsSecretPosted);   /* blank keeps the saved secret */
+        set_flash('success', 'Turnstile settings saved — registration now uses Cloudflare.');
+    } elseif ($action === 'clear_turnstile') {
+        setting_set('turnstile_site_key', '');
+        setting_set('turnstile_secret_key', '');
+        set_flash('success', 'Turnstile keys removed — registration falls back to the built-in question.');
     }
     header('Location: settings.php');
     exit;
@@ -97,6 +107,14 @@ if (!in_array($jitsiModeSaved, ['auto', 'window', 'iframe'], true)) $jitsiModeSa
 $jaasApp = setting_get('jitsi_jaas_app_id', '');
 $jaasKid = setting_get('jitsi_jaas_kid', '');
 $jaasKey = setting_get('jitsi_jaas_private_key', '');
+
+/* registration human check (Cloudflare Turnstile, optional) */
+$tsPinned = [];
+if (TURNSTILE_SITE_KEY !== '')   $tsPinned[] = 'TURNSTILE_SITE_KEY';
+if (TURNSTILE_SECRET_KEY !== '') $tsPinned[] = 'TURNSTILE_SECRET_KEY';
+$tsSite   = setting_get('turnstile_site_key', '');
+$tsSecret = setting_get('turnstile_secret_key', '');
+$tsReady  = turnstile_ready();
 
 $page_title = 'Settings';
 require __DIR__ . '/header.php';
@@ -294,6 +312,60 @@ require __DIR__ . '/header.php';
         <button type="submit" name="action" value="clear_jaas"
           class="rounded-xl border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50">
           Remove JaaS keys</button>
+      <?php endif; ?>
+    </div>
+  </form>
+
+  <form method="post" class="reveal lh-plain rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+    <?= csrf_field() ?>
+    <input type="hidden" name="action" value="save_turnstile">
+    <h2 class="text-base font-bold text-slate-900">🛡️ Registration human check (Cloudflare Turnstile)</h2>
+    <p class="mt-1 text-sm text-slate-600">
+      Registration currently uses <b><?= $tsReady ? 'Cloudflare Turnstile' : 'the built-in question' ?></b>.
+      <?= $tsReady
+        ? 'Visitors are checked silently — only suspicious ones see a checkbox.'
+        : 'Add the two keys below to switch to Cloudflare. Until then the form asks a small sum instead.' ?>
+    </p>
+
+    <div class="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800">
+      <b>How to get the keys:</b> open
+      <a class="font-semibold text-indigo-600" href="https://dash.cloudflare.com/?to=/:account/turnstile" target="_blank" rel="noopener">Cloudflare → Turnstile</a>,
+      choose <b>Add a site</b>, then list every hostname the form runs on — your live domain <b>and</b> <code>localhost</code> if you test locally,
+      because a token is only accepted from a hostname registered on the widget. Copy the <b>Site Key</b> (public) and the <b>Secret Key</b> here.
+      The free plan needs no card, and verification happens on this server, so the secret never reaches the browser.
+    </div>
+
+    <?php if ($tsPinned): ?>
+      <p class="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800">
+        This server's <b>config.php</b> already defines <?= e(implode(', ', $tsPinned)) ?> — those values take priority over this page.
+      </p>
+    <?php endif; ?>
+
+    <div class="mt-4 grid gap-4 sm:grid-cols-2">
+      <div>
+        <label class="block text-sm font-medium text-slate-700" for="turnstile_site_key">Site key (public)</label>
+        <input id="turnstile_site_key" name="turnstile_site_key" type="text" value="<?= e($tsSite) ?>" placeholder="0x4AAAAAAA…"
+          class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700" for="turnstile_secret_key">Secret key</label>
+        <input id="turnstile_secret_key" name="turnstile_secret_key" type="text"
+          placeholder="<?= $tsSecret !== '' ? 'A secret is saved — leave this blank to keep it' : '0x4AAAAAAA…' ?>"
+          class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none">
+        <p class="mt-1 text-xs text-slate-500">
+          <?= $tsSecret !== '' ? '✅ A secret key is stored.' : 'Not set yet — the built-in question is used instead.' ?>
+        </p>
+      </div>
+    </div>
+
+    <div class="mt-4 flex flex-wrap items-center gap-3">
+      <button type="submit"
+        class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700">
+        Save Turnstile keys</button>
+      <?php if ($tsSite !== '' || $tsSecret !== ''): ?>
+        <button type="submit" name="action" value="clear_turnstile"
+          class="rounded-xl border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50">
+          Remove keys</button>
       <?php endif; ?>
     </div>
   </form>

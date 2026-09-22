@@ -147,10 +147,16 @@ require __DIR__ . '/header.php';
         <input id="lh_website" name="lh_website" type="text" tabindex="-1" autocomplete="off">
       </div>
       <div>
-        <label class="block text-sm font-medium text-slate-700" for="human">Quick human check</label>
-        <?php if (!empty($human['pass'])): ?>
+        <?php if (!empty($human['turnstile'])): ?>
+          <label class="block text-sm font-medium text-slate-700">Quick human check</label>
+          <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+          <div class="cf-turnstile mt-1" data-sitekey="<?= e((string) $human['site']) ?>" data-theme="light"></div>
+          <p class="mt-1 text-xs text-slate-400">Protected by Cloudflare Turnstile — it usually checks you silently, with no puzzle to solve.</p>
+        <?php elseif (!empty($human['pass'])): ?>
+          <label class="block text-sm font-medium text-slate-700">Quick human check</label>
           <p class="mt-1 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">✓ Verified — just finish the form below.</p>
         <?php else: ?>
+          <label class="block text-sm font-medium text-slate-700" for="human">Quick human check</label>
           <p class="mt-1 rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700"><?= e((string) $human['q']) ?></p>
           <input id="human" name="human" required inputmode="numeric" autocomplete="off" placeholder="Type the number"
                  class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">

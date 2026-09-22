@@ -81,3 +81,15 @@ define('DB_PASS_LOCAL', '');            define('DB_PASS_PROD', 'your-mysql-passw
  */
 // define('JITSI_DOMAIN', 'meet.jit.si');
 
+/* Registration human check. With no keys, the sign-up form asks a small
+ * arithmetic question (self-contained: no service, works offline). To use
+ * Cloudflare Turnstile instead — free, and normally invisible to real
+ * visitors — create a widget at
+ *   https://dash.cloudflare.com/?to=/:account/turnstile
+ * and add every hostname the form runs on (your live domain, plus localhost if
+ * you test on this machine): a token is only accepted from a registered
+ * hostname. Then paste the two keys here or in Settings → Registration.
+ */
+// define('TURNSTILE_SITE_KEY',   '0x4AAAAAAA...');   // public, rendered in the form
+// define('TURNSTILE_SECRET_KEY', '0x4AAAAAAA...');   // private, used server-side
+

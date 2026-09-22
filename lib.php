@@ -1237,6 +1237,64 @@ function password_strength_error(string $pw): ?string
     return null;
 }
 
+/* ---------------- Cloudflare Turnstile (optional human check) ---------------- */
+
+/* Keys come from config.php (wins) or from Settings → Registration (stored in the
+   database). With no keys the registration form falls back to the built-in
+   question below, so the site never depends on an external service. */
+if (!defined('TURNSTILE_SITE_KEY'))   define('TURNSTILE_SITE_KEY', '');
+if (!defined('TURNSTILE_SECRET_KEY')) define('TURNSTILE_SECRET_KEY', '');
+
+const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
+
+/** The effective Turnstile keys (constant beats saved setting, like every other
+ *  integration in this app). */
+function turnstile_cfg(): array
+{
+    return [
+        'site'   => TURNSTILE_SITE_KEY !== '' ? trim((string) TURNSTILE_SITE_KEY) : trim(setting_get('turnstile_site_key', '')),
+        'secret' => TURNSTILE_SECRET_KEY !== '' ? trim((string) TURNSTILE_SECRET_KEY) : trim(setting_get('turnstile_secret_key', '')),
+    ];
+}
+
+/** Both halves configured? Only then does the widget replace the built-in question. */
+function turnstile_ready(): bool
+{
+    $c = turnstile_cfg();
+    return $c['site'] !== '' && $c['secret'] !== '';
+}
+
+/** Ask Cloudflare whether a widget token is genuine. Returns null when the visitor
+ *  passes, or a user-facing message. Never throws. A network failure fails CLOSED
+ *  (without Cloudflare we cannot tell a human from a robot) but says so plainly,
+ *  and a wrong secret key is reported separately so the admin can fix it. */
+function turnstile_verify(string $token, string $ip = ''): ?string
+{
+    if (!turnstile_ready()) return null;                    /* not configured: nothing to check */
+    if (trim($token) === '') return 'Please complete the Cloudflare check below.';
+
+    $c = turnstile_cfg();
+    $r = lh_http(TURNSTILE_VERIFY_URL, 'POST', ['Content-Type: application/x-www-form-urlencoded'],
+        http_build_query(['secret' => $c['secret'], 'response' => $token, 'remoteip' => $ip]), 8);
+
+    /* Cloudflare answers 400 WITH a JSON body when the secret key is malformed, so
+       judge the body first: only a missing/unparseable one means the service was
+       truly unreachable (and this then fails closed). */
+    $j = json_decode((string) $r['body'], true);
+    if (!is_array($j)) {
+        return ($r['code'] >= 200 && $r['code'] < 300)
+            ? 'The human check gave an unexpected answer — please try again.'
+            : 'We could not reach the human-check service — please try again in a moment.';
+    }
+    if (!empty($j['success'])) return null;
+
+    $codes = implode(',', array_map('strval', (array) ($j['error-codes'] ?? [])));
+    if (strpos($codes, 'invalid-input-secret') !== false || strpos($codes, 'missing-input-secret') !== false) {
+        return 'The human check is misconfigured (wrong secret key) — please tell the administrator.';
+    }
+    return 'The human check did not pass — please tick the box and try again.';
+}
+
 /* ---------------- registration: human check ---------------- */
 
 const REG_HUMAN_TTL = 1800;         /* a question stays answerable for 30 minutes */
@@ -1254,20 +1312,27 @@ const REG_HUMAN_LOCK_SECONDS = 300; /* how long that lock lasts */
  *
  * Honest limits: a targeted bot could still do the arithmetic, so this stops
  * form spam and code-probing scripts, not a determined attacker. The real
- * barrier for this app stays the one-time invitation / access code. If you
- * ever want Google reCAPTCHA or Cloudflare Turnstile instead, replace the body
- * of reg_human_check() (and the form field in register.php) — everything else
- * stays the same.
+ * barrier for this app stays the one-time invitation / access code.
+ *
+ * Cloudflare Turnstile takes over automatically once its keys are saved
+ * (Settings → Registration) or defined in config.php — see the turnstile_*()
+ * block above. This question is then just the fallback for installs without keys.
  */
 
-/** Issue (or reuse) the question shown on the form. Returns the text to render
- *  plus whether this session already passed, so the form can hide the field. */
+/** Issue what the form shows for this render: the Cloudflare widget when keys are
+ *  configured, otherwise the built-in question (plus whether this session already
+ *  passed, so the question can be hidden). */
 function reg_human_new(): array
 {
+    /* Turnstile draws its own widget — there is no question to keep in the session */
+    if (turnstile_ready()) {
+        return ['q' => '', 'pass' => false, 'turnstile' => true, 'site' => turnstile_cfg()['site']];
+    }
+
     $ch = $_SESSION['reg_human'] ?? null;
     if (is_array($ch) && isset($ch['q'], $ch['a'], $ch['t'])
         && (time() - (int) $ch['t']) <= REG_HUMAN_TTL) {
-        return ['q' => (string) $ch['q'], 'pass' => reg_human_pass()];
+        return ['q' => (string) $ch['q'], 'pass' => reg_human_pass(), 'turnstile' => false, 'site' => ''];
     }
 
     $a = mt_rand(3, 12);
@@ -1298,7 +1363,7 @@ function reg_human_new(): array
        $ans is never rendered, and array keys stay short so a bot cannot read
        the answer out of the session cookie (the session is server-side) */
     $_SESSION['reg_human'] = ['q' => $q, 'a' => $ans, 't' => time()];
-    return ['q' => $q, 'pass' => reg_human_pass()];
+    return ['q' => $q, 'pass' => reg_human_pass(), 'turnstile' => false, 'site' => ''];
 }
 
 /** True when this session already answered a question correctly. The pass is
@@ -1327,6 +1392,13 @@ function reg_human_check(array $post): ?string
        filled one is rejected without saying why. */
     if (trim((string) ($post['lh_website'] ?? '')) !== '') {
         return 'Registration failed — please try again.';
+    }
+
+    /* Cloudflare Turnstile, when keys are configured. Each submit carries a fresh
+       single-use token, because the widget re-issues one on every render. */
+    if (turnstile_ready()) {
+        return turnstile_verify((string) ($post['cf-turnstile-response'] ?? ''),
+            (string) ($_SERVER['REMOTE_ADDR'] ?? ''));
     }
 
     /* already answered (form re-submitted because another field was wrong) */
