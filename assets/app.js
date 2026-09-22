@@ -18,6 +18,81 @@ document.addEventListener('click', (e) => {
     if (t) t.remove();
   }
 });
+
+/* ---------- invite links: copy & share ---------- */
+/* Used by the live-class "copy the join link" buttons. Clipboard support is a
+   mess on phones: the async clipboard API needs a secure context (https or
+   localhost), in-app browsers (Messenger, Instagram…) often block it outright,
+   and older WebViews only know execCommand. Try them in that order, and when
+   every path fails, show the text so it can be copied by hand. */
+function lhCopyFallback(text) {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.top = '-1000px';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length);
+    const ok = document.execCommand('copy');
+    ta.remove();
+    if (ok) return true;
+  } catch (e) { /* fall through to the manual route */ }
+  window.prompt('Copy this link (long-press to select):', text);
+  return false;
+}
+
+function lhCopyText(text) {
+  return new Promise((resolve) => {
+    if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(() => resolve(true), () => resolve(lhCopyFallback(text)));
+    } else {
+      resolve(lhCopyFallback(text));
+    }
+  });
+}
+
+/* Native share sheet where it exists — on a phone that is where Messenger,
+   WhatsApp, SMS and the rest live. Returns false when unsupported. */
+function lhShareText(title, text, url) {
+  if (!navigator.share) return false;
+  navigator.share({ title: title, text: text, url: url }).catch(() => {});
+  return true;
+}
+
+/* Wire every [data-lh-copy] / [data-lh-share] button inside root (default: the
+   whole document). Safe to call repeatedly, and to call again after adding
+   buttons dynamically (see class_room.php). */
+function lhWireShare(root) {
+  const scope = root || document;
+  scope.querySelectorAll('[data-lh-copy]').forEach((btn) => {
+    if (btn.dataset.lhWired) return;
+    btn.dataset.lhWired = '1';
+    btn.addEventListener('click', () => {
+      const label = btn.dataset.lhLabel || btn.textContent;
+      lhCopyText(btn.dataset.lhCopy || '').then((ok) => {
+        btn.textContent = ok ? 'copied ✓' : 'select & copy';
+        setTimeout(() => { btn.textContent = label; }, 2200);
+      });
+    });
+  });
+  scope.querySelectorAll('[data-lh-share]').forEach((btn) => {
+    if (btn.dataset.lhWired) return;
+    btn.dataset.lhWired = '1';
+    if (!navigator.share) { btn.style.display = 'none'; return; }
+    btn.addEventListener('click', () => {
+      lhShareText(btn.dataset.lhShareTitle || document.title, btn.dataset.lhShareText || '', btn.dataset.lhShare);
+    });
+  });
+}
+
+window.lhCopyText = lhCopyText;
+window.lhShareText = lhShareText;
+window.lhWireShare = lhWireShare;
+lhWireShare();
+
 document.querySelectorAll('[data-toast]').forEach((t) => setTimeout(() => t.remove(), 4500));
 
 /* ---------- Global scroll reveal (applies the animation across every page) ---------- */

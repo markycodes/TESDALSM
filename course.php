@@ -132,6 +132,8 @@ $liveNow = live_class_active((int) $course['id']);
     <p class="text-sm font-bold text-rose-700">🔴 Live class running<?= $isOwner ? '' : ' — ' . e((string) ($course['teacher_name'] ?? 'your teacher')) ?> is waiting for you!</p>
   </div>
   <?php if ($isOwner): ?>
+  <button type="button" data-lh-copy="<?= e(live_class_join_url($courseId)) ?>" data-lh-label="🔗 Copy invite link"
+          class="rounded-xl border border-indigo-200 bg-white px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-50">🔗 Copy invite link</button>
   <button id="lc-end" class="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700">End live class</button>
   <a href="class_room.php?course=<?= $courseId ?>" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">Re-enter room</a>
   <?php else: ?>

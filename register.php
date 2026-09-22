@@ -1,6 +1,10 @@
 <?php
 require_once __DIR__ . '/lib.php';
-if (current_user()) { header('Location: dashboard.php'); exit; }
+
+/* Where to continue after signing up: the live-class join link sends new
+   students here with ?next=…, so they land in the room, not on the dashboard. */
+$nextPath = login_next_path('dashboard.php');
+if (current_user()) { header('Location: ' . lh_enc_url($nextPath)); exit; }
 
 $errors = [];
 $name = ''; $email = ''; $role = 'student'; $code = '';
@@ -66,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 set_flash('success', 'Account created! You are enrolled in "'
                     . (string) ($c['title'] ?? 'the course') . '". Happy learning! 🎉');
                 try { send_welcome_email($newUserId, $courseId); } catch (Throwable $e) { /* mail must never break registration */ }
-                header('Location: dashboard.php');
+                header('Location: ' . lh_enc_url($nextPath));
                 exit;
             }
         } else {
@@ -79,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['user_id'] = $newUserId;
                 set_flash('success', 'Teacher account created! You can now create courses and invite students with enrollment codes.');
                 try { send_welcome_email($newUserId); } catch (Throwable $e) { /* mail must never break registration */ } // greeting e-mail to the new teacher too
-                header('Location: dashboard.php');
+                header('Location: ' . lh_enc_url($nextPath));
                 exit;
             }
         }
@@ -101,6 +105,7 @@ require __DIR__ . '/header.php';
     <?php endif; ?>
     <form method="post" class="mt-6 space-y-4">
       <?= csrf_field() ?>
+      <input type="hidden" name="next" value="<?= e($nextPath) ?>">
       <div>
         <label class="block text-sm font-medium text-slate-700" for="name">Full name</label>
         <input id="name" name="name" required value="<?= e($name) ?>" placeholder="e.g. Maria Garcia"
@@ -165,7 +170,7 @@ require __DIR__ . '/header.php';
       </div>
       <button class="w-full rounded-xl bg-indigo-600 py-2.5 font-semibold text-white shadow-sm hover:bg-indigo-700">Create account</button>
     </form>
-    <p class="mt-6 text-center text-sm text-slate-500">Already have an account? <a href="login.php" class="font-semibold text-indigo-600 hover:underline">Log in</a></p>
+    <p class="mt-6 text-center text-sm text-slate-500">Already have an account? <a href="login.php<?= $nextPath !== 'dashboard.php' ? '?next=' . rawurlencode($nextPath) : '' ?>" class="font-semibold text-indigo-600 hover:underline">Log in</a></p>
   </div>
 </div>
 

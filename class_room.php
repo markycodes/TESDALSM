@@ -36,6 +36,12 @@ if (!$active) {
     header('Location: course.php?id=' . $courseId);
     exit;
 }
+/* The one link the teacher copies into Messenger / a group chat / SMS.
+   It opens live_join.php, which copes with every state a student arrives in
+   (logged out, not yet started) and walks them into the room. */
+$joinUrl    = live_class_join_url($courseId);
+$inviteText = live_class_invite_text($course);
+
 $roomBase = 'lhclass-' . $courseId . '-' . ((int) $active['id']);
 $userName = (string) ($user['name'] ?? 'User');
 /* Live-class video is a Jitsi meeting — but WHERE it runs, and whether it is
@@ -80,6 +86,13 @@ require __DIR__ . '/header.php';
       <button id="lr-hand" class="lh-chip-amber rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">✋ Raise hand</button>
       <?php if ($isHost): ?>
       <button id="lr-end" data-confirm="End the live class for everyone?" class="rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700">End class</button>
+      <?php endif; ?>
+      <?php if ($isHost): /* copy/paste the join link into Messenger or any chat */ ?>
+      <button type="button" data-lh-copy="<?= e($joinUrl) ?>" data-lh-label="🔗 Copy invite link"
+              class="rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100">🔗 Copy invite link</button>
+      <button type="button" data-lh-share="<?= e($joinUrl) ?>" data-lh-share-title="Live class: <?= e((string) $course['title']) ?>"
+              data-lh-share-text="<?= e($inviteText) ?>"
+              class="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">📤 Share…</button>
       <?php endif; ?>
     </div>
   </div>

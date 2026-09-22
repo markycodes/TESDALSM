@@ -1033,8 +1033,41 @@ function current_user(): ?array
 function require_login(): array
 {
     $u = current_user();
-    if (!$u) { header('Location: login.php'); exit; }
+    if (!$u) {
+        /* Remember where they were heading (GET only — a POSTed form cannot be
+           replayed) so a shared link or a bookmark still lands there after login. */
+        $next = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET' ? login_next_url() : '';
+        header('Location: login.php' . ($next !== '' ? '?next=' . rawurlencode($next) : ''));
+        exit;
+    }
     return $u;
+}
+
+/** The current request as a LOCAL path (e.g. "/LMS/live_join.php?course=…"),
+ *  used to build `?next=`. '' when the request URI is not a local path. */
+function login_next_url(): string
+{
+    $uri = str_replace(["\r", "\n"], '', (string) ($_SERVER['REQUEST_URI'] ?? ''));
+    if ($uri === '' || $uri[0] !== '/' || str_starts_with($uri, '//')) return '';
+    return $uri;
+}
+
+/** Where to continue after logging in: `next` from the URL or the form, but ONLY
+ *  when it is a local path. Anything absolute, protocol-relative ("//evil.com")
+ *  or containing a backslash is ignored, so the login page can never be turned
+ *  into an open redirect. */
+function login_next_path(string $default = 'dashboard.php'): string
+{
+    $n = trim((string) ($_GET['next'] ?? $_POST['next'] ?? ''));
+    if ($n === '' || $n[0] !== '/' || str_starts_with($n, '//') || str_contains($n, '\\')) return $default;
+    return $n;
+}
+
+/** True when the login page was reached from somewhere specific — used to show
+ *  "log in to continue to your live class" instead of the generic greeting. */
+function login_has_next(): bool
+{
+    return login_next_path('') !== '';
 }
 
 function require_teacher(): array
@@ -3096,10 +3129,46 @@ function live_class_notify_students(int $courseId, int $hostId, string $courseTi
     $st = db()->prepare('SELECT e.user_id FROM enrollments e JOIN users u ON u.id = e.user_id
                          WHERE e.course_id = ? AND u.role = \'student\' AND e.user_id <> ?');
     $st->execute([$courseId, $hostId]);
-    $link = 'course.php?id=' . $courseId;
+    /* straight to the room (not the course page): one tap to join */
+    $link = live_class_join_link($courseId);
     foreach ($st->fetchAll(PDO::FETCH_COLUMN) as $uid) {
-        add_notification((int) $uid, 'live', '🔴 ' . $courseTitle . ' is live now', 'Your teacher started a live class — join from the course page.', $link);
+        add_notification((int) $uid, 'live', '🔴 ' . $courseTitle . ' is live now', 'Your teacher started a live class — tap to join.', $link);
     }
+}
+
+/* ---------------- live class: the shareable join link ----------------
+ * The teacher copies ONE link and pastes it into Messenger, a group chat, an
+ * SMS or an e-mail. It points at live_join.php instead of class_room.php
+ * because a link pasted into a chat arrives in every state imaginable: the
+ * person may not be logged in yet, may not be enrolled, or may tap it before
+ * the teacher starts the room. live_join.php handles all three and drops them
+ * into the room the moment it is live.
+ *
+ * The course id is encrypted (lh_enc_id), like every other id this app puts in
+ * a URL, so a link cannot be guessed by counting courses.
+ * -------------------------------------------------------------------- */
+
+/** Relative join link — used for redirects and notifications. */
+function live_class_join_link(int $courseId): string
+{
+    return 'live_join.php?course=' . rawurlencode(lh_enc_id($courseId));
+}
+
+/** Absolute join link — what the teacher copies and shares. */
+function live_class_join_url(int $courseId): string
+{
+    return app_link(live_class_join_link($courseId));
+}
+
+/** The ready-to-send invitation message (course name + link). */
+function live_class_invite_text(array $course): string
+{
+    $title = trim((string) ($course['title'] ?? ''));
+    if ($title === '') $title = 'our class';
+    $who = trim((string) ($course['teacher_name'] ?? ''));
+    return '🔴 Live class now: ' . $title . ($who !== '' ? ' with ' . $who : '')
+        . "\nJoin here: " . live_class_join_url((int) ($course['id'] ?? 0))
+        . "\n(Log in to LearnHub if it asks — then you go straight into the room.)";
 }
 
 /* ---------------- live-class video server (Jitsi) ----------------
