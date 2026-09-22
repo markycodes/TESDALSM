@@ -290,7 +290,7 @@ function setting_set(string $k, string $v): void
 /* ---------------- appearance / theme ---------------- */
 
 /** The design shipped as the default (see ui_theme_choices() below). */
-if (!defined('UI_THEME_DEFAULT')) define('UI_THEME_DEFAULT', 'bright');
+if (!defined('UI_THEME_DEFAULT')) define('UI_THEME_DEFAULT', 'console');
 
 /** The designs a site can pick from (Settings → Appearance).
  *  Each key maps to assets/theme-<key>.css, which is loaded after the
@@ -299,6 +299,10 @@ if (!defined('UI_THEME_DEFAULT')) define('UI_THEME_DEFAULT', 'bright');
 function ui_theme_choices(): array
 {
     return [
+        'console' => [
+            'Console — professional dashboard',
+            'Dark navigation rail, flat hairline surfaces, dense data tables and compact controls. Built for reading numbers.',
+        ],
         'bright' => [
             'Fresh & friendly',
             'Cool blue-white canvas, soft rounded cards with a gradient cap, pill buttons, emerald→teal accent.',

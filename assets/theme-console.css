@@ -1,0 +1,595 @@
+/* ============================================================
+   LearnHub theme — "Console" (professional dashboard)
+   Dark navigation rail · flat hairline surfaces · dense data
+   tables · compact controls. Built for reading numbers.
+   Switchable in Settings → Appearance.
+   ============================================================ */
+:root {
+  --lh-ink: #0f172a;
+  /* headings */
+  --lh-body: #475569;
+  /* body text */
+  --lh-mut: #64748b;
+  /* muted text */
+  --lh-line: #e5e9f0;
+  /* hairline */
+  --lh-line-2: #eef2f7;
+  /* lighter hairline */
+  --lh-paper: #f6f8fb;
+  /* app canvas */
+  --lh-deep: #047857;
+  --lh-brand: #059669;
+  --lh-mint: #10b981;
+  --lh-tint: #ecfdf5;
+  --lh-grad: linear-gradient(135deg, #047857 0%, #059669 100%);
+  --lh-display: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --lh-radius: .75rem;
+  --lh-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 1px 3px rgba(16, 24, 40, .06);
+  --lh-shadow-hover: 0 4px 12px -4px rgba(16, 24, 40, .12), 0 1px 3px rgba(16, 24, 40, .06);
+  --lh-rail: #0f172a;
+  /* dark rail */
+  --lh-rail-2: #1e293b;
+  /* rail surfaces */
+}
+
+/* ---- canvas: flat, no decoration ---- */
+body,
+body.lh-app,
+.lh-app {
+  background: var(--lh-paper) !important
+}
+
+/* ---- type: tight, high contrast, readable at small sizes ---- */
+body {
+  color: var(--lh-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility
+}
+
+main h1,
+main h2,
+.lh-display {
+  font-family: var(--lh-display);
+  font-weight: 700;
+  letter-spacing: -.021em;
+  line-height: 1.2;
+  color: var(--lh-ink)
+}
+
+main h1 {
+  font-size: clamp(1.35rem, 1.1rem + .8vw, 1.75rem)
+}
+
+main h3 {
+  font-weight: 600;
+  color: var(--lh-ink)
+}
+
+.lh-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--lh-mut)
+}
+
+.lh-num,
+[data-live-stat] {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.02em
+}
+
+/* ---- dark navigation rail ---- */
+.lh-sidebar {
+  background: var(--lh-rail) !important;
+  border-right: 1px solid #1b2537 !important;
+  box-shadow: none !important
+}
+
+.lh-side-head {
+  border-bottom: 1px solid rgba(255, 255, 255, .07)
+}
+
+/* the logo keeps a white chip so it stays legible on dark */
+.lh-side-head img[alt='LearnHub LMS'] {
+  background: #fff;
+  border-radius: 12px;
+  padding: 3px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .12)
+}
+
+/* the wordmark becomes a clean white silhouette */
+.lh-side-wordmark {
+  filter: brightness(0) invert(1);
+  opacity: .95
+}
+
+.lh-side-sec {
+  color: #64748b
+}
+
+.lh-side-link {
+  color: #cbd5e1;
+  border-radius: 8px;
+  transition: background .14s ease, color .14s ease
+}
+
+.lh-side-link:hover {
+  background: rgba(255, 255, 255, .06);
+  color: #fff
+}
+
+.lh-side-link.active {
+  background: rgba(16, 185, 129, .14) !important;
+  color: #fff !important;
+  box-shadow: inset 0 0 0 1px rgba(16, 185, 129, .3)
+}
+
+.lh-side-link.active::before {
+  background: linear-gradient(#10b981, #34d399)
+}
+
+.lh-side-link.active .lh-side-ico,
+.lh-side-link.active svg {
+  color: #34d399 !important
+}
+
+.lh-side-link::after {
+  background: #22304a
+}
+
+.lh-side-collapse-wrap button,
+#lh-side-collapse {
+  background: rgba(255, 255, 255, .05) !important;
+  border-color: rgba(255, 255, 255, .12) !important;
+  color: #cbd5e1 !important
+}
+
+.lh-side-collapse-wrap button:hover,
+#lh-side-collapse:hover {
+  background: rgba(255, 255, 255, .1) !important;
+  color: #fff !important
+}
+
+.lh-side-foot {
+  border-top: 1px solid rgba(255, 255, 255, .07)
+}
+
+.lh-side-foot .text-slate-800 {
+  color: #e2e8f0 !important
+}
+
+.lh-side-foot .text-slate-400 {
+  color: #8b9bb4 !important
+}
+
+.lh-side-foot a {
+  border-color: rgba(255, 255, 255, .14) !important;
+  color: #cbd5e1 !important
+}
+
+.lh-side-foot a:hover {
+  background: rgba(255, 255, 255, .08);
+  color: #fff !important
+}
+
+/* ---- top bar: compact, flat, hairline ---- */
+nav.glass.lh-topbar,
+.lh-topbar {
+  background: rgba(255, 255, 255, .96) !important;
+  backdrop-filter: blur(8px) saturate(1.2);
+  -webkit-backdrop-filter: blur(8px) saturate(1.2);
+  border-bottom: 1px solid var(--lh-line) !important;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .04) !important
+}
+
+nav.glass::after {
+  display: none
+}
+
+.lh-topbar .lh-top-inner {
+  height: 56px
+}
+
+#lh-rail-toggle:hover,
+#lh-side-toggle:hover,
+.lh-ico:hover {
+  background: #f1f5f9;
+  color: var(--lh-ink)
+}
+
+/* ---- page header: a flat panel, not a poster ---- */
+.lh-hero {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important
+}
+
+.lh-hero-paper {
+  background: #fff !important;
+  border: 1px solid var(--lh-line) !important;
+  border-radius: var(--lh-radius) !important;
+  box-shadow: var(--lh-shadow) !important;
+  transform: none !important;
+  padding: 1.1rem 1.25rem !important
+}
+
+.lh-hero-paper::after,
+.lh-hero-paper::before {
+  display: none !important
+}
+
+.lh-hero:hover .lh-hero-paper {
+  transform: none
+}
+
+.lh-tape {
+  display: none !important
+}
+
+main>section.bg-gradient-to-r {
+  animation: none !important;
+  background-image: none !important;
+  background: #fff !important;
+  border: 1px solid var(--lh-line)
+}
+
+main>section.bg-gradient-to-r::before {
+  display: none !important
+}
+
+/* ---- cards: flat white, hairline, minimal shadow ---- */
+main .rounded-2xl.bg-white,
+main .rounded-3xl.bg-white,
+footer .rounded-2xl.bg-white,
+main .lh-plain.rounded-2xl {
+  background: #fff !important;
+  background-image: none !important;
+  border: 1px solid var(--lh-line) !important;
+  border-radius: var(--lh-radius) !important;
+  box-shadow: var(--lh-shadow) !important;
+  rotate: none !important;
+  transform: none !important;
+  transition: border-color .15s ease, box-shadow .15s ease
+}
+
+main .rounded-2xl.bg-white::before,
+main .rounded-2xl.bg-white::after,
+main .rounded-3xl.bg-white::after {
+  display: none !important
+}
+
+main .rounded-2xl.bg-white:hover,
+main .rounded-3xl.bg-white:hover {
+  border-color: #d6dde9 !important;
+  box-shadow: var(--lh-shadow-hover) !important
+}
+
+main a.rounded-2xl.bg-white:hover,
+main a.rounded-3xl.bg-white:hover {
+  transform: translateY(-1px)
+}
+
+/* stat tiles stay flat and square-ish */
+main .rounded-2xl.bg-white .rounded-lg {
+  border-radius: 8px
+}
+
+/* dialogs */
+.modal-backdrop .bg-white {
+  border-radius: var(--lh-radius) !important;
+  box-shadow: 0 20px 50px -20px rgba(15, 23, 42, .4) !important
+}
+
+/* ---- buttons: compact and solid ---- */
+main a.bg-indigo-600,
+main button.bg-indigo-600,
+main a.bg-indigo-700,
+main button.bg-indigo-700,
+nav a.px-4.bg-indigo-600,
+main a.bg-emerald-600,
+main button.bg-emerald-600,
+main a.bg-emerald-700,
+main button.bg-emerald-700 {
+  background: var(--lh-brand) !important;
+  background-image: none !important;
+  border: 1px solid #047857 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .08) !important;
+  rotate: none !important;
+  transform: none;
+  transition: background .14s ease, box-shadow .14s ease
+}
+
+main a.bg-indigo-600:hover,
+main button.bg-indigo-600:hover,
+main a.bg-indigo-700:hover,
+main button.bg-indigo-700:hover,
+main a.bg-emerald-600:hover,
+main button.bg-emerald-600:hover,
+main a.bg-emerald-700:hover,
+main button.bg-emerald-700:hover,
+nav a.px-4.bg-indigo-600:hover {
+  background: #047857 !important;
+  transform: none;
+  filter: none;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, .12) !important
+}
+
+main button.border-slate-200,
+main a.border-slate-300,
+main .border-slate-200.bg-white {
+  background: #fff !important;
+  border-color: #d6dde9 !important;
+  border-radius: 8px
+}
+
+main button.border-slate-200:hover,
+main a.border-slate-300:hover {
+  background: #f8fafc !important;
+  border-color: #c2ccdb !important
+}
+
+/* focus: crisp 2px ring, offset — the standard professional pattern */
+main button:focus-visible,
+main a:focus-visible,
+main input:focus-visible,
+main select:focus-visible,
+main textarea:focus-visible {
+  outline: 2px solid var(--lh-mint) !important;
+  outline-offset: 1px !important;
+  box-shadow: none !important
+}
+
+/* inputs keep the softer ring instead of an outline */
+main input:focus-visible,
+main select:focus-visible,
+main textarea:focus-visible {
+  outline: none !important
+}
+
+/* ---- indigo utility classes join the brand ---- */
+main .bg-indigo-50 {
+  background: #ecfdf5 !important
+}
+
+main .bg-indigo-100 {
+  background: #d1fae5 !important
+}
+
+main .bg-indigo-200 {
+  background: #a7f3d0 !important
+}
+
+main .bg-indigo-600,
+main .bg-indigo-700 {
+  background: var(--lh-deep) !important;
+  background-image: none !important
+}
+
+main .text-indigo-400,
+main .text-indigo-500,
+main .text-indigo-600,
+main .text-indigo-700,
+main .text-indigo-800 {
+  color: var(--lh-brand) !important
+}
+
+main .border-indigo-200,
+main .border-indigo-300 {
+  border-color: #a7f3d0 !important
+}
+
+main .ring-indigo-100,
+main .ring-indigo-200,
+main .ring-indigo-300 {
+  --tw-ring-color: #a7f3d0 !important;
+  border-color: #a7f3d0 !important
+}
+
+main .hover\:bg-indigo-600:hover,
+main .hover\:bg-indigo-700:hover {
+  background: #065f46 !important
+}
+
+main .hover\:text-indigo-600:hover,
+main .hover\:text-indigo-700:hover {
+  color: var(--lh-brand) !important
+}
+
+/* ---- data tables: dense, hairline, header band ---- */
+main table {
+  width: 100%;
+  border-collapse: collapse
+}
+
+main table thead th {
+  background: #f8fafc;
+  padding: .55rem .75rem;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--lh-mut);
+  text-align: left;
+  border-bottom: 1px solid var(--lh-line);
+  white-space: nowrap
+}
+
+main table tbody td {
+  padding: .6rem .75rem;
+  border-bottom: 1px solid var(--lh-line-2);
+  vertical-align: middle
+}
+
+main table tbody tr:hover {
+  background: #f8fafc
+}
+
+main table tbody tr:last-child td {
+  border-bottom: none
+}
+
+/* ---- lesson tabs: underline tabs ---- */
+main button[data-tab-btn] {
+  clip-path: none;
+  rotate: none;
+  background: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: var(--lh-mut);
+  font-weight: 500;
+  transition: color .14s ease, border-color .14s ease
+}
+
+main button[data-tab-btn]:hover {
+  color: var(--lh-ink)
+}
+
+main button[data-tab-btn][aria-selected='true'] {
+  background: transparent !important;
+  color: var(--lh-ink) !important;
+  border-bottom-color: var(--lh-brand) !important;
+  font-weight: 600
+}
+
+/* ---- forms ---- */
+main input:not([type='checkbox']):not([type='radio']):not([type='file']),
+main select,
+main textarea {
+  border-color: #d6dde9;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .04);
+  transition: border-color .14s ease, box-shadow .14s ease
+}
+
+main input:focus,
+main select:focus,
+main textarea:focus {
+  border-color: var(--lh-mint);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, .14)
+}
+
+/* ---- progress: thin, solid ---- */
+main .h-2:has(>.h-full),
+main .h-2\.5:has(>.h-full),
+main .h-3:has(>.h-full) {
+  background: #eef2f7 !important;
+  border-radius: 999px !important
+}
+
+main .h-2>.h-full,
+main .h-2\.5>.h-full,
+main .h-3>.h-full {
+  background: var(--lh-brand) !important;
+  background-image: none !important;
+  border-radius: 999px !important;
+  transition: width .45s ease
+}
+
+main .h-2>.h-full::after,
+main .h-2\.5>.h-full::after,
+main .h-3>.h-full::after {
+  display: none
+}
+
+/* ---- landing pieces: quiet, structured ---- */
+.lh-feature-row {
+  transition: background .14s ease
+}
+
+.lh-feature-row:hover {
+  background: #f8fafc
+}
+
+.lh-band {
+  border-left: 1px solid var(--lh-line-2)
+}
+
+.lh-band:first-child {
+  border-left: none
+}
+
+/* status pills stay small and squared */
+main .rounded-full.bg-emerald-50,
+main .rounded-full.bg-emerald-100,
+main .rounded-full.bg-sky-50,
+main .rounded-full.bg-amber-50,
+main .rounded-full.bg-rose-50 {
+  border-radius: 6px !important
+}
+
+/* ---- scrollbars: slim, neutral ---- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #c3cddb transparent
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c3cddb;
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 999px
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+  background-clip: content-box
+}
+
+/* ---- motion & small screens ---- */
+@media (prefers-reduced-motion:reduce) {
+
+  main .rounded-2xl.bg-white,
+  main a.rounded-2xl.bg-white,
+  main a.rounded-3xl.bg-white,
+  main button,
+  main .h-2>.h-full,
+  main .h-3>.h-full,
+  .lh-logo,
+  .lh-hero-paper,
+  .lh-side-link {
+    transition: none !important;
+    transform: none !important;
+    translate: none !important
+  }
+
+  nav.glass::after,
+  .lh-logo::before {
+    animation: none !important
+  }
+}
+
+@media (max-width:640px) {
+
+  main .rounded-2xl.bg-white,
+  main .rounded-3xl.bg-white,
+  main .lh-plain.rounded-2xl,
+  .lh-hero-paper {
+    border-radius: 10px !important
+  }
+
+  .lh-hero-paper {
+    padding: .9rem 1rem !important
+  }
+
+  main table thead th,
+  main table tbody td {
+    padding: .5rem .6rem
+  }
+}
+
+
+
