@@ -1487,688 +1487,370 @@ a.lh-launch-go:hover {
         opacity: 1
       }
     }
-
-
-    /* ============================================================
-   LearnHub v3 — editorial studio · deep forest green
-   Appended overrides. Functional rules above are preserved;
-   these only re-skin surfaces, type and motion.
+/* ============================================================
+   LearnHub v6 — modern learner theme (single consolidated layer)
+   One voice: Inter everywhere · emerald accent · calm neutral
+   canvas · soft depth. Replaces the old v3/v3.5/v4/v5 override
+   stack wholesale; the v2 structural base stays.
    ============================================================ */
-    :root {
-      --lh-ink: #12211a;
-      /* primary editorial ink */
-      --lh-body: #42534a;
-      /* body text */
-      --lh-mut: #7d8a82;
-      /* muted text */
-      --lh-line: #e3e9e4;
-      /* hairline */
-      --lh-paper: #f4f7f4;
-      /* page canvas */
-      --lh-deep: #065f46;
-      /* deep forest green */
-      --lh-brand: #047857;
-      /* emerald-700 */
-      --lh-mint: #10b981;
-      /* emerald-500 */
-      --lh-tint: #ecfdf5;
-      /* soft green tint */
-      --lh-grad: linear-gradient(135deg, #065f46 0%, #047857 52%, #10b981 100%);
-      --lh-display: 'Fraunces', Georgia, 'Times New Roman', serif;
-      --lh-shadow: 0 1px 2px rgba(17, 33, 26, .05), 0 14px 30px -22px rgba(17, 33, 26, .18);
-    }
-
-    /* ---- type with personality ---- */
-    main h1 {
-      font-family: var(--lh-display);
-      font-weight: 600;
-      letter-spacing: -.02em;
-      line-height: 1.12;
-      color: var(--lh-ink)
-    }
-
-    .lh-display {
-      font-family: var(--lh-display) !important;
-      font-weight: 600;
-      letter-spacing: -.02em;
-      color: var(--lh-ink)
-    }
-
-    .lh-kicker {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: .16em;
-      text-transform: uppercase;
-      color: var(--lh-brand)
-    }
-
-    .lh-num {
-      font-family: var(--lh-display);
-      font-weight: 650;
-      letter-spacing: -.02em
-    }
-
-    /* ---- canvas: calm paper, one restrained top glow ---- */
-    body {
-      background: radial-gradient(900px 420px at 82% -120px, rgba(4, 120, 87, .09), transparent 62%), var(--lh-paper) !important;
-    }
-
-    .lh-app {
-      background: var(--lh-paper)
-    }
-
-    /* ---- topbar: clean hairline, soft blur ---- */
-    nav.glass {
-      background: rgba(255, 255, 255, .82) !important;
-      backdrop-filter: blur(10px) saturate(1.2);
-      -webkit-backdrop-filter: blur(10px) saturate(1.2);
-      box-shadow: 0 1px 0 var(--lh-line), 0 12px 30px -24px rgba(17, 33, 26, .22) !important
-    }
-
-    nav.glass::after {
-      height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(4, 120, 87, .35), transparent);
-      opacity: .7
-    }
-
-    .lh-topbar {
-      background: rgba(255, 255, 255, .82) !important;
-      border-bottom: 1px solid var(--lh-line)
-    }
-
-    /* ---- logo: keep brand mark, calm pulse ---- */
-    .lh-logo {
-      background: var(--lh-grad);
-      box-shadow: 0 6px 16px -8px rgba(4, 120, 87, .5);
-      transition: transform .2s
-    }
-
-    .lh-logo::before {
-      filter: blur(12px);
-      opacity: .28;
-      animation: logoPulse 4s ease-in-out infinite
-    }
-
-    /* ---- sidebar: warm white, editorial spacing ---- */
-    .lh-sidebar {
-      background: #fcfdfb !important;
-      border-right: 1px solid var(--lh-line);
-      box-shadow: none
-    }
-
-    .lh-side-head {
-      border-bottom: 1px solid var(--lh-line);
-      padding: 1rem 1.1rem .95rem
-    }
-
-    .lh-side-sec {
-      color: var(--lh-mut)
-    }
-
-    .lh-side-link {
-      color: var(--lh-body);
-      padding: .56rem .8rem;
-      border-radius: 10px
-    }
-
-    .lh-side-link:hover {
-      background: var(--lh-tint);
-      color: var(--lh-deep)
-    }
-
-    .lh-side-link.active {
-      background: var(--lh-tint);
-      color: var(--lh-deep);
-      box-shadow: inset 0 0 0 1px rgba(4, 120, 87, .14)
-    }
-
-    .lh-side-link.active::before {
-      left: -.65rem;
-      top: 18%;
-      bottom: 18%;
-      width: 3px;
-      border-radius: 99px;
-      background: var(--lh-deep)
-    }
-
-    .lh-side-ico {
-      width: 22px;
-      height: 20px;
-      display: grid;
-      place-items: center
-    }
-
-    .lh-side-ico svg {
-      width: 20px;
-      height: 20px
-    }
-
-    .lh-side-foot {
-      border-top: 1px solid var(--lh-line)
-    }
-
-    /* ---- buttons: solid deep green, 1px ring, quiet depth ---- */
-    main a.bg-indigo-600,
-    main button.bg-indigo-600,
-    nav a.px-4.bg-indigo-600 {
-      background: var(--lh-deep) !important;
-      background-image: none !important;
-      box-shadow: 0 0 0 1px rgba(4, 120, 87, .55), 0 10px 22px -16px rgba(4, 120, 87, .55) !important;
-      border-radius: 10px;
-    }
-
-    main a.bg-indigo-600:hover,
-    main button.bg-indigo-600:hover,
-    nav a.px-4.bg-indigo-600:hover {
-      background: #074f3c !important;
-      filter: none !important;
-      transform: translateY(-1px);
-      box-shadow: 0 0 0 1px rgba(4, 120, 87, .5), 0 14px 26px -16px rgba(4, 120, 87, .6) !important;
-    }
-
-    /* ---- cards: flat paper + hairline, not glassy rings ---- */
-    main .bg-white.ring-1,
-    main .rounded-2xl.bg-white,
-    main .rounded-3xl.bg-white {
-      background: #fff !important;
-      backdrop-filter: none !important;
-      -webkit-backdrop-filter: none !important;
-      box-shadow: var(--lh-shadow) !important;
-    }
-
-    main .rounded-2xl.bg-white.ring-1:hover,
-    main .rounded-3xl.bg-white.ring-1:hover {
-      box-shadow: 0 2px 3px rgba(17, 33, 26, .05), 0 20px 38px -24px rgba(4, 120, 87, .28) !important
-    }
-
-    /* ---- progress bars: calm gradient, no shimmer ---- */
-    main .h-2>.h-full,
-    main .h-2\.5>.h-full,
-    main .h-3>.h-full {
-      background: linear-gradient(90deg, var(--lh-deep), var(--lh-mint)) !important
-    }
-
-    main .h-2>.h-full::after,
-    main .h-2\.5>.h-full::after,
-    main .h-3>.h-full::after {
-      content: '';
-      background: linear-gradient(180deg, rgba(255, 255, 255, .35), transparent 60%);
-      animation: none
-    }
-
-    /* ---- hero panels: static layered green, no floating blobs ---- */
-    main>section.bg-gradient-to-r {
-      background-size: 100% 100% !important;
-      animation: none !important
-    }
-
-    main>section.bg-gradient-to-r::before {
-      display: none !important
-    }
-
-    /* ---- tables: hairline rows, small-caps headers ---- */
-    main table {
-      width: 100%;
-      border-collapse: collapse
-    }
-
-    main table thead th {
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: .13em;
-      text-transform: uppercase;
-      color: var(--lh-mut);
-      text-align: left
-    }
-
-    main table tbody tr {
-      border-bottom: 1px solid #edf1ee
-    }
-
-    main table tbody tr:last-child {
-      border-bottom: none
-    }
-
-    main table tbody tr:hover {
-      background: #f7faf7
-    }
-
-    /* ---- form controls: calmer focus ---- */
-    main input:focus,
-    main select:focus,
-    main textarea:focus {
-      border-color: var(--lh-mint);
-      box-shadow: 0 0 0 3px rgba(16, 185, 129, .16)
-    }
-
-    @media (prefers-reduced-motion:reduce) {
-      main>section.bg-gradient-to-r {
-        animation: none !important
-      }
-
-      main>section.bg-gradient-to-r::before {
-        display: none !important
-      }
-
-      .lh-logo::before {
-        animation: none
-      }
-    }
-
-    /* ============================================================
-   LearnHub v3 addendum — indigo→green remap + hero texture
-   ============================================================ */
-    main .bg-indigo-50 {
-      background: #ecfdf5 !important
-    }
-
-    main .bg-indigo-100 {
-      background: #d1fae5 !important
-    }
-
-    main .bg-indigo-200,
-    main .bg-indigo-200\/20 {
-      background: #a7f3d0 !important
-    }
-
-    main .bg-indigo-600,
-    main .bg-indigo-700 {
-      background: var(--lh-deep) !important;
-      background-image: none !important
-    }
-
-    main .text-indigo-400,
-    main .text-indigo-500,
-    main .text-indigo-600,
-    main .text-indigo-700,
-    main .text-indigo-800 {
-      color: var(--lh-brand) !important
-    }
-
-    main .ring-indigo-200,
-    main .ring-indigo-300 {
-      border-color: #a7f3d0 !important
-    }
-
-    /* Hero panel: a paper sheet taped to the wall (green kept on tape + CTA) */
-    .lh-hero {
-      position: relative;
-      background:
-        radial-gradient(130% 100% at 18% 0%, rgba(255, 255, 255, .55), transparent 55%),
-        repeating-linear-gradient(0deg, rgba(23, 52, 40, .035) 0 1px, transparent 1px 3px),
-        repeating-linear-gradient(90deg, rgba(23, 52, 40, .026) 0 1px, transparent 1px 4px),
-        linear-gradient(180deg, #eef3ee 0%, #e2ebe3 100%);
-      border: 1px solid #d3e0d4;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .65), 0 20px 44px -26px rgba(23, 46, 36, .4);
-    }
-
-    main>section.lh-hero {
-      animation: none !important
-    }
-
-    main>section.lh-hero::before {
-      display: none !important
-    }
-
-    /* the paper sheet: cream, faint rules, slight tilt, floats off the wall */
-    .lh-hero-paper {
-      background:
-        linear-gradient(rgba(4, 63, 46, .045) 1px, transparent 1px) 0 0/100% 30px,
-        linear-gradient(180deg, #fdfbf5 0%, #f7f3e8 100%);
-      border: 1px solid #e6dfcd;
-      border-radius: 3px;
-      box-shadow:
-        inset 0 1px 0 #fff,
-        0 1px 2px rgba(31, 41, 33, .1),
-        0 3px 6px rgba(31, 41, 33, .08),
-        0 24px 40px -18px rgba(31, 41, 33, .38);
-      transform: rotate(-1.1deg);
-      transition: transform .25s ease;
-    }
-
-    .lh-hero-paper::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      background: repeating-linear-gradient(45deg, rgba(31, 61, 48, .02) 0 2px, transparent 2px 6px);
-    }
-
-    .lh-hero:hover .lh-hero-paper {
-      transform: rotate(-.35deg)
-    }
-
-    /* tape strips: torn-ended washi tape in the brand green */
-    .lh-tape {
-      position: absolute;
-      width: 104px;
-      height: 27px;
-      z-index: 2;
-      background: linear-gradient(180deg, rgba(209, 244, 227, .85), rgba(154, 222, 190, .68) 55%, rgba(129, 209, 175, .72));
-      box-shadow: 0 1px 3px rgba(31, 41, 33, .22), inset 0 0 0 1px rgba(255, 255, 255, .25);
-      clip-path: polygon(3% 8%, 97% 0, 100% 92%, 1% 100%);
-      opacity: .92;
-    }
-
-    .lh-tape-l {
-      top: -14px;
-      left: 30px;
-      transform: rotate(-7deg)
-    }
-
-    .lh-tape-r {
-      top: -12px;
-      right: 34px;
-      transform: rotate(5deg)
-    }
-
-    .lh-tape-b {
-      bottom: -14px;
-      left: 50%;
-      margin-left: -52px;
-      transform: rotate(1.6deg)
-    }
-
-    .lh-hero-cta {
-      box-shadow: 0 10px 22px -10px rgba(4, 120, 87, .55)
-    }
-
-    @media (max-width:640px) {
-      .lh-hero-paper {
-        transform: rotate(-.7deg)
-      }
-
-      .lh-tape {
-        width: 78px;
-        height: 22px
-      }
-
-      .lh-tape-l {
-        top: -12px;
-        left: 18px
-      }
-
-      .lh-tape-r {
-        top: -10px;
-        right: 20px
-      }
-
-      .lh-tape-b {
-        bottom: -12px;
-        margin-left: -39px
-      }
-    }
-
-    @media (prefers-reduced-motion:reduce) {
-
-      .lh-hero-paper,
-      .lh-hero:hover .lh-hero-paper {
-        transition: none;
-        transform: rotate(-.7deg)
-      }
-    }
-
-    /* Landing feature rows: hairline dividers, quiet hover */
-    .lh-feature-row {
-      transition: background-color .18s
-    }
-
-    .lh-feature-row:hover {
-      background: #f7faf7
-    }
-
-    /* Stats band: hairline separators */
-    .lh-band {
-      border-left: 1px solid #edf1ee
-    }
-
-    .lh-band:first-child {
-      border-left: none
-    }
-
-    /* ============================================================
-   Paper-on-wall theme — SITE-WIDE, uniform (green brand kept)
-   ============================================================ */
-    body.lh-app {
-      background:
-        radial-gradient(120% 90% at 15% 0%, rgba(255, 255, 255, .5), transparent 55%),
-        repeating-linear-gradient(0deg, rgba(23, 52, 40, .03) 0 1px, transparent 1px 3px),
-        repeating-linear-gradient(90deg, rgba(23, 52, 40, .022) 0 1px, transparent 1px 4px),
-        linear-gradient(180deg, #eef3ee 0%, #e3ece4 100%) fixed;
-    }
-
-    /* every white card becomes a paper sheet with a green tape strip */
-    main .rounded-2xl.bg-white,
-    footer .rounded-2xl.bg-white {
-      position: relative;
-      background:
-        linear-gradient(rgba(4, 63, 46, .04) 1px, transparent 1px) 0 0/100% 28px,
-        linear-gradient(180deg, #fdfbf5 0%, #f8f4e9 100%) !important;
-      border-color: #e6dfcd !important;
-      border-radius: 3px !important;
-      box-shadow: inset 0 1px 0 #fff, 0 1px 2px rgba(31, 41, 33, .1), 0 3px 6px rgba(31, 41, 33, .08), 0 20px 34px -18px rgba(31, 41, 33, .34) !important;
-      rotate: -.45deg;
-      transition: rotate .25s ease;
-    }
-
-    main .rounded-2xl.bg-white::before {
-      content: '';
-      position: absolute;
-      top: -11px;
-      left: 50%;
-      margin-left: -44px;
-      width: 88px;
-      height: 20px;
-      z-index: 3;
-      background: linear-gradient(180deg, rgba(209, 244, 227, .9), rgba(154, 222, 190, .72) 55%, rgba(129, 209, 175, .75));
-      box-shadow: 0 1px 3px rgba(31, 41, 33, .2), inset 0 0 0 1px rgba(255, 255, 255, .3);
-      clip-path: polygon(3% 8%, 97% 0, 100% 92%, 1% 100%);
-      opacity: .92;
-      pointer-events: none;
-    }
-
-    main .rounded-2xl.bg-white:hover {
-      rotate: -.15deg
-    }
-
-    main .rounded-2xl.bg-white .text-slate-400 {
-      color: #8b8672 !important
-    }
-
-    main .rounded-2xl.bg-white .text-slate-500 {
-      color: #6f6a58 !important
-    }
-
-    /* modals: paper but straight + centered, no tape */
-    .modal-backdrop .bg-white {
-      rotate: 0deg !important;
-      border-radius: 10px !important;
-    }
-
-    .modal-backdrop .bg-white::before {
-      display: none
-    }
-
-    @media (max-width:640px) {
-      main .rounded-2xl.bg-white {
-        rotate: -.25deg
-      }
-
-      main .rounded-2xl.bg-white::before {
-        width: 66px;
-        height: 18px;
-        margin-left: -33px
-      }
-    }
-
-    @media (prefers-reduced-motion:reduce) {
-
-      main .rounded-2xl.bg-white,
-      main .rounded-2xl.bg-white:hover {
-        transition: none
-      }
-    }
-
-    /* plain-white opt-out (lh-plain): no paper tint, no tape, no card or row hover */
-    main .rounded-2xl.bg-white.lh-plain {
-      background: #fff !important;
-      border-color: #e2e8f0 !important;
-      border-radius: 1rem !important;
-      box-shadow: 0 1px 2px rgba(15, 23, 42, .05), 0 0 0 1px #e2e8f0 !important;
-      rotate: none;
-      transition: none;
-    }
-
-    main .rounded-2xl.bg-white.lh-plain::before {
-      display: none;
-    }
-
-    main .rounded-2xl.bg-white.lh-plain:hover,
-    main .rounded-2xl.bg-white.lh-plain.ring-1:hover {
-      rotate: none;
-      box-shadow: 0 1px 2px rgba(15, 23, 42, .05), 0 0 0 1px #e2e8f0 !important;
-    }
-
-    main .rounded-2xl.bg-white.lh-plain .text-slate-400 {
-      color: #94a3b8 !important
-    }
-
-    main .rounded-2xl.bg-white.lh-plain .text-slate-500 {
-      color: #64748b !important
-    }
-
-    main .rounded-2xl.bg-white.lh-plain table tbody tr:hover {
-      background: transparent;
-    }
-  
-        /* ============================================================
-           torn paper buttons (brand colors kept, edges hand-torn)
-           — token-exact class selectors so Tailwind *variant* classes
-           (aria-selected:bg-indigo-600, hover:bg-emerald-700, …) never match
-           ============================================================ */
-        button,
-        a.bg-indigo-600,
-        a.bg-emerald-600,
-        a.bg-emerald-700 {
-          clip-path: polygon(0% 5%,7% 2%,14% 8%,21% 3%,29% 9%,36% 2%,43% 7%,50% 1%,57% 8%,64% 4%,71% 9%,79% 3%,86% 7%,93% 2%,100% 4%,calc(100% - 1px) 20%,calc(100% - 3px) 40%,calc(100% - 1px) 60%,calc(100% - 2px) 80%,99% 100%,93% 95%,86% 99%,79% 93%,71% 98%,64% 92%,57% 97%,50% 91%,43% 98%,36% 93%,29% 99%,21% 92%,14% 97%,7% 94%,0% 96%,1px 80%,3px 60%,1px 40%,2px 20%);
-          transition: rotate .18s ease, transform .18s ease;
-        }
-
-        button:hover,
-        a.bg-indigo-600:hover,
-        a.bg-emerald-600:hover,
-        a.bg-emerald-700:hover {
-          rotate: .4deg;
-        }
-
-        button:active,
-        a.bg-indigo-600:active,
-        a.bg-emerald-600:active,
-        a.bg-emerald-700:active {
-          scale: .97;
-        }
-
-        button:focus-visible,
-        a.bg-indigo-600:focus-visible,
-        a.bg-emerald-600:focus-visible,
-        a.bg-emerald-700:focus-visible {
-          box-shadow: inset 0 0 0 2px rgba(4, 63, 46, .55) !important;
-        }
-
-        button.bg-indigo-600:focus-visible,
-        a.bg-indigo-600:focus-visible,
-        button.bg-emerald-600:focus-visible,
-        a.bg-emerald-600:focus-visible,
-        button.bg-emerald-700:focus-visible,
-        a.bg-emerald-700:focus-visible {
-          box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .85) !important;
-        }
-
-        /* lesson tab chips (🎬 Videos / 📄 Materials): plain tabs — no tear, no tilt */
-        main button[data-tab-btn] {
-          clip-path: none;
-          rotate: none;
-          background-image: none !important;
-          background-color: transparent;
-          box-shadow: none !important;
-        }
-
-        main button[data-tab-btn]:hover {
-          rotate: none;
-          background-color: #f1f5f9;
-        }
-
-        main button[data-tab-btn][aria-selected="true"] {
-          background-color: #4f46e5 !important;
-          color: #fff !important;
-        }
-
-        /* primary: indigo with paper grain + resting tilt */
-        button.bg-indigo-600,
-        a.bg-indigo-600 {
-          background-image:
-            repeating-linear-gradient(0deg, rgba(255, 255, 255, .07) 0 1px, transparent 1px 3px),
-            repeating-linear-gradient(90deg, rgba(255, 255, 255, .05) 0 1px, transparent 1px 4px),
-            linear-gradient(180deg, #4f46e5, #4338ca) !important;
-          box-shadow: 0 1px 2px rgba(31, 41, 33, .18) !important;
-          rotate: -.35deg;
-        }
-
-        button.bg-indigo-600:hover,
-        a.bg-indigo-600:hover {
-          rotate: .15deg;
-        }
-
-        /* primary (emerald, landing CTAs): paper grain + resting tilt */
-        button.bg-emerald-700,
-        a.bg-emerald-700 {
-          background-image:
-            repeating-linear-gradient(0deg, rgba(255, 255, 255, .07) 0 1px, transparent 1px 3px),
-            repeating-linear-gradient(90deg, rgba(255, 255, 255, .05) 0 1px, transparent 1px 4px),
-            linear-gradient(180deg, #047857, #065f46) !important;
-          box-shadow: 0 1px 2px rgba(31, 41, 33, .18) !important;
-          rotate: -.35deg;
-        }
-
-        button.bg-emerald-700:hover,
-        a.bg-emerald-700:hover {
-          rotate: .15deg;
-        }
-
-        /* primary (emerald-600 shade): paper grain + resting tilt */
-        button.bg-emerald-600,
-        a.bg-emerald-600 {
-          background-image:
-            repeating-linear-gradient(0deg, rgba(255, 255, 255, .07) 0 1px, transparent 1px 3px),
-            repeating-linear-gradient(90deg, rgba(255, 255, 255, .05) 0 1px, transparent 1px 4px),
-            linear-gradient(180deg, #059669, #047857) !important;
-          box-shadow: 0 1px 2px rgba(31, 41, 33, .18) !important;
-          rotate: -.35deg;
-        }
-
-        button.bg-emerald-600:hover,
-        a.bg-emerald-600:hover {
-          rotate: .15deg;
-        }
-
-        /* ghost: small cream paper scrap */
-        main button.border-slate-200,
-        a.border-slate-300 {
-          background: linear-gradient(180deg, #fdfbf5, #f8f4e9) !important;
-          border-color: #e6dfcd !important;
-          box-shadow: 0 1px 2px rgba(31, 41, 33, .12);
-        }
-
-        @media (prefers-reduced-motion:reduce) {
-
-          button,
-          a.bg-indigo-600,
-          a.bg-emerald-600,
-          a.bg-emerald-700 {
-            transition: none
-          }
-        }
-
+:root {
+  --lh-ink: #0f1f18;
+  --lh-body: #3d4f46;
+  --lh-mut: #64766c;
+  --lh-line: #e3eae5;
+  --lh-line-2: #edf2ee;
+  --lh-paper: #f5f8f6;
+  --lh-deep: #065f46;
+  --lh-brand: #059669;
+  --lh-mint: #10b981;
+  --lh-tint: #ecfdf5;
+  --lh-grad: linear-gradient(135deg, #047857 0%, #059669 55%, #10b981 100%);
+  --lh-display: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --lh-radius: 1rem;
+  --lh-shadow: 0 1px 2px rgba(15, 40, 30, .05), 0 12px 32px -20px rgba(15, 40, 30, .16);
+  --lh-shadow-hover: 0 2px 4px rgba(15, 40, 30, .06), 0 20px 44px -24px rgba(5, 150, 105, .28);
+}
+
+/* ---- canvas: calm paper-white, one soft glow ---- */
+body,
+body.lh-app {
+  background:
+    radial-gradient(1000px 480px at 85% -10%, rgba(5, 150, 105, .09), transparent 60%),
+    radial-gradient(760px 420px at -10% 20%, rgba(16, 185, 129, .05), transparent 55%),
+    var(--lh-paper) !important;
+}
+
+/* ---- type: Inter everywhere, balanced headings, aligned numbers ---- */
+body {
+  color: var(--lh-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+main h1,
+main h2,
+.lh-display {
+  font-family: var(--lh-display);
+  font-weight: 700;
+  letter-spacing: -.02em;
+  line-height: 1.15;
+  color: var(--lh-ink);
+  text-wrap: balance;
+}
+
+main h3 {
+  font-weight: 700;
+  letter-spacing: -.01em;
+  color: var(--lh-ink);
+}
+
+.lh-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--lh-brand);
+}
+
+.lh-num,
+[data-live-stat] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- topbar: brighter glass, hairline, quiet shadow ---- */
+nav.glass,
+.lh-topbar {
+  background: rgba(255, 255, 255, .88) !important;
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+}
+
+nav.glass {
+  box-shadow: 0 1px 0 var(--lh-line), 0 10px 30px -24px rgba(15, 40, 30, .3) !important;
+}
+
+nav.glass::after {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(5, 150, 105, .45), transparent);
+  opacity: .8;
+}
+
+.lh-topbar {
+  border-bottom: 1px solid var(--lh-line);
+}
+
+/* logo: keep the mark, calm the pulse, drop the tilt */
+.lh-logo {
+  background: var(--lh-grad);
+  box-shadow: 0 6px 16px -8px rgba(5, 150, 105, .55);
+}
+
+.lh-logo:hover {
+  transform: scale(1.04)
+}
+
+.lh-logo::before {
+  opacity: .22;
+  animation-duration: 6s
+}
+
+/* ---- sidebar: quiet white rail, emerald active pill with accent bar ---- */
+.lh-sidebar {
+  background: #fbfdfc !important;
+  border-right: 1px solid var(--lh-line);
+  box-shadow: none;
+}
+
+.lh-side-link {
+  color: var(--lh-body);
+  border-radius: 10px;
+  transition: background .15s, color .15s
+}
+
+.lh-side-link:hover {
+  background: #f2f8f4;
+  color: var(--lh-deep)
+}
+
+.lh-side-link.active {
+  background: var(--lh-tint) !important;
+  color: var(--lh-deep) !important;
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--lh-brand);
+}
+
+/* ---- buttons: one primary voice, quiet ghost ---- */
+main a.bg-indigo-600,
+main button.bg-indigo-600,
+main a.bg-indigo-700,
+main button.bg-indigo-700,
+nav a.px-4.bg-indigo-600,
+main a.bg-emerald-600,
+main button.bg-emerald-600,
+main a.bg-emerald-700,
+main button.bg-emerald-700 {
+  background-image: var(--lh-grad) !important;
+  background-color: #047857;
+  border-radius: .7rem !important;
+  box-shadow: 0 1px 2px rgba(6, 78, 59, .25), 0 10px 22px -14px rgba(5, 150, 105, .65) !important;
+  rotate: none !important;
+  transform: none;
+  transition: transform .15s ease, filter .15s ease, box-shadow .2s ease
+}
+
+main a.bg-indigo-600:hover,
+main button.bg-indigo-600:hover,
+main a.bg-indigo-700:hover,
+main button.bg-indigo-700:hover,
+main a.bg-emerald-600:hover,
+main button.bg-emerald-600:hover,
+main a.bg-emerald-700:hover,
+main button.bg-emerald-700:hover,
+nav a.px-4.bg-indigo-600:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+  box-shadow: 0 2px 4px rgba(6, 78, 59, .28), 0 16px 30px -16px rgba(5, 150, 105, .7) !important
+}
+
+main button.border-slate-200,
+main a.border-slate-300,
+main .border-slate-200.bg-white {
+  background: #fff !important;
+  border-color: var(--lh-line) !important;
+  border-radius: .7rem
+}
+
+/* ---- visible, on-brand focus ---- */
+main button:focus-visible,
+main a:focus-visible,
+main input:focus-visible,
+main select:focus-visible,
+main textarea:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, .35) !important
+}
+
+/* ---- indigo utilities join the brand (pages keep their classes) ---- */
+main .bg-indigo-50 { background: #ecfdf5 !important }
+main .bg-indigo-100 { background: #d1fae5 !important }
+main .bg-indigo-200 { background: #a7f3d0 !important }
+main .bg-indigo-600,
+main .bg-indigo-700 { background: var(--lh-deep) !important; background-image: none !important }
+main .text-indigo-400,
+main .text-indigo-500,
+main .text-indigo-600,
+main .text-indigo-700,
+main .text-indigo-800 { color: var(--lh-brand) !important }
+main .border-indigo-200,
+main .border-indigo-300 { border-color: #a7f3d0 !important }
+main .ring-indigo-100,
+main .ring-indigo-200,
+main .ring-indigo-300 {
+  --tw-ring-color: #a7f3d0 !important;
+  border-color: #a7f3d0 !important
+}
+main .hover\:bg-indigo-700:hover,
+main .hover\:bg-indigo-600:hover { background: #065f46 !important }
+main .hover\:text-indigo-600:hover,
+main .hover\:text-indigo-700:hover { color: #047857 !important }
+
+/* ---- cards: calm white sheets - straight, hairline, soft depth ---- */
+main .rounded-2xl.bg-white,
+main .rounded-3xl.bg-white,
+footer .rounded-2xl.bg-white {
+  position: relative;
+  background: #fff !important;
+  background-image: none !important;
+  border: 1px solid var(--lh-line) !important;
+  border-radius: var(--lh-radius) !important;
+  box-shadow: var(--lh-shadow) !important;
+  rotate: none !important;
+  transform: none !important;
+  transition: box-shadow .2s ease, translate .2s ease
+}
+
+main .rounded-2xl.bg-white::before,
+main .rounded-2xl.bg-white::after,
+main .rounded-3xl.bg-white::after {
+  display: none !important
+}
+
+main .rounded-2xl.bg-white:hover,
+main .rounded-3xl.bg-white.ring-1:hover {
+  box-shadow: var(--lh-shadow-hover) !important
+}
+
+main a.rounded-2xl.bg-white:hover,
+main a.rounded-3xl.bg-white:hover {
+  translate: 0 -2px
+}
+
+.modal-backdrop .bg-white {
+  border-radius: 1rem !important;
+  box-shadow: 0 24px 60px -24px rgba(6, 39, 28, .45) !important
+}
+
+/* ---- landing hero: clean panel, no theatre ---- */
+main>section.bg-gradient-to-r { animation: none !important }
+main>section.bg-gradient-to-r::before { display: none !important }
+
+.lh-hero {
+  background:
+    radial-gradient(120% 110% at 12% 0%, rgba(255, 255, 255, .6), transparent 55%),
+    linear-gradient(180deg, #f2faf5 0%, #e9f7ef 100%);
+  border: 1px solid #cfeadf;
+  border-radius: 1.25rem;
+  box-shadow: inset 0 1px 0 #fff, 0 18px 44px -26px rgba(5, 150, 105, .4)
+}
+
+.lh-hero-paper {
+  background: linear-gradient(180deg, #ffffff 0%, #fbfefc 100%);
+  border: 1px solid var(--lh-line);
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(15, 40, 30, .06), 0 14px 34px -20px rgba(15, 40, 30, .28);
+  transform: none !important
+}
+
+.lh-hero-paper::after { display: none }
+.lh-hero:hover .lh-hero-paper { transform: none }
+.lh-tape { display: none !important }
+
+.lh-feature-row { transition: background-color .15s }
+.lh-feature-row:hover { background: #f6faf7 }
+
+.lh-band { border-left: 1px solid var(--lh-line-2) }
+.lh-band:first-child { border-left: none }
+
+/* ---- lesson tab chips: quiet pills, brand when active ---- */
+main button[data-tab-btn] {
+  clip-path: none;
+  rotate: none;
+  background-image: none !important;
+  background-color: transparent;
+  box-shadow: none !important;
+  border-radius: .6rem
+}
+
+main button[data-tab-btn]:hover { background-color: #f1f5f9 }
+
+main button[data-tab-btn][aria-selected="true"] {
+  background-image: var(--lh-grad) !important;
+  background-color: #047857;
+  color: #fff !important;
+  box-shadow: 0 1px 2px rgba(6, 78, 59, .25) !important
+}
+
+/* ---- tables: hairline rows, small-caps headers ---- */
+main table thead th {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--lh-mut);
+  text-align: left
+}
+
+main table tbody tr { border-bottom: 1px solid var(--lh-line-2) }
+main table tbody tr:last-child { border-bottom: none }
+main table tbody tr:hover { background: #f7faf8 }
+
+/* ---- forms: one shape, gentle focus ---- */
+main input:not([type='checkbox']):not([type='radio']):not([type='file']),
+main select,
+main textarea {
+  border-color: #d9e3dc;
+  border-radius: .7rem;
+  background: #fff;
+  transition: border-color .15s ease, box-shadow .15s ease
+}
+
+main input:focus,
+main select:focus,
+main textarea:focus {
+  border-color: #34d399;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, .15)
+}
+
+/* ---- progress: brand gradient, rounded caps, smooth fill ---- */
+main .h-2>.h-full,
+main .h-2\.5>.h-full,
+main .h-3>.h-full {
+  background-image: var(--lh-grad) !important;
+  border-radius: 999px !important;
+  transition: width .5s cubic-bezier(.22, .61, .36, 1)
+}
+
+main .h-2>.h-full::after,
+main .h-2\.5>.h-full::after,
+main .h-3>.h-full::after {
+  content: '';
+  background: linear-gradient(180deg, rgba(255, 255, 255, .3), transparent 60%);
+  animation: none
+}
+
+/* ---- motion & small screens ---- */
+@media (prefers-reduced-motion:reduce) {
+
+  main .rounded-2xl.bg-white,
+  main a.rounded-2xl.bg-white,
+  main a.rounded-3xl.bg-white,
+  main .h-2>.h-full,
+  main .h-3>.h-full,
+  main button {
+    transition: none !important;
+    translate: none !important
+  }
+
+  .lh-logo::before { animation: none }
+}
+
+@media (max-width:640px) {
+
+  main .rounded-2xl.bg-white,
+  main .rounded-3xl.bg-white {
+    border-radius: .85rem !important
+  }
+}
 </style>
 </head>
 
