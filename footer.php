@@ -64,6 +64,64 @@
 })();
 </script>
 
-<script src="assets/app.js?v=16"></script>
+<script src="assets/app.js?v=17"></script>
+<script>
+/* Self-healing fallback for the invite-link buttons. If the browser served a
+   stale (or the host a missing) app.js — i.e. window.lhWireShare never appeared
+   — wire "🔗 Copy invite link" / "📤 Share…" right here, so the button always
+   works regardless of what app.js the visitor has. */
+(function () {
+  if (window.lhWireShare) return;
+  function fallbackCopy(text) {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '-1000px';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, ta.value.length);
+      var ok = document.execCommand('copy');
+      ta.remove();
+      if (ok) return true;
+    } catch (e) { /* fall through to the manual route */ }
+    window.prompt('Copy this link (long-press to select):', text);
+    return false;
+  }
+  function wire(root) {
+    var scope = root || document;
+    scope.querySelectorAll('[data-lh-copy]').forEach(function (btn) {
+      if (btn.dataset.lhWired) return;
+      btn.dataset.lhWired = '1';
+      btn.addEventListener('click', function () {
+        var text = btn.dataset.lhCopy || '';
+        var label = btn.dataset.lhLabel || btn.textContent;
+        function done(ok) {
+          btn.textContent = ok ? 'copied ✓' : 'select & copy';
+          setTimeout(function () { btn.textContent = label; }, 2200);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
+          navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(fallbackCopy(text)); });
+        } else {
+          done(fallbackCopy(text));
+        }
+      });
+    });
+    scope.querySelectorAll('[data-lh-share]').forEach(function (btn) {
+      if (btn.dataset.lhWired) return;
+      btn.dataset.lhWired = '1';
+      if (!navigator.share) { btn.style.display = 'none'; return; }
+      btn.addEventListener('click', function () {
+        navigator.share({ title: btn.dataset.lhShareTitle || document.title, text: btn.dataset.lhShareText || '', url: btn.dataset.lhShare }).catch(function () { });
+      });
+    });
+  }
+  window.lhWireShare = wire;
+  wire();
+})();
+</script>
+
 </body>
 </html>
