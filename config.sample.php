@@ -93,3 +93,12 @@ define('DB_PASS_LOCAL', '');            define('DB_PASS_PROD', 'your-mysql-passw
 // define('TURNSTILE_SITE_KEY',   '0x4AAAAAAA...');   // public, rendered in the form
 // define('TURNSTILE_SECRET_KEY', '0x4AAAAAAA...');   // private, used server-side
 
+/* Appearance. The site ships with two designs, both switchable from
+ * Settings → Appearance (no upload needed):
+ *   'bright'  — fresh & friendly: blue-white canvas, rounded cards, pill buttons
+ *   'emerald' — calm studio: emerald paper canvas, hairline cards
+ * Pinning it here overrides the saved setting for this machine.
+ */
+// define('UI_THEME', 'emerald');
+
+

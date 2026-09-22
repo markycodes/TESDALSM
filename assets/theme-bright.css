@@ -1,0 +1,559 @@
+/* ============================================================
+   LearnHub theme — "Fresh & friendly"
+   Cool blue-white canvas · rounded depthless cards · pill
+   buttons · emerald→teal gradient accent. Loaded after the
+   inline base theme in header.php; switchable in
+   Settings → Appearance.
+   ============================================================ */
+:root {
+  --lh-ink: #0e1b2c;
+  /* headings */
+  --lh-body: #46566b;
+  /* body text */
+  --lh-mut: #6b7c93;
+  /* muted text */
+  --lh-line: #e2ebf6;
+  /* hairline */
+  --lh-line-2: #eef4fb;
+  /* lighter hairline */
+  --lh-paper: #f4f8fd;
+  /* page canvas */
+  --lh-deep: #047857;
+  --lh-brand: #059669;
+  --lh-mint: #10b981;
+  --lh-teal: #0d9488;
+  --lh-tint: #e8fbf3;
+  --lh-grad: linear-gradient(135deg, #059669 0%, #0d9488 55%, #0891b2 100%);
+  --lh-display: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --lh-radius: 1.25rem;
+  --lh-shadow: 0 1px 2px rgba(14, 27, 44, .04), 0 16px 36px -24px rgba(14, 27, 44, .20);
+  --lh-shadow-hover: 0 2px 6px rgba(14, 27, 44, .06), 0 28px 52px -28px rgba(13, 148, 136, .34);
+}
+
+/* ---- canvas: cool blue-white with two colour blooms ---- */
+body,
+body.lh-app {
+  background:
+    radial-gradient(820px 420px at 12% -6%, rgba(5, 150, 105, .10), transparent 62%),
+    radial-gradient(900px 460px at 92% 4%, rgba(8, 145, 178, .10), transparent 60%),
+    var(--lh-paper) !important;
+}
+
+.lh-app {
+  background: transparent
+}
+
+/* ---- type ---- */
+body {
+  color: var(--lh-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  letter-spacing: -.005em
+}
+
+main h1,
+main h2,
+.lh-display {
+  font-family: var(--lh-display);
+  font-weight: 800;
+  letter-spacing: -.025em;
+  line-height: 1.12;
+  color: var(--lh-ink);
+  text-wrap: balance
+}
+
+main h1 {
+  font-size: clamp(1.65rem, 1.15rem + 1.4vw, 2.35rem)
+}
+
+main h3 {
+  font-weight: 700;
+  letter-spacing: -.012em;
+  color: var(--lh-ink)
+}
+
+/* kicker: small uppercase label with a gradient dash before it */
+.lh-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--lh-brand)
+}
+
+.lh-kicker::before {
+  content: '';
+  width: 18px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--lh-grad)
+}
+
+.lh-num,
+[data-live-stat] {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.02em
+}
+
+/* landing stats: numbers get the brand gradient */
+.lh-band .lh-num {
+  background: var(--lh-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent
+}
+
+/* ---- topbar: bright glass, hairline, no heavy shadow ---- */
+nav.glass,
+.lh-topbar {
+  background: rgba(255, 255, 255, .82) !important;
+  backdrop-filter: blur(14px) saturate(1.5);
+  -webkit-backdrop-filter: blur(14px) saturate(1.5);
+  border-bottom: 1px solid var(--lh-line)
+}
+
+nav.glass {
+  box-shadow: 0 10px 30px -26px rgba(14, 27, 44, .35) !important
+}
+
+nav.glass::after {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(5, 150, 105, .45), rgba(8, 145, 178, .35), transparent);
+  opacity: .9
+}
+
+/* nav links become pills on hover */
+nav.glass a:not(.lh-logo):not([class*='bg-']):hover,
+.lh-topbar a:not([class*='bg-']):hover {
+  background: rgba(5, 150, 105, .08);
+  border-radius: 999px
+}
+
+/* ---- logo mark ---- */
+.lh-logo {
+  background: var(--lh-grad);
+  border-radius: 14px;
+  box-shadow: 0 8px 20px -10px rgba(13, 148, 136, .6);
+  transition: transform .2s ease
+}
+
+.lh-logo:hover {
+  transform: scale(1.05) rotate(-2deg)
+}
+
+.lh-logo::before {
+  opacity: .25;
+  animation-duration: 5s
+}
+
+/* ---- sidebar: white rail, active item is a gradient pill ---- */
+.lh-sidebar {
+  background: #fff !important;
+  border-right: 1px solid var(--lh-line);
+  box-shadow: 12px 0 34px -30px rgba(14, 27, 44, .35)
+}
+
+.lh-side-sec {
+  color: var(--lh-mut);
+  font-weight: 700
+}
+
+.lh-side-link {
+  color: var(--lh-body);
+  border-radius: 999px;
+  transition: background .16s ease, color .16s ease, box-shadow .2s ease
+}
+
+.lh-side-link:hover {
+  background: #f1f9f6;
+  color: var(--lh-deep)
+}
+
+.lh-side-link.active {
+  background: var(--lh-grad) !important;
+  color: #fff !important;
+  font-weight: 600;
+  box-shadow: 0 10px 22px -14px rgba(13, 148, 136, .75)
+}
+
+.lh-side-link.active .lh-side-ico,
+.lh-side-link.active svg {
+  color: #fff !important
+}
+
+/* ---- buttons: pill primaries with a gradient, white pill ghosts ---- */
+main a.bg-indigo-600,
+main button.bg-indigo-600,
+main a.bg-indigo-700,
+main button.bg-indigo-700,
+nav a.px-4.bg-indigo-600,
+main a.bg-emerald-600,
+main button.bg-emerald-600,
+main a.bg-emerald-700,
+main button.bg-emerald-700 {
+  background-image: var(--lh-grad) !important;
+  background-color: #0d9488;
+  border: none !important;
+  border-radius: 999px !important;
+  box-shadow: 0 2px 4px rgba(6, 78, 59, .18), 0 14px 26px -14px rgba(13, 148, 136, .7) !important;
+  rotate: none !important;
+  transform: none;
+  transition: transform .16s ease, filter .16s ease, box-shadow .2s ease
+}
+
+main a.bg-indigo-600:hover,
+main button.bg-indigo-600:hover,
+main a.bg-indigo-700:hover,
+main button.bg-indigo-700:hover,
+main a.bg-emerald-600:hover,
+main button.bg-emerald-600:hover,
+main a.bg-emerald-700:hover,
+main button.bg-emerald-700:hover,
+nav a.px-4.bg-indigo-600:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.04);
+  box-shadow: 0 3px 8px rgba(6, 78, 59, .2), 0 22px 36px -16px rgba(13, 148, 136, .8) !important
+}
+
+/* ghosts: white pills */
+main button.border-slate-200,
+main a.border-slate-300,
+main .border-slate-200.bg-white {
+  background: #fff !important;
+  border-color: var(--lh-line) !important;
+  border-radius: 999px
+}
+
+main button.border-slate-200:hover,
+main a.border-slate-300:hover {
+  border-color: #bfe9d8 !important;
+  box-shadow: 0 8px 18px -14px rgba(13, 148, 136, .5)
+}
+
+/* ---- focus: always visible, always on brand ---- */
+main button:focus-visible,
+main a:focus-visible,
+main input:focus-visible,
+main select:focus-visible,
+main textarea:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, .38) !important
+}
+
+/* ---- indigo utility classes join the brand ---- */
+main .bg-indigo-50 {
+  background: #e9fbf3 !important
+}
+
+main .bg-indigo-100 {
+  background: #d4f5e6 !important
+}
+
+main .bg-indigo-200 {
+  background: #a7f3d0 !important
+}
+
+main .bg-indigo-600,
+main .bg-indigo-700 {
+  background: var(--lh-deep) !important;
+  background-image: none !important
+}
+
+main .text-indigo-400,
+main .text-indigo-500,
+main .text-indigo-600,
+main .text-indigo-700,
+main .text-indigo-800 {
+  color: var(--lh-brand) !important
+}
+
+main .border-indigo-200,
+main .border-indigo-300 {
+  border-color: #a7f3d0 !important
+}
+
+main .ring-indigo-100,
+main .ring-indigo-200,
+main .ring-indigo-300 {
+  --tw-ring-color: #a7f3d0 !important;
+  border-color: #a7f3d0 !important
+}
+
+main .hover\:bg-indigo-600:hover,
+main .hover\:bg-indigo-700:hover {
+  background: #065f46 !important
+}
+
+main .hover\:text-indigo-600:hover,
+main .hover\:text-indigo-700:hover {
+  color: var(--lh-brand) !important
+}
+
+/* ---- cards: soft, borderless, generous radius, lift on hover ---- */
+main .rounded-2xl.bg-white,
+main .rounded-3xl.bg-white,
+footer .rounded-2xl.bg-white,
+main .lh-plain.rounded-2xl {
+  position: relative;
+  background: #fff !important;
+  background-image: none !important;
+  border: 1px solid #edf2f9 !important;
+  border-radius: var(--lh-radius) !important;
+  box-shadow: var(--lh-shadow) !important;
+  rotate: none !important;
+  transform: none !important;
+  transition: box-shadow .22s ease, transform .22s ease
+}
+
+main .rounded-2xl.bg-white::before,
+main .rounded-2xl.bg-white::after,
+main .rounded-3xl.bg-white::after {
+  display: none !important
+}
+
+main .rounded-2xl.bg-white.ring-1:hover,
+main .rounded-3xl.bg-white.ring-1:hover,
+main .rounded-2xl.bg-white.shadow-sm:hover {
+  box-shadow: var(--lh-shadow-hover) !important
+}
+
+/* clickable cards: rise + a gradient cap along the top edge */
+main a.rounded-2xl.bg-white,
+main a.rounded-3xl.bg-white {
+  transition: box-shadow .22s ease, transform .22s ease
+}
+
+main a.rounded-2xl.bg-white::before,
+main a.rounded-3xl.bg-white::before {
+  content: '';
+  display: block !important;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  border-radius: var(--lh-radius) var(--lh-radius) 0 0;
+  background: var(--lh-grad);
+  opacity: .85
+}
+
+main a.rounded-2xl.bg-white:hover,
+main a.rounded-3xl.bg-white:hover {
+  transform: translateY(-3px)
+}
+
+/* dialogs: same geometry, deeper shadow */
+.modal-backdrop .bg-white {
+  border-radius: var(--lh-radius) !important;
+  box-shadow: 0 30px 70px -28px rgba(6, 39, 28, .5) !important
+}
+
+/* ---- landing: feature rows + stats band ---- */
+.lh-feature-row {
+  transition: background-color .18s ease, box-shadow .18s ease
+}
+
+.lh-feature-row:hover {
+  background: #f5fbff;
+  box-shadow: inset 3px 0 0 var(--lh-teal)
+}
+
+.lh-band {
+  border-left: 1px solid var(--lh-line-2)
+}
+
+.lh-band:first-child {
+  border-left: none
+}
+
+/* hero classes (kept for pages that use the older markup) */
+main>section.bg-gradient-to-r {
+  animation: none !important
+}
+
+main>section.bg-gradient-to-r::before {
+  display: none !important
+}
+
+.lh-hero {
+  background:
+    radial-gradient(120% 110% at 10% 0%, rgba(255, 255, 255, .7), transparent 55%),
+    linear-gradient(180deg, #f3fbf7 0%, #eaf7f4 100%);
+  border: 1px solid #d5ede2;
+  border-radius: 1.5rem;
+  box-shadow: inset 0 1px 0 #fff, 0 20px 46px -28px rgba(13, 148, 136, .45)
+}
+
+.lh-hero-paper {
+  background: #fff;
+  border: 1px solid var(--lh-line);
+  border-radius: var(--lh-radius);
+  box-shadow: var(--lh-shadow);
+  transform: none !important
+}
+
+.lh-hero-paper::after {
+  display: none
+}
+
+.lh-hero:hover .lh-hero-paper {
+  transform: none
+}
+
+.lh-tape {
+  display: none !important
+}
+
+/* ---- lesson tabs: pill chips ---- */
+main button[data-tab-btn] {
+  clip-path: none;
+  rotate: none;
+  background-image: none !important;
+  background-color: #f1f5f9;
+  box-shadow: none !important;
+  border: none !important;
+  border-radius: 999px;
+  transition: background-color .16s ease, color .16s ease
+}
+
+main button[data-tab-btn]:hover {
+  background-color: #e6f7f1
+}
+
+main button[data-tab-btn][aria-selected='true'] {
+  background-image: var(--lh-grad) !important;
+  background-color: var(--lh-teal);
+  color: #fff !important;
+  box-shadow: 0 8px 18px -12px rgba(13, 148, 136, .8) !important
+}
+
+/* ---- tables: zebra rows, small-caps headers ---- */
+main table thead th {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--lh-mut);
+  text-align: left;
+  padding-bottom: .5rem
+}
+
+main table tbody tr {
+  border-bottom: 1px solid var(--lh-line-2)
+}
+
+main table tbody tr:nth-child(even) {
+  background: #fafcff
+}
+
+main table tbody tr:hover {
+  background: #f2fbf7
+}
+
+main table tbody tr:last-child {
+  border-bottom: none
+}
+
+/* ---- forms: soft rounded controls, emerald focus ---- */
+main input:not([type='checkbox']):not([type='radio']):not([type='file']),
+main select,
+main textarea {
+  border-color: #dbe6f3;
+  border-radius: .8rem;
+  background: #fff;
+  transition: border-color .15s ease, box-shadow .15s ease
+}
+
+main input::placeholder,
+main textarea::placeholder {
+  color: #9aa9bd
+}
+
+main input:focus,
+main select:focus,
+main textarea:focus {
+  border-color: #34d399;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, .16)
+}
+
+/* progress: pill track, gradient fill. The :has() guard keeps the track
+   tint to real progress bars — .h-2/.h-3 are also plain height utilities. */
+main .h-2:has(>.h-full),
+main .h-2\.5:has(>.h-full),
+main .h-3:has(>.h-full) {
+  border-radius: 999px !important;
+  background: #eef4fb !important
+}
+
+main .h-2>.h-full,
+main .h-2\.5>.h-full,
+main .h-3>.h-full {
+  background-image: var(--lh-grad) !important;
+  border-radius: 999px !important;
+  transition: width .55s cubic-bezier(.22, .61, .36, 1)
+}
+
+main .h-2>.h-full::after,
+main .h-2\.5>.h-full::after,
+main .h-3>.h-full::after {
+  content: '';
+  background: linear-gradient(180deg, rgba(255, 255, 255, .35), transparent 60%);
+  animation: none
+}
+
+/* ---- links + scrollbars ---- */
+main a {
+  transition: color .15s ease
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #a8d5ee transparent
+}
+
+/* ---- motion & small screens ---- */
+@media (prefers-reduced-motion:reduce) {
+
+  main a.rounded-2xl.bg-white,
+  main a.rounded-3xl.bg-white,
+  main .rounded-2xl.bg-white,
+  main button,
+  main a.bg-emerald-600,
+  main a.bg-emerald-700,
+  main a.bg-indigo-600,
+  main .h-2>.h-full,
+  main .h-3>.h-full,
+  .lh-logo,
+  .lh-hero-paper {
+    transition: none !important;
+    transform: none !important;
+    translate: none !important
+  }
+
+  .lh-logo::before {
+    animation: none
+  }
+}
+
+@media (max-width:640px) {
+
+  main .rounded-2xl.bg-white,
+  main .rounded-3xl.bg-white,
+  main .lh-plain.rounded-2xl {
+    border-radius: 1rem !important
+  }
+
+  main h1 {
+    font-size: 1.6rem
+  }
+
+  .lh-kicker::before {
+    width: 12px
+  }
+}
+
+

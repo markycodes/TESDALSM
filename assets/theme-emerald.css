@@ -1,0 +1,364 @@
+/* ============================================================
+   LearnHub v6 — modern learner theme (single consolidated layer)
+   One voice: Inter everywhere · emerald accent · calm neutral
+   canvas · soft depth. Replaces the old v3/v3.5/v4/v5 override
+   stack wholesale; the v2 structural base stays.
+   ============================================================ */
+:root {
+  --lh-ink: #0f1f18;
+  --lh-body: #3d4f46;
+  --lh-mut: #64766c;
+  --lh-line: #e3eae5;
+  --lh-line-2: #edf2ee;
+  --lh-paper: #f5f8f6;
+  --lh-deep: #065f46;
+  --lh-brand: #059669;
+  --lh-mint: #10b981;
+  --lh-tint: #ecfdf5;
+  --lh-grad: linear-gradient(135deg, #047857 0%, #059669 55%, #10b981 100%);
+  --lh-display: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --lh-radius: 1rem;
+  --lh-shadow: 0 1px 2px rgba(15, 40, 30, .05), 0 12px 32px -20px rgba(15, 40, 30, .16);
+  --lh-shadow-hover: 0 2px 4px rgba(15, 40, 30, .06), 0 20px 44px -24px rgba(5, 150, 105, .28);
+}
+
+/* ---- canvas: calm paper-white, one soft glow ---- */
+body,
+body.lh-app {
+  background:
+    radial-gradient(1000px 480px at 85% -10%, rgba(5, 150, 105, .09), transparent 60%),
+    radial-gradient(760px 420px at -10% 20%, rgba(16, 185, 129, .05), transparent 55%),
+    var(--lh-paper) !important;
+}
+
+/* ---- type: Inter everywhere, balanced headings, aligned numbers ---- */
+body {
+  color: var(--lh-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+main h1,
+main h2,
+.lh-display {
+  font-family: var(--lh-display);
+  font-weight: 700;
+  letter-spacing: -.02em;
+  line-height: 1.15;
+  color: var(--lh-ink);
+  text-wrap: balance;
+}
+
+main h3 {
+  font-weight: 700;
+  letter-spacing: -.01em;
+  color: var(--lh-ink);
+}
+
+.lh-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--lh-brand);
+}
+
+.lh-num,
+[data-live-stat] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- topbar: brighter glass, hairline, quiet shadow ---- */
+nav.glass,
+.lh-topbar {
+  background: rgba(255, 255, 255, .88) !important;
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+}
+
+nav.glass {
+  box-shadow: 0 1px 0 var(--lh-line), 0 10px 30px -24px rgba(15, 40, 30, .3) !important;
+}
+
+nav.glass::after {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(5, 150, 105, .45), transparent);
+  opacity: .8;
+}
+
+.lh-topbar {
+  border-bottom: 1px solid var(--lh-line);
+}
+
+/* logo: keep the mark, calm the pulse, drop the tilt */
+.lh-logo {
+  background: var(--lh-grad);
+  box-shadow: 0 6px 16px -8px rgba(5, 150, 105, .55);
+}
+
+.lh-logo:hover {
+  transform: scale(1.04)
+}
+
+.lh-logo::before {
+  opacity: .22;
+  animation-duration: 6s
+}
+
+/* ---- sidebar: quiet white rail, emerald active pill with accent bar ---- */
+.lh-sidebar {
+  background: #fbfdfc !important;
+  border-right: 1px solid var(--lh-line);
+  box-shadow: none;
+}
+
+.lh-side-link {
+  color: var(--lh-body);
+  border-radius: 10px;
+  transition: background .15s, color .15s
+}
+
+.lh-side-link:hover {
+  background: #f2f8f4;
+  color: var(--lh-deep)
+}
+
+.lh-side-link.active {
+  background: var(--lh-tint) !important;
+  color: var(--lh-deep) !important;
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--lh-brand);
+}
+
+/* ---- buttons: one primary voice, quiet ghost ---- */
+main a.bg-indigo-600,
+main button.bg-indigo-600,
+main a.bg-indigo-700,
+main button.bg-indigo-700,
+nav a.px-4.bg-indigo-600,
+main a.bg-emerald-600,
+main button.bg-emerald-600,
+main a.bg-emerald-700,
+main button.bg-emerald-700 {
+  background-image: var(--lh-grad) !important;
+  background-color: #047857;
+  border-radius: .7rem !important;
+  box-shadow: 0 1px 2px rgba(6, 78, 59, .25), 0 10px 22px -14px rgba(5, 150, 105, .65) !important;
+  rotate: none !important;
+  transform: none;
+  transition: transform .15s ease, filter .15s ease, box-shadow .2s ease
+}
+
+main a.bg-indigo-600:hover,
+main button.bg-indigo-600:hover,
+main a.bg-indigo-700:hover,
+main button.bg-indigo-700:hover,
+main a.bg-emerald-600:hover,
+main button.bg-emerald-600:hover,
+main a.bg-emerald-700:hover,
+main button.bg-emerald-700:hover,
+nav a.px-4.bg-indigo-600:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+  box-shadow: 0 2px 4px rgba(6, 78, 59, .28), 0 16px 30px -16px rgba(5, 150, 105, .7) !important
+}
+
+main button.border-slate-200,
+main a.border-slate-300,
+main .border-slate-200.bg-white {
+  background: #fff !important;
+  border-color: var(--lh-line) !important;
+  border-radius: .7rem
+}
+
+/* ---- visible, on-brand focus ---- */
+main button:focus-visible,
+main a:focus-visible,
+main input:focus-visible,
+main select:focus-visible,
+main textarea:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, .35) !important
+}
+
+/* ---- indigo utilities join the brand (pages keep their classes) ---- */
+main .bg-indigo-50 { background: #ecfdf5 !important }
+main .bg-indigo-100 { background: #d1fae5 !important }
+main .bg-indigo-200 { background: #a7f3d0 !important }
+main .bg-indigo-600,
+main .bg-indigo-700 { background: var(--lh-deep) !important; background-image: none !important }
+main .text-indigo-400,
+main .text-indigo-500,
+main .text-indigo-600,
+main .text-indigo-700,
+main .text-indigo-800 { color: var(--lh-brand) !important }
+main .border-indigo-200,
+main .border-indigo-300 { border-color: #a7f3d0 !important }
+main .ring-indigo-100,
+main .ring-indigo-200,
+main .ring-indigo-300 {
+  --tw-ring-color: #a7f3d0 !important;
+  border-color: #a7f3d0 !important
+}
+main .hover\:bg-indigo-700:hover,
+main .hover\:bg-indigo-600:hover { background: #065f46 !important }
+main .hover\:text-indigo-600:hover,
+main .hover\:text-indigo-700:hover { color: #047857 !important }
+
+/* ---- cards: calm white sheets - straight, hairline, soft depth ---- */
+main .rounded-2xl.bg-white,
+main .rounded-3xl.bg-white,
+footer .rounded-2xl.bg-white {
+  position: relative;
+  background: #fff !important;
+  background-image: none !important;
+  border: 1px solid var(--lh-line) !important;
+  border-radius: var(--lh-radius) !important;
+  box-shadow: var(--lh-shadow) !important;
+  rotate: none !important;
+  transform: none !important;
+  transition: box-shadow .2s ease, translate .2s ease
+}
+
+main .rounded-2xl.bg-white::before,
+main .rounded-2xl.bg-white::after,
+main .rounded-3xl.bg-white::after {
+  display: none !important
+}
+
+main .rounded-2xl.bg-white:hover,
+main .rounded-3xl.bg-white.ring-1:hover {
+  box-shadow: var(--lh-shadow-hover) !important
+}
+
+main a.rounded-2xl.bg-white:hover,
+main a.rounded-3xl.bg-white:hover {
+  translate: 0 -2px
+}
+
+.modal-backdrop .bg-white {
+  border-radius: 1rem !important;
+  box-shadow: 0 24px 60px -24px rgba(6, 39, 28, .45) !important
+}
+
+/* ---- landing hero: clean panel, no theatre ---- */
+main>section.bg-gradient-to-r { animation: none !important }
+main>section.bg-gradient-to-r::before { display: none !important }
+
+.lh-hero {
+  background:
+    radial-gradient(120% 110% at 12% 0%, rgba(255, 255, 255, .6), transparent 55%),
+    linear-gradient(180deg, #f2faf5 0%, #e9f7ef 100%);
+  border: 1px solid #cfeadf;
+  border-radius: 1.25rem;
+  box-shadow: inset 0 1px 0 #fff, 0 18px 44px -26px rgba(5, 150, 105, .4)
+}
+
+.lh-hero-paper {
+  background: linear-gradient(180deg, #ffffff 0%, #fbfefc 100%);
+  border: 1px solid var(--lh-line);
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(15, 40, 30, .06), 0 14px 34px -20px rgba(15, 40, 30, .28);
+  transform: none !important
+}
+
+.lh-hero-paper::after { display: none }
+.lh-hero:hover .lh-hero-paper { transform: none }
+.lh-tape { display: none !important }
+
+.lh-feature-row { transition: background-color .15s }
+.lh-feature-row:hover { background: #f6faf7 }
+
+.lh-band { border-left: 1px solid var(--lh-line-2) }
+.lh-band:first-child { border-left: none }
+
+/* ---- lesson tab chips: quiet pills, brand when active ---- */
+main button[data-tab-btn] {
+  clip-path: none;
+  rotate: none;
+  background-image: none !important;
+  background-color: transparent;
+  box-shadow: none !important;
+  border-radius: .6rem
+}
+
+main button[data-tab-btn]:hover { background-color: #f1f5f9 }
+
+main button[data-tab-btn][aria-selected="true"] {
+  background-image: var(--lh-grad) !important;
+  background-color: #047857;
+  color: #fff !important;
+  box-shadow: 0 1px 2px rgba(6, 78, 59, .25) !important
+}
+
+/* ---- tables: hairline rows, small-caps headers ---- */
+main table thead th {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--lh-mut);
+  text-align: left
+}
+
+main table tbody tr { border-bottom: 1px solid var(--lh-line-2) }
+main table tbody tr:last-child { border-bottom: none }
+main table tbody tr:hover { background: #f7faf8 }
+
+/* ---- forms: one shape, gentle focus ---- */
+main input:not([type='checkbox']):not([type='radio']):not([type='file']),
+main select,
+main textarea {
+  border-color: #d9e3dc;
+  border-radius: .7rem;
+  background: #fff;
+  transition: border-color .15s ease, box-shadow .15s ease
+}
+
+main input:focus,
+main select:focus,
+main textarea:focus {
+  border-color: #34d399;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, .15)
+}
+
+/* ---- progress: brand gradient, rounded caps, smooth fill ---- */
+main .h-2>.h-full,
+main .h-2\.5>.h-full,
+main .h-3>.h-full {
+  background-image: var(--lh-grad) !important;
+  border-radius: 999px !important;
+  transition: width .5s cubic-bezier(.22, .61, .36, 1)
+}
+
+main .h-2>.h-full::after,
+main .h-2\.5>.h-full::after,
+main .h-3>.h-full::after {
+  content: '';
+  background: linear-gradient(180deg, rgba(255, 255, 255, .3), transparent 60%);
+  animation: none
+}
+
+/* ---- motion & small screens ---- */
+@media (prefers-reduced-motion:reduce) {
+
+  main .rounded-2xl.bg-white,
+  main a.rounded-2xl.bg-white,
+  main a.rounded-3xl.bg-white,
+  main .h-2>.h-full,
+  main .h-3>.h-full,
+  main button {
+    transition: none !important;
+    translate: none !important
+  }
+
+  .lh-logo::before { animation: none }
+}
+
+@media (max-width:640px) {
+
+  main .rounded-2xl.bg-white,
+  main .rounded-3xl.bg-white {
+    border-radius: .85rem !important
+  }
+}

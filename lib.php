@@ -287,6 +287,58 @@ function setting_set(string $k, string $v): void
     } catch (Throwable $e) { /* ignore */ }
 }
 
+/* ---------------- appearance / theme ---------------- */
+
+/** The design shipped as the default (see ui_theme_choices() below). */
+if (!defined('UI_THEME_DEFAULT')) define('UI_THEME_DEFAULT', 'bright');
+
+/** The designs a site can pick from (Settings → Appearance).
+ *  Each key maps to assets/theme-<key>.css, which is loaded after the
+ *  inline base theme in header.php. Add a file + an entry here to offer
+ *  another design; nothing else needs changing. */
+function ui_theme_choices(): array
+{
+    return [
+        'bright' => [
+            'Fresh & friendly',
+            'Cool blue-white canvas, soft rounded cards with a gradient cap, pill buttons, emerald→teal accent.',
+        ],
+        'emerald' => [
+            'Calm studio',
+            'Emerald paper canvas, hairline cards, quiet depth, straight solid buttons.',
+        ],
+    ];
+}
+
+/** Which design this site uses — config.php can pin it with UI_THEME,
+ *  otherwise the saved setting decides, otherwise the default below. */
+function ui_theme(): string
+{
+    $pinned = defined('UI_THEME') ? strtolower(trim((string) UI_THEME)) : '';
+    $key    = $pinned !== '' ? $pinned : strtolower(trim(setting_get('ui_theme', '')));
+    return isset(ui_theme_choices()[$key]) ? $key : UI_THEME_DEFAULT;
+}
+
+/** Stylesheet path of the chosen design, or '' when the file is missing —
+ *  the inline base theme still styles every page in that case, so a
+ *  half-finished upload never leaves the site unstyled. */
+function ui_theme_file(): string
+{
+    $f = 'assets/theme-' . ui_theme() . '.css';
+    return is_file(__DIR__ . '/' . $f) ? $f : '';
+}
+
+/** Same path with a cache-busting stamp — a re-uploaded theme is picked up
+ *  immediately, with no hard refresh and no stale CSS in the browser. */
+function ui_theme_url(): string
+{
+    $f = ui_theme_file();
+    if ($f === '') return '';
+    $v = (int) @filemtime(__DIR__ . '/' . $f);
+    return $v > 0 ? $f . '?v=' . $v : $f;
+}
+
+
 /** Default sender when nothing is set: the first (admin) teacher account. Keeps
  *  the address out of the source code while still giving a fresh deploy with no
  *  config.php a sensible sender. */
