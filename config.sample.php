@@ -101,4 +101,10 @@ define('DB_PASS_LOCAL', '');            define('DB_PASS_PROD', 'your-mysql-passw
  */
 // define('UI_THEME', 'emerald');
 
+/* Spacing density of the logged-in pages (Settings → Appearance):
+ *   'compact'     — tighter rhythm, smaller stat tiles, more rows per screen
+ *   'comfortable' — each theme's roomier default
+ */
+// define('UI_DENSITY', 'comfortable');
+
 

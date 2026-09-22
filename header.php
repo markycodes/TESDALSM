@@ -1492,6 +1492,10 @@ a.lh-launch-go:hover {
   <?php if ($lh_theme_css !== ''): ?>
     <link rel="stylesheet" href="<?= e($lh_theme_css) ?>">
   <?php endif; ?>
+  <?php $lh_density_css = $user ? ui_density_url() : ''; ?>
+  <?php if ($lh_density_css !== ''): ?>
+    <link rel="stylesheet" href="<?= e($lh_density_css) ?>">
+  <?php endif; ?>
 </head>
 
 <body class="flex min-h-screen flex-col font-sans text-slate-800<?= $user ? ' lh-app' : '' ?>" <?= $user ? ' data-heartbeat="1"' : '' ?>>

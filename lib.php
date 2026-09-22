@@ -332,6 +332,49 @@ function ui_theme_file(): string
     return is_file(__DIR__ . '/' . $f) ? $f : '';
 }
 
+/** Spacing density of the app shell. 'compact' trims the rhythm so a
+ *  dashboard shows more data per screen; 'comfortable' keeps each theme's
+ *  roomier defaults. Public pages are unaffected either way. */
+if (!defined('UI_DENSITY_DEFAULT')) define('UI_DENSITY_DEFAULT', 'compact');
+
+function ui_density_choices(): array
+{
+    return [
+        'compact' => [
+            'Compact',
+            'Tighter spacing, smaller stat tiles, denser tables — more rows and numbers on one screen.',
+        ],
+        'comfortable' => [
+            'Comfortable',
+            'Roomier spacing and larger touch targets, as each theme ships by default.',
+        ],
+    ];
+}
+
+function ui_density(): string
+{
+    $pinned = defined('UI_DENSITY') ? strtolower(trim((string) UI_DENSITY)) : '';
+    $key    = $pinned !== '' ? $pinned : strtolower(trim(setting_get('ui_density', '')));
+    return isset(ui_density_choices()[$key]) ? $key : UI_DENSITY_DEFAULT;
+}
+
+/** Extra stylesheet for the chosen density, or '' when none applies. */
+function ui_density_file(): string
+{
+    if (ui_density() === 'comfortable') return '';
+    $f = 'assets/density-' . ui_density() . '.css';
+    return is_file(__DIR__ . '/' . $f) ? $f : '';
+}
+
+/** Same path with a cache-busting stamp, for the <link> tag. */
+function ui_density_url(): string
+{
+    $f = ui_density_file();
+    if ($f === '') return '';
+    $v = (int) @filemtime(__DIR__ . '/' . $f);
+    return $v > 0 ? $f . '?v=' . $v : $f;
+}
+
 /** Same path with a cache-busting stamp — a re-uploaded theme is picked up
  *  immediately, with no hard refresh and no stale CSS in the browser. */
 function ui_theme_url(): string

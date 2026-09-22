@@ -77,11 +77,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         setting_set('turnstile_secret_key', '');
         set_flash('success', 'Turnstile keys removed — registration falls back to the built-in question.');
     } elseif ($action === 'save_theme') {
-        /* appearance — see ui_theme*() in lib.php */
+        /* appearance — see ui_theme*() / ui_density*() in lib.php */
         $theme = strtolower(trim((string) ($_POST['ui_theme'] ?? '')));
         if (!isset(ui_theme_choices()[$theme])) $theme = UI_THEME_DEFAULT;
         setting_set('ui_theme', $theme);
-        set_flash('success', 'Appearance saved — every page now uses “' . ui_theme_choices()[$theme][0] . '”.');
+        $dens = strtolower(trim((string) ($_POST['ui_density'] ?? '')));
+        if (!isset(ui_density_choices()[$dens])) $dens = UI_DENSITY_DEFAULT;
+        setting_set('ui_density', $dens);
+        set_flash('success', 'Appearance saved — “' . ui_theme_choices()[$theme][0] . '” at '
+            . ui_density_choices()[$dens][0] . ' density.');
     }
     header('Location: settings.php');
     exit;
@@ -380,8 +384,9 @@ require __DIR__ . '/header.php';
     <input type="hidden" name="action" value="save_theme">
     <h2 class="text-base font-bold text-slate-900">🎨 Appearance</h2>
     <p class="mt-1 text-sm text-slate-600">
-      Which design every page uses. Both share the same layout and content — only the look changes, and you can
-      switch back at any time. Currently in use: <b><?= e(ui_theme_choices()[ui_theme()][0]) ?></b>.
+      Which design every page uses, and how tightly the logged-in pages are packed. Both share the same layout and
+      content — only the look changes, and you can switch back at any time. Currently in use:
+      <b><?= e(ui_theme_choices()[ui_theme()][0]) ?></b> at <b><?= e(strtolower(ui_density_choices()[ui_density()][0])) ?></b> density.
     </p>
     <?php if (defined('UI_THEME') && UI_THEME !== ''): ?>
       <p class="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800">
@@ -405,12 +410,37 @@ require __DIR__ . '/header.php';
       <?php endforeach; ?>
     </div>
 
+    <div class="mt-5 border-t border-slate-100 pt-4">
+      <h3 class="text-sm font-bold text-slate-900">Density</h3>
+      <p class="mt-1 text-xs text-slate-500">
+        How tightly the logged-in pages are packed. Compact fits more rows and numbers on one screen — public pages
+        (landing, log in, register) always keep their roomier spacing.
+      </p>
+      <div class="mt-3 grid gap-3 sm:grid-cols-2">
+        <?php foreach (ui_density_choices() as $dkey => $dinfo): $dOn = ui_density() === $dkey; ?>
+          <label class="cursor-pointer rounded-2xl border p-4 transition <?= $dOn
+              ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200'
+              : 'border-slate-200 bg-white hover:border-slate-300' ?>">
+            <span class="flex items-center gap-2">
+              <input type="radio" name="ui_density" value="<?= e($dkey) ?>" <?= $dOn ? 'checked' : '' ?> class="h-4 w-4">
+              <span class="text-sm font-semibold text-slate-900"><?= e($dinfo[0]) ?></span>
+              <?php if ($dOn): ?><span class="rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white">in use</span><?php endif; ?>
+            </span>
+            <span class="mt-1 block text-xs leading-5 text-slate-500"><?= e($dinfo[1]) ?></span>
+            <span class="mt-2 block text-[11px] font-semibold text-slate-400">
+              <?= ui_density_file() === '' ? 'no extra stylesheet' : e('assets/density-' . $dkey . '.css') ?></span>
+          </label>
+        <?php endforeach; ?>
+      </div>
+    </div>
+
     <div class="mt-4 flex flex-wrap items-center gap-3">
       <button type="submit"
         class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700">
         Save appearance</button>
       <span class="text-xs text-slate-500">
-        Stylesheet loaded: <code><?= ui_theme_url() === '' ? 'none (upload assets/theme-' . e(ui_theme()) . '.css)' : e(ui_theme_url()) ?></code>
+        Loaded: <code><?= ui_theme_url() === '' ? 'theme missing (upload assets/theme-' . e(ui_theme()) . '.css)' : e(ui_theme_url()) ?></code>
+        <?php if (ui_density_url() !== ''): ?> <code><?= e(ui_density_url()) ?></code><?php endif; ?>
       </span>
     </div>
   </form>

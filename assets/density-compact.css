@@ -1,0 +1,233 @@
+/* ============================================================
+   LearnHub density — "Compact"
+   Trims the spacing rhythm of the logged-in app shell so more
+   rows, levels and numbers fit on one screen. Loaded after the
+   chosen theme; public pages keep their roomier spacing.
+   Switch in Settings → Appearance (Density).
+   ============================================================ */
+
+/* page frame: less air at the edges, more working width */
+body.lh-app main.lh-main {
+  max-width: 80rem !important;
+  padding-top: 1.1rem !important;
+  padding-bottom: 2rem !important
+}
+
+/* vertical rhythm between stacked blocks */
+body.lh-app main [class*='space-y-6']>*+* {
+  margin-top: .95rem !important
+}
+
+body.lh-app main [class*='space-y-5']>*+* {
+  margin-top: .8rem !important
+}
+
+body.lh-app main [class*='space-y-4']>*+* {
+  margin-top: .6rem !important
+}
+
+body.lh-app main [class*='space-y-3']>*+* {
+  margin-top: .45rem !important
+}
+
+body.lh-app main [class*='space-y-2']>*+* {
+  margin-top: .3rem !important
+}
+
+/* single margins */
+body.lh-app main .mt-6 {
+  margin-top: .95rem !important
+}
+
+body.lh-app main .mt-5 {
+  margin-top: .8rem !important
+}
+
+body.lh-app main .mt-4 {
+  margin-top: .68rem !important
+}
+
+body.lh-app main .mt-3 {
+  margin-top: .5rem !important
+}
+
+body.lh-app main .mt-2 {
+  margin-top: .35rem !important
+}
+
+body.lh-app main .mt-1\.5 {
+  margin-top: .28rem !important
+}
+
+/* card padding */
+body.lh-app main .p-6 {
+  padding: 1.1rem !important
+}
+
+body.lh-app main .p-5 {
+  padding: .9rem !important
+}
+
+body.lh-app main .p-4 {
+  padding: .75rem !important
+}
+
+body.lh-app main .px-6 {
+  padding-left: 1.1rem !important;
+  padding-right: 1.1rem !important
+}
+
+body.lh-app main .px-5 {
+  padding-left: .9rem !important;
+  padding-right: .9rem !important
+}
+
+body.lh-app main .py-8 {
+  padding-top: 1.2rem !important;
+  padding-bottom: 1.2rem !important
+}
+
+body.lh-app main .py-6 {
+  padding-top: .95rem !important;
+  padding-bottom: .95rem !important
+}
+
+body.lh-app main .py-5 {
+  padding-top: .8rem !important;
+  padding-bottom: .8rem !important
+}
+
+body.lh-app main .py-4 {
+  padding-top: .62rem !important;
+  padding-bottom: .62rem !important
+}
+
+body.lh-app main .py-3 {
+  padding-top: .5rem !important;
+  padding-bottom: .5rem !important
+}
+
+/* grid gaps */
+body.lh-app main .gap-6 {
+  gap: .95rem !important
+}
+
+body.lh-app main .gap-4 {
+  gap: .68rem !important
+}
+
+/* page header band */
+body.lh-app main .lh-hero-paper {
+  padding: .85rem 1.05rem !important
+}
+
+body.lh-app main .lh-hero-paper h1 {
+  font-size: 1.3rem !important
+}
+
+/* ---- stat cards: smaller tiles, tighter numbers ---- */
+body.lh-app main [data-live-scope] .rounded-2xl {
+  padding: .7rem !important
+}
+
+body.lh-app main [data-live-scope] .rounded-2xl .h-9 {
+  height: 1.85rem !important;
+  width: 1.85rem !important;
+  font-size: .95rem !important
+}
+
+body.lh-app main [data-live-scope] .rounded-2xl .h-10 {
+  height: 2.05rem !important;
+  width: 2.05rem !important;
+  font-size: 1.05rem !important
+}
+
+body.lh-app main [data-live-scope] .rounded-2xl .h-11 {
+  height: 2.2rem !important;
+  width: 2.2rem !important;
+  font-size: 1.1rem !important
+}
+
+body.lh-app main [data-live-scope] .text-2xl {
+  font-size: 1.28rem !important;
+  line-height: 1.55rem !important
+}
+
+body.lh-app main [data-live-scope] .text-4xl {
+  font-size: 1.8rem !important;
+  line-height: 2.1rem !important
+}
+
+body.lh-app main [data-live-scope] .h-16 {
+  height: 2.6rem !important
+}
+
+/* long panels: show more rows before scrolling starts */
+body.lh-app main [class*='max-h-72'] {
+  max-height: 15rem !important
+}
+
+/* ---- tables & forms: denser rows ---- */
+body.lh-app main table thead th {
+  padding: .42rem .6rem !important
+}
+
+body.lh-app main table tbody td {
+  padding: .48rem .6rem !important
+}
+
+body.lh-app main input:not([type='checkbox']):not([type='radio']):not([type='file']),
+body.lh-app main select,
+body.lh-app main textarea {
+  padding-top: .38rem !important;
+  padding-bottom: .38rem !important
+}
+
+/* ---- navigation rail: narrower, tighter ---- */
+@media (min-width:1024px) {
+  .lh-sidebar {
+    width: 232px !important
+  }
+
+  body.lh-app {
+    padding-left: 232px !important
+  }
+}
+
+.lh-side-head {
+  padding: .7rem .8rem .6rem !important
+}
+
+.lh-side-sec {
+  padding: .7rem .8rem .3rem !important
+}
+
+.lh-side-link {
+  padding: .45rem .6rem !important
+}
+
+.lh-side-foot {
+  padding: .7rem .8rem !important
+}
+
+.lh-topbar .lh-top-inner {
+  height: 52px !important
+}
+
+/* ---- phones: keep the swipe row compact ---- */
+@media (max-width:640px) {
+
+  body.lh-app main.lh-main {
+    padding-top: .8rem !important
+  }
+
+  body.lh-app main [data-live-scope] .rounded-2xl {
+    padding: .65rem !important
+  }
+
+  body.lh-app main [data-live-scope] .text-4xl {
+    font-size: 1.6rem !important;
+    line-height: 1.9rem !important
+  }
+}
+
