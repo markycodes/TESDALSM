@@ -321,3 +321,102 @@ main textarea:focus-visible,
     transform: none !important;
   }
 }
+
+/* ---------- full-viewport app frame ----------
+   Everything fits 100% of the browser window: the top bar and
+   sidebar are pinned, only <main> scrolls (internally, with its
+   own styled scrollbar). Falls back to normal document scroll
+   on short screens and mobile. */
+@media (min-width:1024px) {
+  html body.lh-app {
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    padding-left: 256px !important;
+  }
+
+  html body.lh-app .glass.lh-topbar {
+    position: sticky;
+    top: 0;
+    flex-shrink: 0;
+    background: #ffffff !important;
+    border-bottom: 1px solid #e6eaf0 !important;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .04) !important;
+  }
+
+  /* keep the topbar height fixed at 52px (matches the compact
+     density layer) so the frame math below always lines up */
+  html body.lh-app .lh-topbar .lh-top-inner {
+    height: 52px !important;
+  }
+
+  html body.lh-app main.lh-main {
+    height: calc(100vh - 52px);
+    height: calc(100dvh - 52px);
+    overflow-y: auto;
+    padding-top: 24px !important;
+    padding-bottom: 28px !important;
+    background: #f0f2f5 !important;
+    border: none !important;
+    box-shadow: none !important;
+    scroll-behavior: smooth;
+  }
+
+  /* slim scrollbar for the inner scroll area */
+  main.lh-main::-webkit-scrollbar {
+    width: 8px;
+  }
+  main.lh-main::-webkit-scrollbar-thumb {
+    background: #cdd4de;
+    border-radius: 999px;
+  }
+  main.lh-main::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  main.lh-main {
+    scrollbar-width: thin;
+    scrollbar-color: #cdd4de transparent;
+  }
+
+  /* collapsed rail offsets (Material's own rail width) */
+  html body.lh-rail {
+    padding-left: 100px !important;
+  }
+}
+
+/* short screens: let the whole page scroll instead of squeezing */
+@media (min-width:1024px) and (max-height:560px) {
+  html body.lh-app {
+    height: auto;
+    min-height: 100vh;
+    overflow: auto;
+  }
+  html body.lh-app main.lh-main {
+    height: auto;
+    overflow: visible;
+  }
+}
+
+/* ---------- content surfaces: crisp borders + soft depth ---------- */
+body.lh-app main .rounded-2xl.bg-white,
+body.lh-app main .rounded-3xl.bg-white,
+body.lh-app main .rounded-xl.bg-white {
+  border: 1px solid #e3e8ee !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .05), 0 8px 20px -12px rgba(15, 23, 42, .1) !important;
+  transition: box-shadow .2s ease, transform .2s ease, border-color .2s ease !important;
+}
+body.lh-app main .rounded-2xl.bg-white:hover,
+body.lh-app main .rounded-3xl.bg-white:hover,
+body.lh-app main .rounded-xl.bg-white:hover {
+  border-color: #d7dee8 !important;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, .06), 0 16px 32px -14px rgba(15, 23, 42, .16) !important;
+}
+
+/* inner panels (e.g. lesson lists, code panels) get a lighter line */
+body.lh-app main .rounded-2xl.bg-white .rounded-xl,
+body.lh-app main .rounded-2xl.bg-white .rounded-2xl {
+  border: 1px solid #eef1f5 !important;
+  box-shadow: none !important;
+}
+
+/* ---------- end full-viewport frame ---------- */
