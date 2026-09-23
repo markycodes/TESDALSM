@@ -419,4 +419,102 @@ body.lh-app main .rounded-2xl.bg-white .rounded-2xl {
   box-shadow: none !important;
 }
 
+/* ---------- built-in compact fit (always on for Material) ----------
+   Shrinks components so everything fits the 100% viewport frame.
+   Baked into the theme on purpose: works even if the separate
+   density stylesheet was never uploaded to the host. */
+
+/* type scale */
+body.lh-app main .text-4xl { font-size: 1.55rem !important; line-height: 1.9rem !important }
+body.lh-app main .text-3xl { font-size: 1.3rem !important; line-height: 1.6rem !important }
+body.lh-app main .text-2xl { font-size: 1.15rem !important; line-height: 1.45rem !important }
+body.lh-app main .text-xl { font-size: 1.02rem !important; line-height: 1.35rem !important }
+body.lh-app main .text-lg { font-size: .95rem !important; line-height: 1.3rem !important }
+body.lh-app main .text-base { font-size: .875rem !important; line-height: 1.25rem !important }
+body.lh-app main .text-sm { font-size: .8125rem !important; line-height: 1.15rem !important }
+
+/* rhythm */
+body.lh-app main .mt-6 { margin-top: 1rem !important }
+body.lh-app main .mt-5 { margin-top: .85rem !important }
+body.lh-app main .mt-4 { margin-top: .7rem !important }
+body.lh-app main .mt-3 { margin-top: .55rem !important }
+body.lh-app main .mt-2 { margin-top: .4rem !important }
+body.lh-app main .mt-1 { margin-top: .3rem !important }
+body.lh-app main [class*='space-y-6'] > * + * { margin-top: .85rem !important }
+body.lh-app main [class*='space-y-5'] > * + * { margin-top: .7rem !important }
+body.lh-app main [class*='space-y-4'] > * + * { margin-top: .6rem !important }
+body.lh-app main [class*='space-y-3'] > * + * { margin-top: .5rem !important }
+body.lh-app main [class*='space-y-2'] > * + * { margin-top: .4rem !important }
+
+/* card & section padding */
+body.lh-app main .p-6 { padding: 1rem !important }
+body.lh-app main .p-5 { padding: .85rem !important }
+body.lh-app main .p-4 { padding: .7rem !important }
+body.lh-app main .px-6 { padding-left: 1rem !important; padding-right: 1rem !important }
+body.lh-app main .py-8 { padding-top: .8rem !important; padding-bottom: .8rem !important }
+body.lh-app main .py-6 { padding-top: .6rem !important; padding-bottom: .6rem !important }
+body.lh-app main .py-5 { padding-top: .5rem !important; padding-bottom: .5rem !important }
+body.lh-app main .py-4 { padding-top: .45rem !important; padding-bottom: .45rem !important }
+body.lh-app main .gap-4 { gap: .7rem !important }
+body.lh-app main .gap-6 { gap: .9rem !important }
+
+/* hero header strip */
+body.lh-app main .lh-hero-paper { padding: .55rem .35rem !important }
+body.lh-app main .lh-hero-paper h1 { font-size: 1.3rem !important }
+
+/* stat tiles + numbers */
+body.lh-app main [data-live-scope] .grid.h-9 { width: 1.85rem !important; height: 1.85rem !important; font-size: .95rem !important }
+body.lh-app main [data-live-scope] .grid.h-10 { width: 2.05rem !important; height: 2.05rem !important; font-size: 1.05rem !important }
+body.lh-app main [data-live-scope] .grid.h-11 { width: 2.2rem !important; height: 2.2rem !important; font-size: 1.1rem !important }
+body.lh-app main [data-live-scope] .lh-num { font-size: 1.5rem !important; line-height: 1.8rem !important }
+body.lh-app main [data-live-scope] .h-16 { height: 2.7rem !important }
+
+/* live-region cards */
+body.lh-app main [data-live-scope] .rounded-2xl { padding: .68rem !important }
+
+/* charts */
+body.lh-app main [data-live-svg] { height: 122px !important }
+body.lh-app main [data-live-svg] svg { height: 122px !important }
+
+/* tables & forms */
+body.lh-app main table thead th { padding: .35rem .55rem !important }
+body.lh-app main table tbody td { padding: .4rem .55rem !important; font-size: .8125rem !important }
+body.lh-app main input,
+body.lh-app main select,
+body.lh-app main textarea { padding-top: .4rem !important; padding-bottom: .4rem !important }
+body.lh-app main button { padding-top: .4rem !important; padding-bottom: .4rem !important }
+
+/* long panels: more rows before inner scroll */
+body.lh-app main [class*='max-h-72'] { max-height: 14rem !important }
+
+/* logos: fix the oversized header marks */
+html body.lh-app .lh-topbar img[src*="logo"] {
+  height: 34px !important;
+  width: auto !important;
+}
+.lh-side-head img[src*="logo.png"] {
+  height: 38px !important;
+  width: auto !important;
+  margin-bottom: .35rem !important;
+}
+.lh-side-head .lh-side-wordmark {
+  width: 7.75rem !important;
+}
+
+/* footer: compact card */
+body.lh-app footer .rounded-2xl,
+body.lh-app footer .rounded-3xl {
+  padding: .9rem 1.2rem !important;
+}
+body.lh-app footer img[src*="logo"] {
+  height: 46px !important;
+  width: auto !important;
+}
+
+/* sidebar nav text */
+.lh-side-link { font-size: .845rem !important }
+.lh-side-link { padding: .5rem .65rem !important }
+
+/* ---------- end built-in compact fit ---------- */
+
 /* ---------- end full-viewport frame ---------- */
