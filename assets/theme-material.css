@@ -1047,3 +1047,83 @@ html body.lh-app main.lh-main {
 }
 
 /* ---------- end blended header ---------- */
+
+/* ---------- content borders: clear and visible ----------
+   The flat-sheet pass had drifted down to hairlines (#eef1f5 … #e9ecf1) that
+   disappear against the #f5f6f8 canvas. Everything inside <main> now draws one
+   legible line — slate-300 (#cbd5e1) — with a darker tone on hover. Only
+   neutral lines are touched: rose/emerald/amber alert borders and the emerald
+   focus ring keep their meaning. */
+
+/* cards and inner panels */
+body.lh-app main .rounded-lg.bg-white,
+body.lh-app main .rounded-xl.bg-white,
+body.lh-app main .rounded-2xl.bg-white,
+body.lh-app main .rounded-3xl.bg-white,
+body.lh-app main .rounded-2xl.bg-white .rounded-xl,
+body.lh-app main .rounded-2xl.bg-white .rounded-2xl {
+  border: 1px solid #cbd5e1 !important;
+}
+body.lh-app main .rounded-xl.bg-white:hover,
+body.lh-app main .rounded-2xl.bg-white:hover,
+body.lh-app main .rounded-3xl.bg-white:hover {
+  border-color: #aeb9c9 !important;
+}
+
+/* KPI tiles in the dense analytics row */
+body.lh-app main [data-live-scope] [class*='sm:grid-cols-3'] > div {
+  border: 1px solid #cbd5e1 !important;
+}
+
+/* Tailwind's neutral border utilities (leading space keeps hover:/focus:
+   and responsive variants on their own colours) */
+body.lh-app main [class*=" border-slate-100"],
+body.lh-app main [class*=" border-slate-200"],
+body.lh-app main [class*=" border-slate-300"] {
+  border-color: #cbd5e1 !important;
+}
+body.lh-app main [class*=" border-slate-100"]:hover,
+body.lh-app main [class*=" border-slate-200"]:hover,
+body.lh-app main [class*=" border-slate-300"]:hover {
+  border-color: #aeb9c9 !important;
+}
+
+/* the theme's own button/link lines (declared as a full border shorthand) */
+body.lh-app main a[class*="border-slate-300"],
+body.lh-app main button[class*="border-slate-200"],
+body.lh-app main button[class*="border-slate-300"] {
+  border-color: #cbd5e1 !important;
+}
+
+/* form fields: a touch darker so they read as fields, emerald on focus */
+body.lh-app main input,
+body.lh-app main select,
+body.lh-app main textarea {
+  border: 1px solid #b9c4d3 !important;
+}
+body.lh-app main input:focus,
+body.lh-app main select:focus,
+body.lh-app main textarea:focus {
+  border-color: #10b981 !important;
+}
+
+/* tables, panel header rules, dividers and rules inside the content */
+body.lh-app main table thead th {
+  border-bottom: 1px solid #b9c4d3 !important;
+}
+body.lh-app main table tbody td {
+  border-bottom: 1px solid #d5dce6 !important;
+}
+body.lh-app main [data-live-scope] .rounded-2xl > h2:first-child,
+body.lh-app main [data-live-scope] .rounded-2xl > div:first-child > h2:first-child {
+  border-bottom: 1px solid #d5dce6 !important;
+}
+body.lh-app main [class*=" divide-slate-100"] > :not([hidden]) ~ :not([hidden]),
+body.lh-app main [class*=" divide-slate-200"] > :not([hidden]) ~ :not([hidden]) {
+  border-color: #d5dce6 !important;
+}
+body.lh-app main hr {
+  border-color: #d5dce6 !important;
+}
+
+/* ---------- end content borders ---------- */
