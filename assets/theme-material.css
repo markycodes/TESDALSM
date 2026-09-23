@@ -703,77 +703,65 @@ body.lh-app main .lh-kicker {
   color: #8a94a6 !important;
 }
 
-/* ---------- footer on demand ----------
-   Desktop: the footer is a slim bar pinned to the bottom of the
-   content area; it slides up only when the reader reaches the end
-   of the page. Mobile keeps it in normal flow (last block), so it
-   is naturally below the fold until you get there. */
+/* (footer styling lives in the "footer at the end of the content" block) */
+
+/* ---------- footer at the end of the content ----------
+   footer.php moves the footer inside <main> on the signed-in shell,
+   so it sits after the last card and is only seen when the reader
+   scrolls to the bottom — it can never overlap content. */
 @media (min-width:1024px) {
-  html body.lh-app main.lh-main {
-    padding-bottom: 108px !important;
+  body.lh-app .lh-footer.lh-footer-inline {
+    position: static !important;
+    inset: auto !important;
+    opacity: 1 !important;
+    transform: none !important;
+    pointer-events: auto !important;
+    margin: 1.1rem 0 0 !important;
+    background: transparent !important;
+    border-top: 1px solid #eef1f5 !important;
+    z-index: auto !important;
   }
 
-  body.lh-app .lh-footer {
-    position: fixed;
-    left: 256px;
-    right: 0;
-    bottom: 0;
-    margin: 0 !important;
-    z-index: 28;
-    background: #ffffff;
-    border-top: 1px solid #e6eaf0;
-    opacity: 0;
-    transform: translateY(100%);
-    pointer-events: none;
-    transition: transform .22s ease, opacity .22s ease;
-  }
-
-  body.lh-app.lh-at-bottom .lh-footer {
-    opacity: 1;
-    transform: none;
-    pointer-events: auto;
-  }
-
-  body.lh-rail .lh-footer {
-    left: 100px;
-  }
-
-  /* compact the footer so the bar stays slim */
-  body.lh-app .lh-footer > div {
+  body.lh-app .lh-footer.lh-footer-inline > div {
     max-width: none !important;
-    padding: 0 .9rem !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
-  body.lh-app .lh-footer .rounded-2xl {
+
+  body.lh-app .lh-footer.lh-footer-inline .rounded-2xl {
     border: 0 !important;
     box-shadow: none !important;
     border-radius: 0 !important;
-    padding: .5rem .15rem !important;
+    padding: .7rem 0 .2rem !important;
   }
-  body.lh-app .lh-footer .grid {
+
+  body.lh-app .lh-footer.lh-footer-inline .grid {
     gap: .9rem !important;
   }
-  body.lh-app .lh-footer p,
-  body.lh-app .lh-footer a,
-  body.lh-app .lh-footer li,
-  body.lh-app .lh-footer span {
+  body.lh-app .lh-footer.lh-footer-inline p,
+  body.lh-app .lh-footer.lh-footer-inline a,
+  body.lh-app .lh-footer.lh-footer-inline li,
+  body.lh-app .lh-footer.lh-footer-inline span {
     font-size: .72rem !important;
-    line-height: 1.05rem !important;
+    line-height: 1.1rem !important;
   }
-  body.lh-app .lh-footer ul > * + * {
-    margin-top: .12rem !important;
+  body.lh-app .lh-footer.lh-footer-inline ul > * + * {
+    margin-top: .15rem !important;
   }
-  body.lh-app .lh-footer img[src*="logo"] {
-    height: 26px !important;
+  body.lh-app .lh-footer.lh-footer-inline img[src*="logo"] {
+    height: 30px !important;
     width: auto !important;
   }
-  body.lh-app .lh-footer .mt-3 { margin-top: .28rem !important }
-  body.lh-app .lh-footer .mt-8 { margin-top: .35rem !important; padding-top: .3rem !important }
-  body.lh-app .lh-footer .lh-kicker {
+  body.lh-app .lh-footer.lh-footer-inline .lh-kicker {
     font-size: .62rem !important;
     color: #8a94a6 !important;
   }
-  body.lh-app .lh-footer a:hover { color: #111827 !important }
+  body.lh-app .lh-footer.lh-footer-inline a:hover {
+    color: #111827 !important;
+  }
 }
+
+/* ---------- end footer-at-end ---------- */
 
 /* ---------- end clean sheet pass ---------- */
 

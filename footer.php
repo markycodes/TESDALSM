@@ -60,6 +60,17 @@
     if (m && (m.scrollHeight - m.clientHeight) > 4) { return m; }
     return null;
   }
+  /* The footer belongs at the end of the scrolling content: move it inside
+     <main> so it can never overlap the last card — it simply appears when the
+     reader reaches the bottom of the page. */
+  (function placeFooter() {
+    var f = document.querySelector('.lh-footer');
+    var m = document.querySelector('main.lh-main');
+    if (f && m && !m.contains(f)) {
+      m.appendChild(f);
+      f.classList.add('lh-footer-inline');
+    }
+  })();
   function update() {
     var s = scroller(), max, pos;
     if (s) {
