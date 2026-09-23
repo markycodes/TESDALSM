@@ -531,29 +531,25 @@ body.lh-app footer img[src*="logo"] {
     grid-row: auto !important;
   }
 
-  /* KPI tiles: horizontal, compact, hairline */
+  /* KPI tiles: compact hairline cards (layout left intact) */
   body.lh-app main [data-live-scope] [class*='sm:grid-cols-3'] > div {
-    flex-direction: row !important;
-    align-items: center !important;
-    gap: .55rem !important;
-    padding: .55rem .65rem !important;
+    gap: .45rem !important;
+    padding: .5rem .6rem !important;
     border-radius: 10px !important;
     border: 1px solid #e8eaee !important;
     box-shadow: 0 1px 2px rgba(15, 23, 42, .04) !important;
   }
-  /* the value block sits next to the tile */
-  body.lh-app main [data-live-scope] [class*='sm:grid-cols-3'] > div > div {
-    margin-top: 0 !important;
-    min-width: 0;
-  }
-  /* the hero tile's sparkline: a thin strip under the number */
+  /* tighter internals so nothing crowds */
+  body.lh-app main [data-live-scope] [class*='sm:grid-cols-3'] .mt-3 { margin-top: .28rem !important }
+  body.lh-app main [data-live-scope] [class*='sm:grid-cols-3'] .mt-4 { margin-top: .32rem !important }
+  body.lh-app main [data-live-scope] [class*='sm:grid-cols-3'] .mt-2 { margin-top: .2rem !important }
+  /* hero tile's sparkline: slim strip under the number */
   body.lh-app main [data-live-scope] [class*='sm:grid-cols-3'] > div > [data-live-svg] {
-    height: 46px !important;
-    margin-top: .2rem !important;
-    flex-basis: 100%;
+    height: 44px !important;
+    margin-top: .3rem !important;
   }
   body.lh-app main [data-live-scope] [class*='sm:grid-cols-3'] > div > [data-live-svg] svg {
-    height: 46px !important;
+    height: 44px !important;
   }
 
   /* KPI numbers + labels */
@@ -761,7 +757,165 @@ body.lh-app main .lh-kicker {
   }
 }
 
-/* ---------- end footer-at-end ---------- */
+/* ---------- slim sidebar + smooth open motion ---------- */
+
+/* narrower rail, smaller type and icons to match the rest */
+@media (min-width:1024px) {
+  html body.lh-app .lh-sidebar {
+    width: 206px !important;
+    border-radius: 14px !important;
+  }
+  html body.lh-app {
+    padding-left: 230px !important; /* 12 + 206 + 12 */
+  }
+  html body.lh-rail .lh-sidebar {
+    width: 64px !important;
+  }
+  html body.lh-rail {
+    padding-left: 88px !important; /* 12 + 64 + 12 */
+  }
+}
+
+.lh-sidebar .lh-side-head {
+  padding: .5rem .65rem .45rem !important;
+}
+.lh-sidebar .lh-side-head img[src*="logo.png"] {
+  height: 30px !important;
+  width: auto !important;
+  margin-bottom: .15rem !important;
+}
+.lh-sidebar .lh-side-head .lh-side-wordmark {
+  width: 6.25rem !important;
+}
+.lh-side-sec {
+  font-size: 8.5px !important;
+  letter-spacing: .14em !important;
+  padding: .55rem .7rem .15rem !important;
+}
+.lh-side-link {
+  font-size: .775rem !important;
+  padding: .4rem .5rem !important;
+  gap: .45rem !important;
+  margin: 1px 5px !important;
+  border-radius: 8px !important;
+}
+.lh-side-link svg,
+.lh-side-ico svg {
+  width: 15px !important;
+  height: 15px !important;
+}
+.lh-side-foot {
+  padding: .5rem .65rem !important;
+}
+.lh-side-foot a {
+  padding: .35rem .5rem !important;
+  font-size: .75rem !important;
+}
+.lh-side-foot .rounded-full {
+  width: 28px !important;
+  height: 28px !important;
+  font-size: .75rem !important;
+}
+.lh-side-foot .lh-ico {
+  width: 26px !important;
+  height: 26px !important;
+}
+.lh-side-foot .lh-ico svg {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+/* smooth, springy motion for open / close / collapse */
+.lh-sidebar {
+  transition:
+    width .32s cubic-bezier(.22, 1.02, .36, 1),
+    transform .44s cubic-bezier(.2, 1.14, .32, 1),
+    box-shadow .3s ease !important;
+}
+html body.lh-app {
+  transition: padding-left .32s cubic-bezier(.22, 1.02, .36, 1) !important;
+}
+main.lh-main {
+  transition: padding-left .32s cubic-bezier(.22, 1.02, .36, 1) !important;
+}
+
+/* the drawer's backdrop breathes in rather than snapping */
+@keyframes lhFadeIn {
+  from { opacity: 0 }
+  to { opacity: 1 }
+}
+body.lh-side-open .lh-backdrop {
+  animation: lhFadeIn .26s ease both;
+}
+
+/* nav rows glide in one after another as the drawer opens */
+@keyframes lhNavIn {
+  from { opacity: 0; transform: translateX(-10px) }
+  to { opacity: 1; transform: none }
+}
+@media (max-width:1023.98px) {
+  .lh-sidebar.open .lh-side-head {
+    animation: lhNavIn .28s cubic-bezier(.22, 1.02, .36, 1) both;
+  }
+  .lh-sidebar.open .lh-side-link {
+    animation: lhNavIn .34s cubic-bezier(.22, 1.02, .36, 1) both;
+  }
+  .lh-sidebar.open .lh-side-link:nth-child(1) { animation-delay: .04s }
+  .lh-sidebar.open .lh-side-link:nth-child(2) { animation-delay: .07s }
+  .lh-sidebar.open .lh-side-link:nth-child(3) { animation-delay: .1s }
+  .lh-sidebar.open .lh-side-link:nth-child(4) { animation-delay: .13s }
+  .lh-sidebar.open .lh-side-link:nth-child(5) { animation-delay: .16s }
+  .lh-sidebar.open .lh-side-link:nth-child(6) { animation-delay: .19s }
+  .lh-sidebar.open .lh-side-link:nth-child(7) { animation-delay: .22s }
+  .lh-sidebar.open .lh-side-link:nth-child(8) { animation-delay: .25s }
+  .lh-sidebar.open .lh-side-foot {
+    animation: lhNavIn .34s cubic-bezier(.22, 1.02, .36, 1) both;
+    animation-delay: .16s;
+  }
+}
+
+/* respect reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .lh-sidebar,
+  html body.lh-app,
+  main.lh-main {
+    transition: none !important;
+  }
+  .lh-sidebar.open .lh-side-head,
+  .lh-sidebar.open .lh-side-link,
+  .lh-sidebar.open .lh-side-foot,
+  body.lh-side-open .lh-backdrop {
+    animation: none !important;
+  }
+}
+
+/* ---------- end slim sidebar ---------- */
+
+/* ---------- footer polish: bigger mark, breathing room on the left ---------- */
+@media (min-width:1024px) {
+  body.lh-app .lh-footer.lh-footer-inline {
+    padding-left: 1.6rem !important;
+    padding-right: 1.6rem !important;
+    margin-left: 0 !important;
+  }
+  body.lh-app .lh-footer.lh-footer-inline img[src*="logo"] {
+    height: 46px !important;
+    width: auto !important;
+  }
+  body.lh-app .lh-footer.lh-footer-inline .grid {
+    gap: 1.6rem !important;
+    align-items: start !important;
+  }
+  body.lh-app .lh-footer.lh-footer-inline .grid > div:first-child {
+    min-width: 9rem !important;
+  }
+  body.lh-app .lh-footer.lh-footer-inline .mt-8 {
+    margin-top: .7rem !important;
+    padding-top: .55rem !important;
+  }
+}
+
+/* ---------- end footer polish ---------- */
 
 /* ---------- end clean sheet pass ---------- */
 
