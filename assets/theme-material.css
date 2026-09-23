@@ -701,21 +701,40 @@ body.lh-app main .lh-kicker {
 
 /* (footer styling lives in the "footer at the end of the content" block) */
 
-/* ---------- footer at the end of the content ----------
-   footer.php moves the footer inside <main> on the signed-in shell,
-   so it sits after the last card and is only seen when the reader
-   scrolls to the bottom — it can never overlap content. */
+/* top bar: blend into the page canvas (no separate white strip) */
+body.lh-app .glass.lh-topbar {
+  background: #f5f6f8 !important;
+  border-bottom: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+body.lh-app .glass.lh-topbar .lh-ico {
+  background: #ffffff !important;
+  border: 1px solid #e6eaf0 !important;
+}
+/* ---------- footer pinned to the bottom ----------
+   footer.php pins the app footer to the bottom edge of the content
+   area, and reserves exactly its height inside <main> so it can
+   never cover the last cards. Public pages keep the full footer. */
 @media (min-width:1024px) {
   body.lh-app .lh-footer.lh-footer-inline {
-    position: static !important;
-    inset: auto !important;
+    position: fixed !important;
+    left: 230px !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    top: auto !important;
+    width: auto !important;
+    margin: 0 !important;
     opacity: 1 !important;
     transform: none !important;
     pointer-events: auto !important;
-    margin: 1.1rem 0 0 !important;
-    background: transparent !important;
-    border-top: 1px solid #eef1f5 !important;
-    z-index: auto !important;
+    background: #ffffff !important;
+    border-top: 1px solid #e6eaf0 !important;
+    padding: .45rem 1.6rem .4rem !important;
+    z-index: 28 !important;
+  }
+  body.lh-rail .lh-footer.lh-footer-inline {
+    left: 88px !important;
   }
 
   body.lh-app .lh-footer.lh-footer-inline > div {
@@ -728,11 +747,25 @@ body.lh-app main .lh-kicker {
     border: 0 !important;
     box-shadow: none !important;
     border-radius: 0 !important;
-    padding: .7rem 0 .2rem !important;
+    padding: 0 !important;
   }
 
+  /* one compact row: mark · explore · account */
   body.lh-app .lh-footer.lh-footer-inline .grid {
-    gap: .9rem !important;
+    grid-template-columns: 11rem 1fr 1fr !important;
+    gap: 1.4rem !important;
+    align-items: center !important;
+  }
+  body.lh-app .lh-footer.lh-footer-inline .mt-3 {
+    margin-top: .15rem !important;
+  }
+  body.lh-app .lh-footer.lh-footer-inline ul {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: .1rem .95rem !important;
+  }
+  body.lh-app .lh-footer.lh-footer-inline ul > * + * {
+    margin-top: 0 !important;
   }
   body.lh-app .lh-footer.lh-footer-inline p,
   body.lh-app .lh-footer.lh-footer-inline a,
@@ -741,19 +774,17 @@ body.lh-app main .lh-kicker {
     font-size: .72rem !important;
     line-height: 1.1rem !important;
   }
-  body.lh-app .lh-footer.lh-footer-inline ul > * + * {
-    margin-top: .15rem !important;
-  }
-  body.lh-app .lh-footer.lh-footer-inline img[src*="logo"] {
-    height: 30px !important;
-    width: auto !important;
-  }
   body.lh-app .lh-footer.lh-footer-inline .lh-kicker {
-    font-size: .62rem !important;
+    font-size: .6rem !important;
     color: #8a94a6 !important;
   }
   body.lh-app .lh-footer.lh-footer-inline a:hover {
     color: #111827 !important;
+  }
+  body.lh-app .lh-footer.lh-footer-inline .mt-8 {
+    margin-top: .35rem !important;
+    padding-top: .3rem !important;
+    text-align: left !important;
   }
 }
 

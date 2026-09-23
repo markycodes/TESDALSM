@@ -71,6 +71,27 @@
       f.classList.add('lh-footer-inline');
     }
   })();
+  /* The footer bar is pinned to the bottom; reserve its real height
+     inside <main> so it never covers the last cards. */
+  (function reserveFooterSpace() {
+    var f = document.querySelector('.lh-footer.lh-footer-inline');
+    var m = document.querySelector('main.lh-main');
+    if (!f || !m) { return; }
+    function sync() {
+      var desktop = window.matchMedia('(min-width:1024px)').matches;
+      if (!desktop) { m.style.paddingBottom = ''; return; }
+      var h = f.offsetHeight || 0;
+      m.style.paddingBottom = (h + 22) + 'px';
+    }
+    sync();
+    window.addEventListener('resize', sync);
+    window.addEventListener('load', sync);
+    setTimeout(sync, 350);
+    setTimeout(sync, 1200);
+    if (window.ResizeObserver) {
+      try { new ResizeObserver(sync).observe(f); } catch (e) { /* ignore */ }
+    }
+  })();
   function update() {
     var s = scroller(), max, pos;
     if (s) {
