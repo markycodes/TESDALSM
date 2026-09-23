@@ -766,21 +766,56 @@ body.lh-app .glass.lh-topbar .lh-ico {
     margin: 0 !important;
   }
 
+  /* the card is only a wrapper now: no white slab, one tidy row */
   body.lh-app .lh-footer.lh-footer-inline .rounded-2xl {
     border: 0 !important;
     box-shadow: none !important;
     border-radius: 0 !important;
     padding: 0 !important;
+    background: transparent !important; /* let the canvas tone show through */
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+    gap: .5rem 2rem !important;
   }
 
-  /* one compact row: mark · explore · account */
-  body.lh-app .lh-footer.lh-footer-inline .grid {
-    grid-template-columns: 11rem 1fr 1fr !important;
-    gap: 1.4rem !important;
+  /* mark + blurb | explore | account — each hugging its own content */
+  body.lh-app .lh-footer.lh-footer-inline .rounded-2xl > .grid {
+    flex: 1 1 26rem !important;
+    display: grid !important;
+    grid-template-columns: minmax(11rem, 15rem) auto auto !important;
+    justify-content: start !important;
+    gap: .35rem 2.25rem !important;
     align-items: center !important;
   }
+
+  /* the mark sits beside its blurb, so the bar stays one line tall */
+  body.lh-app .lh-footer.lh-footer-inline .grid > div:first-child {
+    min-width: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: .7rem !important;
+  }
+  body.lh-app .lh-footer.lh-footer-inline .grid > div:first-child > .flex {
+    flex: 0 0 auto !important;
+    width: auto !important;
+  }
+
+  /* marketing blurb: two tight lines, never a four-line column */
+  body.lh-app .lh-footer.lh-footer-inline .grid > div:first-child > p {
+    margin-top: 0 !important;
+    font-size: .68rem !important;
+    line-height: 1.05rem !important;
+    color: #8a94a6 !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+  }
+
   body.lh-app .lh-footer.lh-footer-inline .mt-3 {
-    margin-top: .15rem !important;
+    margin-top: .2rem !important;
   }
   body.lh-app .lh-footer.lh-footer-inline ul {
     display: flex !important;
@@ -804,10 +839,15 @@ body.lh-app .glass.lh-topbar .lh-ico {
   body.lh-app .lh-footer.lh-footer-inline a:hover {
     color: #111827 !important;
   }
-  body.lh-app .lh-footer.lh-footer-inline .mt-8 {
-    margin-top: .35rem !important;
-    padding-top: .3rem !important;
-    text-align: left !important;
+  /* copyright: one line at the right edge, no rule above it */
+  body.lh-app .lh-footer.lh-footer-inline .rounded-2xl > p {
+    flex: 0 0 auto !important;
+    margin: 0 0 0 auto !important;
+    padding: 0 !important;
+    border-top: 0 !important;
+    text-align: right !important;
+    white-space: nowrap !important;
+    color: #9aa3b2 !important;
   }
 }
 
@@ -956,17 +996,7 @@ body.lh-side-open .lh-backdrop {
     height: 46px !important;
     width: auto !important;
   }
-  body.lh-app .lh-footer.lh-footer-inline .grid {
-    gap: 1.6rem !important;
-    align-items: start !important;
-  }
-  body.lh-app .lh-footer.lh-footer-inline .grid > div:first-child {
-    min-width: 9rem !important;
-  }
-  body.lh-app .lh-footer.lh-footer-inline .mt-8 {
-    margin-top: .7rem !important;
-    padding-top: .55rem !important;
-  }
+  /* (the bar's inner layout lives in the footer-bar block above) */
 }
 
 /* ---------- room reserved for the bottom bar ----------
