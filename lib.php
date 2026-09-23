@@ -3066,14 +3066,16 @@ function presence_map(array $userIds): array
     return $map;
 }
 
-/** Log that a user entered a course (one row per visit). */
-function record_attendance(int $userId, int $courseId): void
+/** Log that a user entered a course (one row per visit). Returns the visit's entered_at (unix seconds). */
+function record_attendance(int $userId, int $courseId): int
 {
     // close the previous still-open session so each page visit becomes its own entry
     db()->prepare('UPDATE attendance SET left_at = ? WHERE user_id = ? AND course_id = ? AND left_at IS NULL')
         ->execute([time() - 5, $userId, $courseId]);
+    $at = time();
     db()->prepare('INSERT INTO attendance (user_id, course_id, entered_at, left_at, ip) VALUES (?,?,?,NULL,?)')
-        ->execute([$userId, $courseId, time(), $_SERVER['REMOTE_ADDR'] ?? '']);
+        ->execute([$userId, $courseId, $at, $_SERVER['REMOTE_ADDR'] ?? '']);
+    return $at;
 }
 
 /** Close the latest open attendance row for a user/course (called via pagehide beacon). */

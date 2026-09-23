@@ -19,8 +19,9 @@ $progress = course_progress($course, $userId);
 $lessonW  = $progress['total'] > 0 ? (int) round(100 / $progress['total']) : 0;
 
 // attendance recording: log student entries only (with timestamp + IP, page-load side)
+$attendance_entered = 0;                       /* unix time this visit started (students only) */
 if ($canView && ($user['role'] ?? '') === 'student') {
-    record_attendance($userId, (int) $course['id']);
+    $attendance_entered = record_attendance($userId, (int) $course['id']);
     $attendance_course = (int) $course['id']; // lets the footer send a "leave" beacon
 }
 
@@ -62,6 +63,14 @@ require __DIR__ . '/header.php';
         <span>👥 <?= count($course['enrolled'] ?? []) ?> enrolled</span>
         <?php if ($canLessons): ?><span>📦 <?= count($course['materials'] ?? []) ?> lessons</span>
         <?php else: ?><span>🔒 Lessons private</span><?php endif; ?>
+        <?php if (!empty($attendance_entered)): ?>
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+          <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500"></span>⏱ Time spent
+          <span data-open-seconds="<?= max(0, time() - (int) $attendance_entered) ?>"
+            data-mark="me<?= (int) $courseId ?>"
+            class="tabular-nums"><?= duration_between((int) $attendance_entered, null) ?></span>
+        </span>
+        <?php endif; ?>
         <span>📅 <?= date('M j, Y', (int) ($course['created_at'] ?? time())) ?></span>
         <?php if ($enrolled || $isOwner): ?>
         <span id="course-online-chip" class="flex items-center gap-1.5 font-medium text-emerald-700">
