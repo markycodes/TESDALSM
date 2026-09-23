@@ -515,6 +515,118 @@ body.lh-app footer img[src*="logo"] {
 .lh-side-link { font-size: .845rem !important }
 .lh-side-link { padding: .5rem .65rem !important }
 
-/* ---------- end built-in compact fit ---------- */
+/* ---------- dense analytics pass ----------
+   Arranges the dashboard like a compact analytics board:
+   several small KPIs across one row, hairline cards, tiny type,
+   dense tables — so a full board fits the 100% viewport. */
+@media (min-width:1024px) {
+
+  /* stat row: 3–4 KPI tiles per row instead of hero + wide stack */
+  body.lh-app main [data-live-scope] [class*='sm:grid-cols-3'] {
+    grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)) !important;
+    gap: .55rem !important;
+  }
+  body.lh-app main [data-live-scope] [class*='sm:grid-cols-3'] > * {
+    grid-column: auto !important;
+    grid-row: auto !important;
+  }
+
+  /* KPI tiles: horizontal, compact, hairline */
+  body.lh-app main [data-live-scope] [class*='sm:grid-cols-3'] > div {
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: .55rem !important;
+    padding: .55rem .65rem !important;
+    border-radius: 10px !important;
+    border: 1px solid #e8eaee !important;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .04) !important;
+  }
+  /* the value block sits next to the tile */
+  body.lh-app main [data-live-scope] [class*='sm:grid-cols-3'] > div > div {
+    margin-top: 0 !important;
+    min-width: 0;
+  }
+  /* the hero tile's sparkline: a thin strip under the number */
+  body.lh-app main [data-live-scope] [class*='sm:grid-cols-3'] > div > [data-live-svg] {
+    height: 46px !important;
+    margin-top: .2rem !important;
+    flex-basis: 100%;
+  }
+  body.lh-app main [data-live-scope] [class*='sm:grid-cols-3'] > div > [data-live-svg] svg {
+    height: 46px !important;
+  }
+
+  /* KPI numbers + labels */
+  body.lh-app main [data-live-scope] [class*='sm:grid-cols-3'] .lh-num {
+    font-size: 1.3rem !important;
+    line-height: 1.55rem !important;
+  }
+  body.lh-app main [data-live-scope] [class*='sm:grid-cols-3'] p[class*='uppercase'] {
+    font-size: 9.5px !important;
+    letter-spacing: .07em !important;
+  }
+
+  /* panel rows: tighter gutters, tighter headings */
+  body.lh-app main [class*='lg:grid-cols-3'] {
+    gap: .55rem !important;
+  }
+  body.lh-app main [data-live-scope] h2 {
+    font-size: .875rem !important;
+    line-height: 1.15rem !important;
+  }
+  body.lh-app main [data-live-scope] > section {
+    margin-top: .55rem !important;
+  }
+
+  /* charts: analytics-height */
+  body.lh-app main [data-live-svg] {
+    height: 104px !important;
+  }
+  body.lh-app main [data-live-svg] svg {
+    height: 104px !important;
+  }
+
+  /* lists: more rows before inner scroll */
+  body.lh-app main [class*='max-h-72'] {
+    max-height: 158px !important;
+  }
+  body.lh-app main [class*='space-y-2\\.5'] > * + * {
+    margin-top: .3rem !important;
+  }
+
+  /* tables: 12px dense rows, hairline */
+  body.lh-app main table thead th {
+    font-size: 10px !important;
+    padding: .28rem .45rem !important;
+  }
+  body.lh-app main table tbody td {
+    font-size: .75rem !important;
+    padding: .3rem .45rem !important;
+  }
+
+  /* page header strip: slim */
+  body.lh-app main .lh-hero-paper {
+    padding: .35rem .2rem !important;
+  }
+  body.lh-app main .lh-kicker {
+    font-size: 9.5px !important;
+  }
+  body.lh-app main .lh-hero-paper h1 {
+    font-size: 1.15rem !important;
+    line-height: 1.4rem !important;
+  }
+  body.lh-app main .lh-hero-paper p {
+    font-size: .75rem !important;
+    margin-top: .15rem !important;
+  }
+
+  /* buttons in the header strip: small */
+  body.lh-app main .lh-hero-cta {
+    padding: .35rem .6rem !important;
+    font-size: .75rem !important;
+  }
+}
+
+/* ---------- end dense analytics pass ---------- */
 
 /* ---------- end full-viewport frame ---------- */
