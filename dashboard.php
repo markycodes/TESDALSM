@@ -33,13 +33,42 @@ $statCard = function (string $emoji, string $tile, string $label, string $value,
     . '</div>';
 };
 
-/** Wide horizontal stat card — fills the 2/3 column on desktop (icon left, value + label right). */
-$statWide = function (string $emoji, string $tile, string $label, string $value, string $key = ''): string {
+/**
+ * Stat card WITH a mini bar chart: headline number + a 5-day day-by-day
+ * comparison underneath (teacher dashboard only — Completions / Visits /
+ * Lessons). Bars are plain inline-styled blocks so they render without a
+ * Tailwind rebuild, colors match the card's emoji tile, and every column
+ * carries a native title tooltip ("Sep 19: 3") for the exact value.
+ * $vals = the last 5 daily counts (oldest → today), $days = short weekday
+ * labels, $tips = "M j" labels for the hover text.
+ */
+$statBars = function (string $emoji, string $tile, string $label, string $value, string $key,
+                      array $vals, array $days, array $tips, string $color, string $caption): string {
   $live = $key !== '' ? ' data-live-stat="' . e($key) . '"' : '';
-  return '<div class="reveal flex min-w-[150px] shrink-0 snap-start items-center gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:col-span-2 sm:min-w-0">'
+  $vals = array_map('intval', array_slice(array_values($vals), 0, 5));
+  while (count($vals) < 5) $vals[] = 0;             /* never render a ragged chart */
+  $max = max($vals);
+  $cols = '';
+  foreach ($vals as $i => $v) {
+    $pct = ($max > 0 && $v > 0) ? max(8, (int) round($v * 100 / $max)) : 0;
+    $cols .= '<div title="' . e(($tips[$i] ?? '') . ': ' . $v) . '"'
+      . ' style="flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%">'
+      . '<span style="font-size:9px;font-weight:800;line-height:1;color:' . ($v > 0 ? '#475569' : '#cbd5e1') . '">' . $v . '</span>'
+      . '<div style="flex:1;width:100%;display:flex;align-items:flex-end">'
+      . '<div style="width:100%;height:' . ($v > 0 ? $pct . '%' : '2px') . ';border-radius:5px 5px 2px 2px;background:'
+      . ($v > 0 ? $color : '#e2e8f0') . '"></div></div>'
+      . '<span style="font-size:9px;font-weight:600;line-height:1;color:#94a3b8;white-space:nowrap">'
+      . e($days[$i] ?? '') . '</span>'
+      . '</div>';
+  }
+  return '<div class="reveal flex min-w-[150px] shrink-0 snap-start flex-col justify-between rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:col-span-2 sm:min-w-0">'
+    . '<div class="flex items-center gap-3">'
     . '<span class="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-xl ' . $tile . '">' . $emoji . '</span>'
     . '<div class="min-w-0"><p class="truncate text-2xl font-extrabold leading-7 text-slate-900 lh-num"' . $live . '>' . e($value) . '</p>'
     . '<p class="truncate text-[11px] font-semibold uppercase tracking-wide text-slate-500">' . e($label) . '</p></div>'
+    . '</div>'
+    . '<div style="display:flex;align-items:stretch;gap:6px;height:64px;margin-top:10px">' . $cols . '</div>'
+    . '<p class="mt-1.5 truncate text-[10px] font-medium text-slate-400">' . e($caption) . '</p>'
     . '</div>';
 };
 
@@ -116,10 +145,10 @@ require __DIR__ . '/header.php';
             <?= zigzag_svg($ts['enrollments'], '#047857', 'rgba(4,120,87,0.14)', $ts['labels'], 'New enrollments') ?></div>
           <p class="mt-2 text-[10px] font-medium text-slate-400">New enrollments · last 14 days</p>
         </div>
-        <!-- Right 2/3 — three compact cards, no graphs -->
-        <?= $statWide('✅', 'bg-emerald-50', 'Completions', (string) $tc['completions'], 'completions') ?>
-        <?= $statWide('📍', 'bg-amber-50', 'Visits today', (string) $tc['visits_today'], 'visits_today') ?>
-        <?= $statWide('📦', 'bg-sky-50', 'Lessons', (string) $tc['lessons'], 'lessons') ?>
+        <!-- Right 2/3 — three stat cards, each with a 5-day bar comparison (series from teacher_daily_series — same source as the sparkline) -->
+        <?= $statBars('✅', 'bg-emerald-50', 'Completions', (string) $tc['completions'], 'completions', array_slice($ts['completions'], -5), array_map(fn ($i) => date('D', strtotime('-' . $i . ' days')), [4, 3, 2, 1, 0]), array_slice($ts['labels'], -5), '#047857', 'Completions · last 5 days') ?>
+        <?= $statBars('📍', 'bg-amber-50', 'Visits today', (string) $tc['visits_today'], 'visits_today', array_slice($ts['visits'], -5), array_map(fn ($i) => date('D', strtotime('-' . $i . ' days')), [4, 3, 2, 1, 0]), array_slice($ts['labels'], -5), '#f59e0b', 'Course visits · last 5 days') ?>
+        <?= $statBars('📦', 'bg-sky-50', 'Lessons', (string) $tc['lessons'], 'lessons', array_slice($ts['uploads'], -5), array_map(fn ($i) => date('D', strtotime('-' . $i . ' days')), [4, 3, 2, 1, 0]), array_slice($ts['labels'], -5), '#0ea5e9', 'Lessons added · last 5 days') ?>
       <?php else: ?>
         <?= $statCard('🎓', 'bg-indigo-50', 'Enrolled courses', (string) count($enrolled), 'enrolled') ?>
         <?= $statCard('✅', 'bg-emerald-50', 'Lessons completed', (string) $totDone, 'done') ?>
