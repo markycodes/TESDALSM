@@ -311,6 +311,10 @@ function ui_theme_choices(): array
             'Calm studio',
             'Emerald paper canvas, hairline cards, quiet depth, straight solid buttons.',
         ],
+        'minimal' => [
+            'Minimal — premium & quiet',
+            'Off-white canvas, a single emerald accent, hairline cards with soft lift, Inter throughout. Content first, chrome last.',
+        ],
     ];
 }
 

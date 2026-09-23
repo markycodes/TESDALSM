@@ -1,0 +1,449 @@
+/* ============================================================
+   LearnHub theme — "Minimal"
+   Premium, quiet, content-first: off-white canvas, one accent,
+   hairline surfaces, soft depth, tabular numerals. Inter only.
+   Loaded after the inline base theme in header.php.
+   Switchable in Settings → Appearance. Dark variant:
+   assets/theme-minimal-dark.css
+   ============================================================ */
+:root {
+  /* neutrals */
+  --m-canvas: #fbfbfc;
+  --m-surface: #ffffff;
+  --m-surface-2: #f7f7f8;
+  --m-line: #ececee;
+  --m-line-strong: #e2e2e5;
+  --m-ink: #111214;
+  /* headings */
+  --m-body: #4a4d55;
+  /* body copy */
+  --m-mut: #8b8f98;
+  /* secondary text */
+
+  /* the single accent */
+  --m-accent: #0f8a5f;
+  --m-accent-hover: #0c7350;
+  --m-accent-soft: #eef8f3;
+  --m-accent-ring: rgba(15, 138, 95, .16);
+
+  /* radii */
+  --m-r-sm: 8px;
+  --m-r-md: 12px;
+  --m-r-lg: 16px;
+
+  /* depth: two soft layers, never a hard edge */
+  --m-shadow-1: 0 1px 2px rgba(17, 18, 20, .04), 0 1px 1px rgba(17, 18, 20, .02);
+  --m-shadow-2: 0 1px 2px rgba(17, 18, 20, .05), 0 12px 28px -18px rgba(17, 18, 20, .16);
+  --m-shadow-3: 0 2px 4px rgba(17, 18, 20, .06), 0 20px 44px -22px rgba(17, 18, 20, .24);
+
+  /* motion */
+  --m-ease: cubic-bezier(.16, 1, .3, 1);
+  --m-fast: 160ms;
+  --m-base: 220ms;
+
+  /* type */
+  --m-font: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* keep the app's own tokens pointing at this palette */
+  --lh-ink: var(--m-ink);
+  --lh-body: var(--m-body);
+  --lh-mut: var(--m-mut);
+  --lh-line: var(--m-line);
+  --lh-line-2: #f3f3f5;
+  --lh-paper: var(--m-canvas);
+  --lh-deep: var(--m-accent-hover);
+  --lh-brand: var(--m-accent);
+  --lh-mint: #12b981;
+  --lh-tint: var(--m-accent-soft);
+  --lh-grad: linear-gradient(135deg, #0f8a5f 0%, #12b981 100%);
+  --lh-display: var(--m-font);
+  --lh-radius: var(--m-r-md);
+  --lh-shadow: var(--m-shadow-2);
+  --lh-shadow-hover: var(--m-shadow-3);
+}
+
+/* ---- canvas: off-white with one barely-there wash ---- */
+body,
+body.lh-app,
+.lh-app {
+  background:
+    radial-gradient(1100px 520px at 78% -12%, rgba(15, 138, 95, .045), transparent 62%),
+    var(--m-canvas) !important;
+}
+
+/* ---- typography: one voice, real hierarchy ---- */
+body {
+  font-family: var(--m-font);
+  color: var(--m-body);
+  letter-spacing: -.006em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11'
+}
+
+main h1,
+main h2,
+.lh-display {
+  font-family: var(--m-font);
+  font-weight: 600;
+  letter-spacing: -.028em;
+  line-height: 1.15;
+  color: var(--m-ink);
+  text-wrap: balance
+}
+
+main h1 {
+  font-size: clamp(1.5rem, 1.2rem + 1vw, 2rem)
+}
+
+main h2 {
+  font-weight: 600;
+  letter-spacing: -.02em
+}
+
+main h3 {
+  font-weight: 600;
+  letter-spacing: -.012em;
+  color: var(--m-ink)
+}
+
+.lh-kicker {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--m-mut)
+}
+
+.lh-num,
+[data-live-stat],
+main table td {
+  font-variant-numeric: tabular-nums
+}
+
+/* ---- scroll reveal: softened (base ships 18px / 550ms) ---- */
+.reveal {
+  transform: translateY(10px);
+  transition: opacity 340ms var(--m-ease), transform 340ms var(--m-ease)
+}
+
+/* ---- top bar: translucent, blurred; the hairline firms up on scroll ---- */
+nav.glass,
+.lh-topbar {
+  background: rgba(255, 255, 255, .74) !important;
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  border-bottom: 1px solid var(--m-line) !important;
+  box-shadow: none !important
+}
+
+nav.glass::after {
+  height: 1px;
+  background: var(--m-line);
+  opacity: 1
+}
+
+.lh-topbar .lh-top-inner {
+  height: 56px
+}
+
+@supports (animation-timeline: scroll()) {
+  nav.glass,
+  .lh-topbar {
+    animation: m-scrolled linear both;
+    animation-timeline: scroll();
+    animation-range: 0 48px
+  }
+
+  @keyframes m-scrolled {
+    to {
+      background: rgba(255, 255, 255, .9);
+      box-shadow: 0 1px 2px rgba(17, 18, 20, .04), 0 8px 20px -18px rgba(17, 18, 20, .2)
+    }
+  }
+}
+
+nav.glass a:not(.lh-logo):not([class*='bg-']):hover,
+.lh-topbar a:not([class*='bg-']):hover {
+  background: var(--m-surface-2);
+  border-radius: var(--m-r-sm)
+}
+
+#lh-rail-toggle:hover,
+#lh-side-toggle:hover,
+.lh-ico:hover {
+  background: var(--m-surface-2);
+  color: var(--m-ink);
+  border-radius: var(--m-r-sm)
+}
+
+/* ---- navigation rail: light, quiet, a single accent pill ---- */
+.lh-sidebar {
+  background: var(--m-surface) !important;
+  border-right: 1px solid var(--m-line) !important;
+  box-shadow: none !important
+}
+
+.lh-side-head {
+  border-bottom: 1px solid var(--m-line)
+}
+
+.lh-side-head img[alt='LearnHub LMS'] {
+  border-radius: var(--m-r-sm)
+}
+
+.lh-side-sec {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  color: var(--m-mut)
+}
+
+.lh-side-link {
+  color: var(--m-body);
+  border-radius: var(--m-r-sm);
+  font-weight: 500;
+  transition: background var(--m-fast) ease, color var(--m-fast) ease
+}
+
+.lh-side-link:hover {
+  background: var(--m-surface-2);
+  color: var(--m-ink)
+}
+
+.lh-side-link.active {
+  background: var(--m-accent-soft) !important;
+  color: var(--m-accent-hover) !important;
+  font-weight: 600;
+  box-shadow: none !important
+}
+
+.lh-side-link.active::before {
+  background: var(--m-accent);
+  left: -.6rem;
+  width: 2.5px
+}
+
+.lh-side-link.active .lh-side-ico,
+.lh-side-link.active svg {
+  color: var(--m-accent) !important
+}
+
+.lh-side-foot {
+  border-top: 1px solid var(--m-line)
+}
+
+.lh-side-foot a {
+  border-color: var(--m-line-strong) !important;
+  color: var(--m-mut) !important;
+  border-radius: var(--m-r-sm)
+}
+
+.lh-side-foot a:hover {
+  background: var(--m-surface-2);
+  color: var(--m-ink) !important
+}
+
+.lh-side-collapse-wrap button,
+#lh-side-collapse {
+  border-color: var(--m-line-strong) !important;
+  color: var(--m-mut) !important;
+  border-radius: var(--m-r-sm)
+}
+
+.lh-side-collapse-wrap button:hover,
+#lh-side-collapse:hover {
+  background: var(--m-surface-2);
+  color: var(--m-ink) !important
+}
+
+.lh-side-link::after {
+  background: #1c1d21;
+  border-radius: 6px
+}
+
+/* ---- buttons: one solid accent voice + quiet ghost/outline ---- */
+main a.bg-indigo-600,
+main button.bg-indigo-600,
+nav a.px-4.bg-indigo-600,
+main button.bg-emerald-600,
+main a.bg-emerald-600 {
+  background: var(--m-accent) !important;
+  background-image: none !important;
+  border-radius: var(--m-r-sm) !important;
+  box-shadow: var(--m-shadow-1) !important;
+  transition: background var(--m-fast) ease, transform var(--m-fast) ease, box-shadow var(--m-fast) ease
+}
+
+main a.bg-indigo-600:hover,
+main button.bg-indigo-600:hover,
+nav a.px-4.bg-indigo-600:hover,
+main button.bg-emerald-600:hover,
+main a.bg-emerald-600:hover {
+  background: var(--m-accent-hover) !important;
+  transform: translateY(-1px);
+  box-shadow: var(--m-shadow-2) !important
+}
+
+/* destructive stays rose, but quieter */
+main button.bg-rose-600,
+main a.bg-rose-600 {
+  border-radius: var(--m-r-sm) !important;
+  box-shadow: var(--m-shadow-1) !important
+}
+
+/* outline/ghost chips calm down */
+main .border.rounded-xl,
+main .rounded-xl.border {
+  border-radius: var(--m-r-sm) !important;
+  transition: background var(--m-fast) ease, color var(--m-fast) ease, border-color var(--m-fast) ease
+}
+
+/* ---- cards: hairline surface, soft lift — no rings, no glass ---- */
+main .bg-white.ring-1,
+main .rounded-2xl.bg-white,
+main .rounded-3xl.bg-white {
+  background: var(--m-surface) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-radius: var(--m-r-md) !important;
+  border: 1px solid var(--m-line);
+  box-shadow: var(--m-shadow-1) !important;
+  transition: box-shadow var(--m-base) var(--m-ease), transform var(--m-base) var(--m-ease)
+}
+
+main .rounded-2xl.bg-white.ring-1:hover,
+main .rounded-3xl.bg-white.ring-1:hover {
+  box-shadow: var(--m-shadow-2) !important;
+  transform: translateY(-2px)
+}
+
+/* rotate/tilt legacy from older themes is cancelled */
+main .rounded-2xl.bg-white {
+  rotate: none !important
+}
+
+main .rounded-2xl.bg-white::before {
+  display: none !important
+}
+
+/* hero panel: flat wash, generous padding, no tape/paper theatre */
+.lh-hero,
+main>section.bg-gradient-to-r {
+  border-radius: var(--m-r-lg) !important;
+  background: linear-gradient(135deg, var(--m-accent-soft), #f6fbf8 55%, var(--m-canvas)) !important;
+  border: 1px solid var(--m-line);
+  animation: none !important
+}
+
+.lh-hero::before,
+main>section.bg-gradient-to-r::before {
+  display: none !important
+}
+
+/* ---- forms: soft border, accent focus ring ---- */
+main input,
+main select,
+main textarea {
+  border-radius: var(--m-r-sm) !important;
+  border-color: var(--m-line-strong) !important;
+  transition: border-color var(--m-fast) ease, box-shadow var(--m-fast) ease
+}
+
+main input:focus,
+main select:focus,
+main textarea:focus {
+  border-color: var(--m-accent) !important;
+  box-shadow: 0 0 0 3px var(--m-accent-ring) !important;
+  outline: none
+}
+
+/* ---- tables: hairline rows, tabular numerals, quiet hover ---- */
+main table thead th {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--m-mut)
+}
+
+main table tbody tr {
+  border-bottom: 1px solid var(--m-line)
+}
+
+main table tbody tr:last-child {
+  border-bottom: none
+}
+
+main table tbody tr:hover {
+  background: var(--m-surface-2)
+}
+
+/* ---- progress: solid accent, no shimmer ---- */
+main .h-2>.h-full,
+main .h-2\.5>.h-full,
+main .h-3>.h-full {
+  background: var(--m-accent) !important;
+  animation: none
+}
+
+main .h-2>.h-full::after,
+main .h-2\.5>.h-full::after,
+main .h-3>.h-full::after {
+  animation: none
+}
+
+/* ---- indigo remap → accent (this app was born indigo) ---- */
+main .bg-indigo-50 {
+  background: var(--m-accent-soft) !important
+}
+
+main .bg-indigo-100 {
+  background: #dcf3ea !important
+}
+
+main .text-indigo-400,
+main .text-indigo-500,
+main .text-indigo-600,
+main .text-indigo-700,
+main .text-indigo-800 {
+  color: var(--m-accent) !important
+}
+
+main .ring-indigo-200,
+main .ring-indigo-300 {
+  border-color: #cdeadd !important
+}
+
+/* ---- footer: quiet ---- */
+footer {
+  border-top: 1px solid var(--m-line)
+}
+
+/* ---- toasts: flat sheet ---- */
+.toast-in {
+  animation: toastIn .22s var(--m-ease)
+}
+
+/* ---- live dot keeps its pulse, recoloured ---- */
+.lh-live-dot {
+  color: var(--m-accent)
+}
+
+/* ---- motion contract ---- */
+@media (prefers-reduced-motion:reduce) {
+
+  main .rounded-2xl.bg-white.ring-1:hover,
+  main .rounded-3xl.bg-white.ring-1:hover,
+  main a.bg-indigo-600:hover,
+  main button.bg-indigo-600:hover {
+    transform: none
+  }
+
+  .reveal {
+    transition: none;
+    transform: none
+  }
+}
+
