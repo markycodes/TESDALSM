@@ -290,7 +290,7 @@ function setting_set(string $k, string $v): void
 /* ---------------- appearance / theme ---------------- */
 
 /** The design shipped as the default (see ui_theme_choices() below). */
-if (!defined('UI_THEME_DEFAULT')) define('UI_THEME_DEFAULT', 'console');
+if (!defined('UI_THEME_DEFAULT')) define('UI_THEME_DEFAULT', 'material');
 
 /** The designs a site can pick from (Settings → Appearance).
  *  Each key maps to assets/theme-<key>.css, which is loaded after the
@@ -299,6 +299,10 @@ if (!defined('UI_THEME_DEFAULT')) define('UI_THEME_DEFAULT', 'console');
 function ui_theme_choices(): array
 {
     return [
+        'material' => [
+            'Material — creative dashboard',
+            'Light-gray canvas, white floating sidebar with a dark active pill, white cards with dark icon tiles and green data accents.',
+        ],
         'console' => [
             'Console — professional dashboard',
             'Dark navigation rail, flat hairline surfaces, dense data tables and compact controls. Built for reading numbers.',

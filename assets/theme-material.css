@@ -1,0 +1,277 @@
+/* ============================================================
+   LearnHub theme: "Material" — Creative Tim dashboard style
+   Light-gray canvas · white floating sidebar with dark active
+   pill · white cards with dark icon tiles · green data accents.
+   CSS-only: targets existing markup, changes no functionality.
+   ============================================================ */
+
+/* ---------- canvas & frame ---------- */
+body.lh-app {
+  background: #f0f2f5 !important;
+}
+body.lh-app main.lh-main {
+  max-width: 1320px !important;
+}
+
+/* ---------- sidebar: white floating card ---------- */
+body.lh-app .lh-sidebar {
+  background: #ffffff !important;
+  border-right: 1px solid #e6eaf0 !important;
+  box-shadow: 6px 0 22px -14px rgba(15, 23, 42, .18) !important;
+}
+.lh-sidebar .lh-side-head {
+  border-bottom: 1px solid #eef1f5 !important;
+}
+.lh-sidebar .lh-side-head img[src*="logo.png"] {
+  background: #0f172a;
+  border-radius: 10px;
+  padding: 3px;
+}
+.lh-side-sec {
+  color: #8a94a6 !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  letter-spacing: .12em !important;
+  text-transform: uppercase !important;
+}
+.lh-side-link {
+  color: #4b5563 !important;
+  font-weight: 600 !important;
+  border-radius: 10px !important;
+  margin: 2px 10px !important;
+  transition: background .18s ease, color .18s ease !important;
+}
+.lh-side-link:hover {
+  background: #f1f4f8 !important;
+  color: #1e293b !important;
+}
+.lh-side-link.active {
+  background: #2b3547 !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 14px -6px rgba(30, 41, 59, .55) !important;
+}
+.lh-side-link.active:hover {
+  background: #232c3b !important;
+  color: #ffffff !important;
+}
+.lh-side-foot {
+  border-top: 1px solid #eef1f5 !important;
+}
+
+/* ---------- top bar ---------- */
+body.lh-app .glass.lh-topbar {
+  background: rgba(240, 242, 245, .88) !important;
+  border-bottom: 1px solid #e3e8ee !important;
+  box-shadow: none !important;
+  backdrop-filter: blur(8px) !important;
+}
+.lh-ico {
+  background: #ffffff !important;
+  border: 1px solid #e3e8ee !important;
+  border-radius: 10px !important;
+}
+.lh-ico:hover {
+  border-color: #cbd5e1 !important;
+}
+
+/* ---------- hero: flat page header, no paper/tape ---------- */
+.lh-hero {
+  background: transparent !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+.lh-hero-paper {
+  background: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+.lh-tape {
+  display: none !important;
+}
+.lh-kicker {
+  color: #7c8798 !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  letter-spacing: .09em !important;
+  text-transform: uppercase !important;
+}
+.lh-hero h1 {
+  color: #2b3547 !important;
+  font-weight: 800 !important;
+}
+
+/* ---------- buttons: dark slate primary ---------- */
+main .bg-emerald-600,
+main .bg-emerald-700,
+main .bg-indigo-600,
+main .lh-hero-cta {
+  background: #2b3547 !important;
+  color: #ffffff !important;
+  border-radius: 10px !important;
+  box-shadow: 0 6px 14px -6px rgba(30, 41, 59, .5) !important;
+  transition: background .18s ease, box-shadow .18s ease !important;
+}
+main .bg-emerald-600:hover,
+main .bg-emerald-700:hover,
+main .bg-indigo-600:hover,
+main .lh-hero-cta:hover {
+  background: #1d2534 !important;
+  box-shadow: 0 8px 18px -8px rgba(30, 41, 59, .55) !important;
+}
+main a[class*="bg-emerald-"],
+main a[class*="bg-indigo-"] {
+  border-radius: 10px !important;
+}
+main button[class*="border-slate-200"],
+main a[class*="border-slate-300"] {
+  background: #ffffff !important;
+  border: 1px solid #e3e8ee !important;
+  border-radius: 10px !important;
+  color: #475569 !important;
+}
+main button[class*="border-slate-200"]:hover,
+main a[class*="border-slate-300"]:hover {
+  border-color: #cbd5e1 !important;
+  color: #1e293b !important;
+}
+
+/* ---------- cards: white, floating, subtle hover ---------- */
+body.lh-app main .rounded-2xl.bg-white,
+body.lh-app main .rounded-3xl.bg-white {
+  border-radius: 16px !important;
+  border: 1px solid #eef0f4 !important;
+  box-shadow: 0 6px 18px -8px rgba(15, 23, 42, .1) !important;
+  transition: box-shadow .2s ease, transform .2s ease !important;
+}
+body.lh-app main .rounded-2xl.bg-white:hover,
+body.lh-app main .rounded-3xl.bg-white:hover {
+  box-shadow: 0 14px 30px -12px rgba(15, 23, 42, .16) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* ---------- stat tiles: dark rounded-square icon chips ---------- */
+main .rounded-2xl.bg-white .grid.h-9,
+main .rounded-2xl.bg-white .grid.h-10,
+main .rounded-2xl.bg-white .grid.h-11 {
+  background: #2b3547 !important;
+  color: #ffffff !important;
+  border-radius: 12px !important;
+  box-shadow: 0 6px 12px -6px rgba(30, 41, 59, .5) !important;
+}
+main [data-live-stat],
+main .lh-num {
+  font-weight: 800 !important;
+  letter-spacing: -.02em !important;
+  font-variant-numeric: tabular-nums !important;
+}
+main .rounded-2xl.bg-white p[class*="uppercase"] {
+  color: #7c8798 !important;
+  letter-spacing: .08em !important;
+}
+
+/* ---------- headings ---------- */
+main h1, main h2, main h3 {
+  color: #2b3547 !important;
+}
+main h2 {
+  font-weight: 800 !important;
+}
+
+/* ---------- tabs ---------- */
+main button[data-tab-btn] {
+  border-radius: 10px !important;
+  font-weight: 700 !important;
+  color: #64748b !important;
+}
+main button[data-tab-btn][aria-selected="true"] {
+  background: #2b3547 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 10px -4px rgba(30, 41, 59, .45) !important;
+}
+
+/* ---------- tables ---------- */
+main table {
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  width: 100% !important;
+}
+main table thead th {
+  background: #f7f9fb !important;
+  color: #7c8798 !important;
+  font-size: 10.5px !important;
+  font-weight: 800 !important;
+  letter-spacing: .1em !important;
+  text-transform: uppercase !important;
+  border-bottom: 1px solid #eef0f4 !important;
+}
+main table tbody td {
+  border-bottom: 1px solid #f1f3f7 !important;
+  color: #475569 !important;
+}
+main table tbody tr {
+  transition: background .16s ease !important;
+}
+main table tbody tr:hover {
+  background: #f7fafc !important;
+}
+
+/* ---------- forms ---------- */
+main input,
+main select,
+main textarea {
+  background: #ffffff !important;
+  border: 1px solid #dfe4ec !important;
+  border-radius: 10px !important;
+}
+main input:focus,
+main select:focus,
+main textarea:focus {
+  border-color: #10b981 !important;
+}
+
+/* ---------- notifications dropdown ---------- */
+.lh-panel {
+  border-radius: 14px !important;
+  border: 1px solid #eef0f4 !important;
+  box-shadow: 0 24px 48px -20px rgba(15, 23, 42, .28) !important;
+}
+
+/* ---------- charts ---------- */
+main [data-live-svg] svg {
+  max-width: 100% !important;
+  height: auto !important;
+}
+
+/* ---------- focus rings (WCAG) ---------- */
+main a:focus-visible,
+main button:focus-visible,
+main input:focus-visible,
+main select:focus-visible,
+main textarea:focus-visible,
+.lh-side-link:focus-visible {
+  outline: 2px solid #10b981 !important;
+  outline-offset: 2px !important;
+}
+
+/* ---------- motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  body.lh-app main * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* ---------- mobile polish ---------- */
+@media (max-width: 640px) {
+  body.lh-app main.lh-main {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+  .lh-sidebar {
+    border-right: none !important;
+    box-shadow: 0 18px 40px -18px rgba(15, 23, 42, .35) !important;
+  }
+}
