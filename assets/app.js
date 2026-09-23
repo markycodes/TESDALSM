@@ -1491,9 +1491,10 @@ if (dayFilter) {
         logBody.innerHTML = d.attLog.length
           ? d.attLog.map(function (a) {
             var left = a.left_at ? lmsClock(a.left_at) : (a.online ? '<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">🟢 Online</span>' : '<span class="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">⏳ In course</span>');
-            return '<tr><td class="px-4 py-3 font-semibold text-slate-900">' + lmsEsc(a.name) + '</td><td class="px-4 py-3 text-slate-600">' + new Date(a.entered_at * 1000).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) + '</td><td class="px-4 py-3 text-slate-600">' + left + '</td><td class="px-4 py-3 text-slate-600">' + lmsDur(a.left_at ? a.left_at - a.entered_at : Math.floor(Date.now() / 1000) - a.entered_at) + '</td><td class="hidden px-4 py-3 text-slate-400 md:table-cell">' + lmsEsc(a.ip) + '</td></tr>';
+            return '<tr><td class="px-4 py-3 font-semibold text-slate-900">' + lmsEsc(a.name) + '</td><td class="px-4 py-3 text-slate-600">' + new Date(a.entered_at * 1000).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) + '</td><td class="px-4 py-3 text-slate-600">' + left + '</td><td class="px-4 py-3 text-slate-600">' + (a.left_at ? lmsDur(a.left_at - a.entered_at) : '<span data-open-seconds="' + Math.max(0, Math.floor(Date.now() / 1000) - a.entered_at) + '" data-mark="d' + a.id + '" class="font-semibold text-emerald-700"></span>') + '</td><td class="hidden px-4 py-3 text-slate-400 md:table-cell">' + lmsEsc(a.ip) + '</td></tr>';
           }).join('')
           : '<tr><td class="px-4 py-6 text-center text-sm text-slate-400" colspan="5">No attendance recorded for this course yet.</td></tr>';
+        runOpenTickers(logBody);   /* freshly-rendered open rows need their per-second ticker restarted */
       }
     });
     return;

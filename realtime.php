@@ -174,6 +174,7 @@ if ($v === 'roster') {
         $st->execute([$selCourse, $me]);
         foreach ($st->fetchAll() as $r) {
             $attLogArr[] = [
+                'id' => (int) $r['id'],
                 'name' => (string) $r['name'], 'entered_at' => (int) $r['entered_at'],
                 'left_at' => $r['left_at'] ? (int) $r['left_at'] : null, 'ip' => (string) ($r['ip'] ?? ''),
                 'online' => isset($online[(int) $r['user_id']]),

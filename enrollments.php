@@ -253,7 +253,7 @@ require __DIR__ . '/header.php';
           <td class="px-4 py-3 font-semibold text-slate-900"><?= e((string) $a['name']) ?></td>
           <td class="px-4 py-3 text-slate-600"><?= date('M j, Y g:i A', (int) $a['entered_at']) ?></td>
           <td class="px-4 py-3 text-slate-600"><?php if ($left): ?><?= date('g:i A', $left) ?><?php elseif (isset($online[(int) $a['user_id']])): ?><span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">🟢 Online</span><?php else: ?><span class="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">⏳ In course</span><?php endif; ?></td>
-          <td class="px-4 py-3 text-slate-600"><?= duration_between((int) $a['entered_at'], $left) ?></td>
+          <td class="px-4 py-3 text-slate-600"><?php if ($left): ?><?= duration_between((int) $a['entered_at'], $left) ?><?php else: ?><span data-open-seconds="<?= max(0, time() - (int) $a['entered_at']) ?>" data-mark="d<?= (int) $a['id'] ?>" class="font-semibold text-emerald-700"><?= duration_between((int) $a['entered_at'], null) ?></span><?php endif; ?></td>
           <td class="hidden px-4 py-3 text-slate-400 md:table-cell"><?= e((string) ($a['ip'] ?? '')) ?></td>
         </tr>
       <?php endforeach; ?>
