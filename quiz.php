@@ -23,6 +23,16 @@ $quiz = $ctx['quiz'];
 $isOwner = $ctx['isOwner'];
 $material = get_material($courseId, $materialId);
 
+/* Attendance: taking the lesson quiz IS studying. Arriving from the course page
+   fired its leave-beacon, so continue the same row — and since this page has no
+   app shell, refresh presence + send the leave-beacon itself (script at the
+   bottom), exactly like the reader (read.php). */
+touch_presence($userId);
+$trackVisit = ($user['role'] ?? '') === 'student' && !$isOwner;
+if ($trackVisit) {
+    resume_attendance($userId, $courseId);
+}
+
 $result = $isOwner ? null : quiz_result_for((int) $quiz['id'], $userId);
 // Review source: once finished, read the persisted answers from quiz_results
 // (progress rows are deleted on completion); while in progress, read quiz_progress.
@@ -49,6 +59,7 @@ $passed = $result && $result['status'] === 'PASSED';
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="csrf" content="<?= e(csrf_token()) ?>">
+<?php if ($trackVisit): ?><meta name="attendance-course" content="<?= (int) $courseId ?>"><?php endif; ?>
 <title>Quiz: <?= e((string) $quiz['title']) ?> · LearnHub</title>
 <link rel="stylesheet" href="assets/tailwind.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -183,5 +194,33 @@ $passed = $result && $result['status'] === 'PASSED';
   </div>
 <?php endif; ?>
 </main>
+<script>
+/* No app shell here either: keep presence fresh while the student takes the quiz
+   (or reads their review) and close the attendance visit on real departure. */
+(function () {
+  var csrf = document.querySelector('meta[name="csrf"]').content;
+  var ping = function () {
+    fetch('ping.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'fetch' },
+      body: 'csrf=' + encodeURIComponent(csrf),
+    }).catch(function () {});
+  };
+  ping();
+  setInterval(ping, 55000);
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') ping();
+  });
+<?php if ($trackVisit): ?>
+  if (navigator.sendBeacon) {
+    window.addEventListener('pagehide', function () {
+      navigator.sendBeacon('attendance.php', new URLSearchParams({
+        csrf: csrf, course: '<?= (int) $courseId ?>',
+      }));
+    });
+  }
+<?php endif; ?>
+})();
+</script>
 </body>
 </html>

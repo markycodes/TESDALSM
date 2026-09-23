@@ -892,7 +892,14 @@ if (document.body.hasAttribute('data-heartbeat')) {
   });
 }
 
-/* ---------- attendance: close the visit when leaving the course page ---------- */
+/* ---------- attendance: close the visit when leaving the course page ----------
+   pagehide ONLY — not visibilitychange:hidden. Tab switches must keep the visit
+   open: a student who peeks at another tab is still in their study session, and
+   closing on "hidden" froze the teacher's live "Time spent" counter the moment
+   they tabbed away (it looked like attendance stopped counting while studying).
+   Real departures still close it (navigation, tab/browser closed → pagehide),
+   and a session abandoned without a beacon is finished server-side by
+   close_stale_attendance() once the heartbeat goes stale. */
 const attendanceMeta = document.querySelector('meta[name="attendance-course"]');
 if (attendanceMeta) {
   const closeVisit = () => {
@@ -902,9 +909,6 @@ if (attendanceMeta) {
     }));
   };
   window.addEventListener('pagehide', closeVisit);
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') closeVisit();
-  });
 }
 
 /* ---------- attendance day page: live durations for open sessions ---------- */

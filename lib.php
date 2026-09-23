@@ -2034,6 +2034,22 @@ function receive_upload_chunk_store(
         'size'   => $size,
     ]);
 
+    /* real event -> notification for every enrolled student (same copy as
+       upload.php). The chunked path publishes documents & videos and used to
+       notify nobody — that is why uploading a new file lesson produced no bell
+       entry on the student side (only pasted text/links, which post straight to
+       upload.php, ever notified). Guarded: the lesson IS saved, so a
+       notification hiccup must not turn a successful upload into an error. */
+    try {
+        $courseTitle = (string) (course_row($courseId)['title'] ?? 'Course');
+        notify_course_students($courseId, 'lesson',
+            '📚 New lesson in "' . cut($courseTitle, 60) . '"',
+            cut($lessonTitle, 90),
+            'course.php?id=' . $courseId);
+    } catch (\Throwable $notifyEx) {
+        lms_error_log('lesson notification failed: ' . $notifyEx->getMessage());
+    }
+
     return [
         'received'    => $received,
         'total'       => $size,
@@ -3078,6 +3094,35 @@ function record_attendance(int $userId, int $courseId): int
     return $at;
 }
 
+/** Grace window for continuing a visit after an in-site hop (course → lesson /
+ *  quiz / live room): the leave-beacon closed the row during navigation and the
+ *  study page re-opens it, so one study session stays ONE attendance row. */
+const ATTENDANCE_RESUME_GRACE = 15;
+
+/** Continue the current visit instead of starting a new row: a still-open row is
+ *  returned untouched, a row closed within ATTENDANCE_RESUME_GRACE is re-opened
+ *  (entered_at preserved — the teacher's live counter never restarts), otherwise
+ *  a fresh visit is recorded. Returns entered_at (unix seconds). */
+function resume_attendance(int $userId, int $courseId): int
+{
+    $st = db()->prepare('SELECT entered_at FROM attendance
+                         WHERE user_id = ? AND course_id = ? AND left_at IS NULL
+                         ORDER BY id DESC LIMIT 1');
+    $st->execute([$userId, $courseId]);
+    if ($row = $st->fetch()) return (int) $row['entered_at'];
+
+    $st = db()->prepare('SELECT id, entered_at FROM attendance
+                         WHERE user_id = ? AND course_id = ? AND left_at IS NOT NULL AND left_at >= ?
+                         ORDER BY id DESC LIMIT 1');
+    $st->execute([$userId, $courseId, time() - ATTENDANCE_RESUME_GRACE]);
+    if ($row = $st->fetch()) {
+        db()->prepare('UPDATE attendance SET left_at = NULL WHERE id = ? AND left_at IS NOT NULL')
+            ->execute([(int) $row['id']]);
+        return (int) $row['entered_at'];
+    }
+    return record_attendance($userId, $courseId);
+}
+
 /** Close the latest open attendance row for a user/course (called via pagehide beacon). */
 function close_attendance(int $userId, int $courseId): void
 {
@@ -3191,13 +3236,15 @@ function live_class_heartbeat(int $classId, int $userId): void
 }
 
 /**
- * Attendance for live classes: the first heartbeat of a participant opens an
- * attendance row for that course — the same table (and thus the same pages:
- * attendance_day.php, enrollments.php, realtime.php) that records course-page
- * visits. It is a no-op while a row is already open; the row then stays open
- * until the participant leaves the site (pagehide beacon / stale-presence
- * closer) and re-opens automatically if they drop and come back. Students
- * only, exactly like course-page attendance (course.php).
+ * Attendance for live classes: the first heartbeat of a participant continues
+ * (or opens) an attendance row for that course — the same table (and thus the
+ * same pages: attendance_day.php, enrollments.php, realtime.php) that records
+ * course-page visits. Continuation matters here: the course page's leave-beacon
+ * closed the visit while navigating into the room, and re-opening that same row
+ * keeps the student's time counted as ONE session. The row stays open until the
+ * participant leaves the site (pagehide beacon / stale-presence closer) and
+ * re-opens automatically if they drop and come back. Students only, exactly like
+ * course-page attendance (course.php).
  */
 function live_class_attendance(int $userId, int $courseId, bool $isStudent = true): void
 {
@@ -3205,7 +3252,7 @@ function live_class_attendance(int $userId, int $courseId, bool $isStudent = tru
     $st = db()->prepare('SELECT id FROM attendance WHERE user_id = ? AND course_id = ? AND left_at IS NULL LIMIT 1');
     $st->execute([$userId, $courseId]);
     if ($st->fetchColumn()) return;          /* row already open — nothing to do */
-    record_attendance($userId, $courseId);   /* first join: open a fresh row (IP included) */
+    resume_attendance($userId, $courseId);   /* continue the visit just closed by navigation (or open one) */
 }
 
 /** Raise / lower a participant's hand. */

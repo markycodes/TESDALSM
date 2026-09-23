@@ -27,6 +27,17 @@ if (!$material || ($material['type'] ?? '') !== 'file') {
     exit('Material not found.');
 }
 
+/* Attendance: documents are studied HERE, not on the course page. Arriving from
+   the course fired its leave-beacon, so continue the same row — the teacher's
+   attendance page then keeps counting this student in real time while they
+   read. This page runs without the app shell, so it also refreshes presence
+   itself and sends the leave-beacon on pagehide (script before </body>). */
+touch_presence($userId);
+$trackVisit = ($user['role'] ?? '') === 'student' && !$isOwner;
+if ($trackVisit) {
+    resume_attendance($userId, $courseId);
+}
+
 $payload = read_material_payload($material);
 $kind = (string) $payload['kind'];                  // pdf | image | text | doc | missing | unsupported
 $viewer = (string) ($payload['viewer'] ?? 'none');  // pdf | image | markdown | docx | pptx | xlsx | text | none
@@ -61,6 +72,7 @@ if (is_file($absFile)) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="csrf" content="<?= e(csrf_token()) ?>">
+<?php if ($trackVisit): ?><meta name="attendance-course" content="<?= (int) $courseId ?>"><?php endif; ?>
 <title>Reading: <?= e((string) $material['title']) ?> · LearnHub</title>
 <link rel="stylesheet" href="assets/tailwind.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -501,6 +513,36 @@ if (is_file($absFile)) {
   setInterval(send, 5000);
   window.addEventListener('pagehide', function () { if (!tracking || isOwner || completed) return; navigator.sendBeacon('read_progress.php', payload()); });
   render();
+})();
+</script>
+<script>
+/* This reader runs without the app shell (no header.php / app.js), so it keeps
+   its own study session alive: ping.php keeps presence fresh — otherwise the
+   stale-presence closer would end the attendance visit ~3 minutes into reading —
+   and the pagehide beacon closes the visit when the student really leaves. */
+(function () {
+  var csrf = document.querySelector('meta[name="csrf"]').content;
+  var ping = function () {
+    fetch('ping.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'fetch' },
+      body: 'csrf=' + encodeURIComponent(csrf),
+    }).catch(function () {});
+  };
+  ping();
+  setInterval(ping, 55000);
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') ping();
+  });
+<?php if ($trackVisit): ?>
+  if (navigator.sendBeacon) {
+    window.addEventListener('pagehide', function () {
+      navigator.sendBeacon('attendance.php', new URLSearchParams({
+        csrf: csrf, course: '<?= (int) $courseId ?>',
+      }));
+    });
+  }
+<?php endif; ?>
 })();
 </script>
 </body>

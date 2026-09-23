@@ -62,6 +62,11 @@ $jitsiDemo   = jitsi_is_demo_domain() && !jitsi_jaas_ready();
 $jitsiJwt    = jitsi_jaas_ready() ? jitsi_jaas_jwt('lh-u' . $userId, $userName, $isHost) : '';
 $jitsiJoin   = jitsi_room_url($jitsiRoom, $userName, $jitsiJwt);
 $page_title = 'Live class — ' . (string) $course['title'];
+/* Leaving the room must close the visit: header emits the attendance meta, so
+   app.js' pagehide beacon ends the row the moment the student exits (before
+   this, live-class rows never closed on exit and the teacher's attendance page
+   kept showing them "In course" forever). */
+$attendance_course = $courseId;
 require __DIR__ . '/header.php';
 ?>
 <script src="<?= e(jitsi_api_script()) ?>" onload="window.lhJitsiLoad='ok'" onerror="window.lhJitsiLoad='failed'"></script>
