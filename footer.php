@@ -53,6 +53,8 @@
   var body = document.body;
   var bar = document.getElementById('lh-progress');
   var top = document.getElementById('lh-top');
+  /* room the bottom bar needs — measured below, used as the reveal threshold */
+  var footGap = 0;
   /* On desktop the app shell scrolls inside <main>, not the window, so the
      progress bar / back-to-top / footer reveal all read the real scroller. */
   function scroller() {
@@ -71,17 +73,27 @@
       f.classList.add('lh-footer-inline');
     }
   })();
-  /* The footer bar is pinned to the bottom; reserve its real height
-     inside <main> so it never covers the last cards. */
+  /* The footer bar is fixed to the bottom, so it takes no room in the flow;
+     reserve exactly its height at the end of the content. The room is handed
+     over as a CSS variable read by an !important rule in the theme — an inline
+     style here would lose to that rule. */
   (function reserveFooterSpace() {
     var f = document.querySelector('.lh-footer.lh-footer-inline');
     var m = document.querySelector('main.lh-main');
     if (!f || !m) { return; }
     function sync() {
-      var desktop = window.matchMedia('(min-width:1024px)').matches;
-      if (!desktop) { m.style.paddingBottom = ''; return; }
-      var h = f.offsetHeight || 0;
-      m.style.paddingBottom = (h + 22) + 'px';
+      if (!window.matchMedia('(min-width:1024px)').matches) {
+        /* small screens keep the footer in the normal flow */
+        footGap = 0;
+        doc.style.removeProperty('--lh-foot-gap');
+        return;
+      }
+      var barH = f.offsetHeight || 0;
+      /* Reserve the bar's height plus a 40px cushion, and reveal the bar only
+         when 40px or less of scrolling remains. The bar lands inside that
+         cushion, so it can never overlap the content above it. */
+      footGap = 40;
+      doc.style.setProperty('--lh-foot-gap', (barH + 40) + 'px');
     }
     sync();
     window.addEventListener('resize', sync);
@@ -103,7 +115,11 @@
     }
     if (bar) { bar.style.width = (max > 0 ? (pos / max) * 100 : 100) + '%'; }
     if (top) { top.classList.toggle('show', pos > 400); }
-    if (body) { body.classList.toggle('lh-at-bottom', max <= 0 || (max - pos) <= 72); }
+    /* Reveal the bottom bar only once the whole reserved gap is in view, so it
+       can never sit on top of the last cards. Short pages (nothing to scroll)
+       always show it. */
+    var margin = footGap > 0 ? footGap : 72;
+    if (body) { body.classList.toggle('lh-at-bottom', max <= 0 || (max - pos) <= margin); }
   }
   window.addEventListener('scroll', update, { passive: true });
   document.addEventListener('scroll', update, { passive: true, capture: true });

@@ -712,10 +712,14 @@ body.lh-app .glass.lh-topbar .lh-ico {
   background: #ffffff !important;
   border: 1px solid #e6eaf0 !important;
 }
-/* ---------- footer pinned to the bottom ----------
-   footer.php pins the app footer to the bottom edge of the content
-   area, and reserves exactly its height inside <main> so it can
-   never cover the last cards. Public pages keep the full footer. */
+/* ---------- footer: bottom bar, revealed only at the end ----------
+   footer.php moves the app footer into <main>'s scroll flow and feeds its
+   height to --lh-foot-gap, which reserves exactly that much room at the end
+   of the content. The bar waits parked below the fold and glides up only
+   once the reader reaches the bottom, so it never covers a card. Its
+   background is the same canvas tone as the header (#f5f6f8), so it blends
+   into the body instead of sitting on it as a white strip.
+   Public pages keep the full footer. */
 @media (min-width:1024px) {
   body.lh-app .lh-footer.lh-footer-inline {
     position: fixed !important;
@@ -725,13 +729,32 @@ body.lh-app .glass.lh-topbar .lh-ico {
     top: auto !important;
     width: auto !important;
     margin: 0 !important;
-    opacity: 1 !important;
-    transform: none !important;
-    pointer-events: auto !important;
-    background: #ffffff !important;
-    border-top: 1px solid #e6eaf0 !important;
-    padding: .45rem 1.6rem .4rem !important;
+    /* parked out of sight until the bottom is reached */
+    transform: translateY(102%) !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    /* header / body canvas tone: blended, no separate strip */
+    background: #f5f6f8 !important;
+    border-top: 0 !important;
+    box-shadow: none !important;
+    padding: .5rem 1.6rem .45rem !important;
     z-index: 28 !important;
+    transition:
+      transform .44s cubic-bezier(.2, 1.06, .3, 1),
+      opacity .3s ease,
+      visibility 0s linear .44s !important;
+  }
+  /* bottom reached → glide up into the space reserved for it */
+  body.lh-app.lh-at-bottom .lh-footer.lh-footer-inline {
+    transform: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    transition:
+      transform .44s cubic-bezier(.2, 1.06, .3, 1),
+      opacity .3s ease,
+      visibility 0s !important;
   }
   body.lh-rail .lh-footer.lh-footer-inline {
     left: 88px !important;
@@ -946,7 +969,24 @@ body.lh-side-open .lh-backdrop {
   }
 }
 
-/* ---------- end footer polish ---------- */
+/* ---------- room reserved for the bottom bar ----------
+   The bar is fixed, so it takes no space in the flow; JS measures its real
+   height and writes it to --lh-foot-gap. This rule has to live here (and use
+   the variable) rather than an inline style on <main>, because the earlier
+   `padding-bottom: 28px !important` beats inline styles — which is precisely
+   why the bar used to sit on top of the last card. */
+html body.lh-app main.lh-main {
+  padding-bottom: var(--lh-foot-gap, 28px) !important;
+}
+
+/* no motion if the visitor asked for none */
+@media (prefers-reduced-motion: reduce) {
+  body.lh-app .lh-footer.lh-footer-inline {
+    transition: none !important;
+  }
+}
+
+/* ---------- end reserved room ---------- */
 
 /* ---------- end clean sheet pass ---------- */
 
