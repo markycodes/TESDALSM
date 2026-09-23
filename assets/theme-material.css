@@ -1021,3 +1021,29 @@ html body.lh-app main.lh-main {
 /* ---------- end clean sheet pass ---------- */
 
 /* ---------- end full-viewport frame ---------- */
+
+/* ---------- header blends with the body canvas ----------
+   Measured on the live dashboard: the frame rule
+   `html body.lh-app .glass.lh-topbar` (0,3,2) was beating the later
+   `body.lh-app .glass.lh-topbar` blend rule (0,3,1), so the bar stayed
+   white with a hairline + shadow over the #f5f6f8 canvas. Matching that
+   specificity and coming last lets the header read as part of the body,
+   exactly like the bottom bar. The icon chips keep their own white so
+   they stay visible on the flat surface. */
+html body.lh-app .glass.lh-topbar {
+  background: #f5f6f8 !important;
+  border-bottom: 0 !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* The content canvas carried a stale `background: #f0f2f5` from the frame pass
+   (same specificity problem: `html body.lh-app main.lh-main` beat the later
+   clean-sheet rule), so the header still met a slightly darker surface. One
+   canvas tone for body, header, content and the bottom bar now. */
+html body.lh-app main.lh-main {
+  background: #f5f6f8 !important;
+}
+
+/* ---------- end blended header ---------- */
