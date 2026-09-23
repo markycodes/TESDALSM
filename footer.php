@@ -1,6 +1,6 @@
 </main>
 
-<footer class="mt-16">
+<footer class="lh-footer mt-16">
   <div class="mx-auto max-w-6xl px-4">
     <div class="rounded-2xl border border-slate-200 bg-white p-8 shadow-[0_1px_2px_rgba(17,33,26,.05),0_18px_40px_-28px_rgba(17,33,26,.25)]">
       <div class="grid gap-8 sm:grid-cols-3">
@@ -50,17 +50,40 @@
 <script>
 (function () {
   var doc = document.documentElement;
+  var body = document.body;
   var bar = document.getElementById('lh-progress');
   var top = document.getElementById('lh-top');
+  /* On desktop the app shell scrolls inside <main>, not the window, so the
+     progress bar / back-to-top / footer reveal all read the real scroller. */
+  function scroller() {
+    var m = document.querySelector('main.lh-main');
+    if (m && (m.scrollHeight - m.clientHeight) > 4) { return m; }
+    return null;
+  }
   function update() {
-    var max = doc.scrollHeight - doc.clientHeight;
-    if (bar) { bar.style.width = (max > 0 ? ((doc.scrollTop || document.body.scrollTop) / max) * 100 : 0) + '%'; }
-    if (top) { top.classList.toggle('show', (doc.scrollTop || document.body.scrollTop) > 400); }
+    var s = scroller(), max, pos;
+    if (s) {
+      max = s.scrollHeight - s.clientHeight;
+      pos = s.scrollTop;
+    } else {
+      max = doc.scrollHeight - doc.clientHeight;
+      pos = window.pageYOffset || doc.scrollTop || 0;
+    }
+    if (bar) { bar.style.width = (max > 0 ? (pos / max) * 100 : 100) + '%'; }
+    if (top) { top.classList.toggle('show', pos > 400); }
+    if (body) { body.classList.toggle('lh-at-bottom', max <= 0 || (max - pos) <= 72); }
   }
   window.addEventListener('scroll', update, { passive: true });
+  document.addEventListener('scroll', update, { passive: true, capture: true });
   window.addEventListener('resize', update);
   update();
-  if (top) { top.addEventListener('click', function () { window.scrollTo({ top: 0, behavior: 'smooth' }); }); }
+  if (top) {
+    top.addEventListener('click', function () {
+      var s = scroller();
+      if (s) { s.scrollTo({ top: 0, behavior: 'smooth' }); }
+      else { window.scrollTo({ top: 0, behavior: 'smooth' }); }
+    });
+  }
 })();
 </script>
 

@@ -627,6 +627,154 @@ body.lh-app footer img[src*="logo"] {
   }
 }
 
-/* ---------- end dense analytics pass ---------- */
+/* ---------- clean sheet pass ----------
+   Neutral, flat, hairlines only: the calm analytics-board look. */
+
+body.lh-app,
+body.lh-app main.lh-main {
+  background: #f5f6f8 !important;
+}
+
+/* cards: thin border, almost no shadow (reference style) */
+body.lh-app main .rounded-2xl.bg-white,
+body.lh-app main .rounded-3xl.bg-white,
+body.lh-app main .rounded-xl.bg-white {
+  border: 1px solid #e9ecf1 !important;
+  box-shadow: 0 1px 1px rgba(16, 24, 40, .03) !important;
+}
+body.lh-app main .rounded-2xl.bg-white:hover,
+body.lh-app main .rounded-3xl.bg-white:hover,
+body.lh-app main .rounded-xl.bg-white:hover {
+  border-color: #dde3ec !important;
+  box-shadow: 0 8px 18px -12px rgba(16, 24, 40, .16) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* icon chips: light neutral instead of heavy navy */
+body.lh-app main .rounded-2xl.bg-white .grid.h-9,
+body.lh-app main .rounded-2xl.bg-white .grid.h-10,
+body.lh-app main .rounded-2xl.bg-white .grid.h-11,
+body.lh-app main [data-live-scope] .grid.h-9,
+body.lh-app main [data-live-scope] .grid.h-10,
+body.lh-app main [data-live-scope] .grid.h-11 {
+  background: #f1f4f8 !important;
+  color: #475569 !important;
+  box-shadow: none !important;
+  border-radius: 9px !important;
+}
+
+/* buttons: flat dark, no glow */
+body.lh-app main .bg-emerald-600,
+body.lh-app main .bg-emerald-700,
+body.lh-app main .bg-indigo-600,
+body.lh-app main .lh-hero-cta {
+  background: #111827 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .14) !important;
+}
+body.lh-app main .bg-emerald-600:hover,
+body.lh-app main .bg-emerald-700:hover,
+body.lh-app main .bg-indigo-600:hover,
+body.lh-app main .lh-hero-cta:hover {
+  background: #0b1220 !important;
+  box-shadow: 0 3px 8px -3px rgba(16, 24, 40, .28) !important;
+}
+
+/* panel headers: hairline rule under the first heading */
+body.lh-app main [data-live-scope] .rounded-2xl > h2:first-child,
+body.lh-app main [data-live-scope] .rounded-2xl > div:first-child > h2:first-child {
+  border-bottom: 1px solid #eef1f5 !important;
+  padding-bottom: .35rem !important;
+  margin-bottom: .5rem !important;
+}
+
+/* table headers: white with a hairline (not a gray band) */
+body.lh-app main table thead th {
+  background: #ffffff !important;
+  border-bottom: 1px solid #e6eaf0 !important;
+  color: #8a94a6 !important;
+}
+body.lh-app main table tbody tr:hover {
+  background: #fafbfd !important;
+}
+
+/* kicker labels: neutral */
+body.lh-app main .lh-kicker {
+  color: #8a94a6 !important;
+}
+
+/* ---------- footer on demand ----------
+   Desktop: the footer is a slim bar pinned to the bottom of the
+   content area; it slides up only when the reader reaches the end
+   of the page. Mobile keeps it in normal flow (last block), so it
+   is naturally below the fold until you get there. */
+@media (min-width:1024px) {
+  html body.lh-app main.lh-main {
+    padding-bottom: 108px !important;
+  }
+
+  body.lh-app .lh-footer {
+    position: fixed;
+    left: 256px;
+    right: 0;
+    bottom: 0;
+    margin: 0 !important;
+    z-index: 28;
+    background: #ffffff;
+    border-top: 1px solid #e6eaf0;
+    opacity: 0;
+    transform: translateY(100%);
+    pointer-events: none;
+    transition: transform .22s ease, opacity .22s ease;
+  }
+
+  body.lh-app.lh-at-bottom .lh-footer {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+
+  body.lh-rail .lh-footer {
+    left: 100px;
+  }
+
+  /* compact the footer so the bar stays slim */
+  body.lh-app .lh-footer > div {
+    max-width: none !important;
+    padding: 0 .9rem !important;
+  }
+  body.lh-app .lh-footer .rounded-2xl {
+    border: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: .5rem .15rem !important;
+  }
+  body.lh-app .lh-footer .grid {
+    gap: .9rem !important;
+  }
+  body.lh-app .lh-footer p,
+  body.lh-app .lh-footer a,
+  body.lh-app .lh-footer li,
+  body.lh-app .lh-footer span {
+    font-size: .72rem !important;
+    line-height: 1.05rem !important;
+  }
+  body.lh-app .lh-footer ul > * + * {
+    margin-top: .12rem !important;
+  }
+  body.lh-app .lh-footer img[src*="logo"] {
+    height: 26px !important;
+    width: auto !important;
+  }
+  body.lh-app .lh-footer .mt-3 { margin-top: .28rem !important }
+  body.lh-app .lh-footer .mt-8 { margin-top: .35rem !important; padding-top: .3rem !important }
+  body.lh-app .lh-footer .lh-kicker {
+    font-size: .62rem !important;
+    color: #8a94a6 !important;
+  }
+  body.lh-app .lh-footer a:hover { color: #111827 !important }
+}
+
+/* ---------- end clean sheet pass ---------- */
 
 /* ---------- end full-viewport frame ---------- */
