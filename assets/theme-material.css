@@ -476,6 +476,21 @@ body.lh-app main [data-live-scope] .rounded-2xl { padding: .68rem !important }
 body.lh-app main [data-live-svg] { height: 122px !important }
 body.lh-app main [data-live-svg] svg { height: 122px !important }
 
+/* hero sparkline containment (Students enrolled card)
+   Below 1024px the dense KPI pass doesn't run, so nothing pins the hero
+   zigzag's svg while the density layer (.h-16 → 2.6rem) and this theme
+   shrink the WRAPPER — the 122px svg then painted ~80px outside the card
+   (and its end dot smeared into a blob). Lock wrapper + svg to the same
+   44px strip at every width, matching the ≥1024px dense pass. */
+body.lh-app main [data-live-scope] .lh-stat-hero [data-live-svg="students"],
+body.lh-app main [data-live-scope] .lh-stat-hero [data-live-svg="students"] svg {
+  height: 44px !important;
+}
+body.lh-app main [data-live-scope] .lh-stat-hero [data-live-svg="students"] {
+  overflow: hidden !important;
+  margin-top: .3rem !important;
+}
+
 /* tables & forms */
 body.lh-app main table thead th { padding: .35rem .55rem !important }
 body.lh-app main table tbody td { padding: .4rem .55rem !important; font-size: .8125rem !important }
