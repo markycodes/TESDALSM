@@ -229,17 +229,29 @@ main button[class*="border-slate-200"] {
 }
 
 /* ============================================================
-   Closed sidebar: full-width manila icon rail (restored
-   closed-state look — sheet keeps its width, labels/wordmark
+   Closed sidebar: manila sheet folds into an icon rail (restored
+   closed-state look — sheet shrinks to 76px, labels/wordmark
    hide, icons center, « + avatar stay pinned top/bottom)
    ============================================================ */
 @media (min-width: 1024px) {
   html body.lh-app .lh-sidebar {
-    width: 264px;          /* closed keeps the full sheet width, like the original */
+    width: 264px;          /* open keeps the full manila sheet width */
+    transition: width .28s ease, transform .25s ease;
   }
 
-  html body.lh-app.lh-rail {
-    padding-left: 264px;   /* content stays aligned with the sheet */
+  html body.lh-app {
+    transition: padding-left .28s ease;
+  }
+
+  /* closed → actually fold down to the icon rail. !important + raised
+     specificity so we outrank density-compact.css' 232px pins, which
+     otherwise keep the sheet stuck open. */
+  html body.lh-rail .lh-sidebar {
+    width: 76px !important;
+  }
+
+  html body.lh-rail {
+    padding-left: 76px !important;
   }
 
   body.lh-rail .lh-sidebar {
