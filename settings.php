@@ -130,109 +130,12 @@ $page_title = 'Settings';
 require __DIR__ . '/header.php';
 ?>
 
-<style>
-  /* ── "Paper sheet taped to the wall" hero — the classic dashboard banner,
-     restored for THIS page only. The Material theme deliberately flattens
-     .lh-hero everywhere else (theme-material.css), so these rules are scoped
-     to #lh-settings-hero and carry !important to win the override.
-     Original design: commit 83fe0b1 (hero redesign: tape strips, tilt,
-     ruled texture). */
-  #lh-settings-hero {
-    position: relative;
-    padding: 1.25rem !important;
-    border: 1px solid #d3e0d4 !important;
-    border-radius: 1.5rem !important;
-    background:
-      radial-gradient(130% 100% at 18% 0%, rgba(255, 255, 255, .55), transparent 55%),
-      repeating-linear-gradient(0deg, rgba(23, 52, 40, .035) 0 1px, transparent 1px 3px),
-      repeating-linear-gradient(90deg, rgba(23, 52, 40, .026) 0 1px, transparent 1px 4px),
-      linear-gradient(180deg, #eef3ee 0%, #e2ebe3 100%) !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .65), 0 20px 44px -26px rgba(23, 46, 36, .4) !important;
-    overflow: visible !important;
-  }
-
-  /* the paper sheet: cream, faint rules, slight tilt, floats off the wall */
-  #lh-settings-hero .lh-hero-paper {
-    padding: 1.5rem 1.25rem !important;
-    border: 1px solid #e6dfcd !important;
-    border-radius: 3px !important;
-    background:
-      linear-gradient(rgba(4, 63, 46, .045) 1px, transparent 1px) 0 0 / 100% 30px,
-      linear-gradient(180deg, #fdfbf5 0%, #f7f3e8 100%) !important;
-    box-shadow:
-      inset 0 1px 0 #fff,
-      0 1px 2px rgba(31, 41, 33, .1),
-      0 3px 6px rgba(31, 41, 33, .08),
-      0 24px 40px -18px rgba(31, 41, 33, .38) !important;
-    transform: rotate(-1.1deg);
-    transition: transform .25s ease;
-  }
-
-  #lh-settings-hero .lh-hero-paper::after {
-    content: '';
-    display: block;
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: repeating-linear-gradient(45deg, rgba(31, 61, 48, .02) 0 2px, transparent 2px 6px);
-  }
-
-  #lh-settings-hero:hover .lh-hero-paper { transform: rotate(-.35deg); }
-
-  /* tape strips: torn-ended washi tape in the brand green */
-  #lh-settings-hero .lh-tape {
-    display: block !important;
-    position: absolute;
-    width: 104px;
-    height: 27px;
-    z-index: 2;
-    background: linear-gradient(180deg, rgba(209, 244, 227, .85), rgba(154, 222, 190, .68) 55%, rgba(129, 209, 175, .72));
-    box-shadow: 0 1px 3px rgba(31, 41, 33, .22), inset 0 0 0 1px rgba(255, 255, 255, .25);
-    clip-path: polygon(3% 8%, 97% 0, 100% 92%, 1% 100%);
-    opacity: .92;
-  }
-
-  #lh-settings-hero .lh-tape-l { top: -14px; left: 30px; transform: rotate(-7deg); }
-  #lh-settings-hero .lh-tape-r { top: -12px; right: 34px; transform: rotate(5deg); }
-  #lh-settings-hero .lh-tape-b { bottom: -14px; left: 50%; margin-left: -52px; transform: rotate(1.6deg); }
-
-  #lh-settings-hero .lh-kicker { color: #047857 !important; }
-
-  @media (min-width: 640px) {
-    #lh-settings-hero { padding: 2rem !important; }
-    #lh-settings-hero .lh-hero-paper { padding: 1.75rem 2.25rem !important; }
-  }
-  @media (max-width: 640px) {
-    #lh-settings-hero .lh-hero-paper { transform: rotate(-.7deg); }
-    #lh-settings-hero .lh-tape { width: 78px; height: 22px; }
-    #lh-settings-hero .lh-tape-l { top: -12px; left: 18px; }
-    #lh-settings-hero .lh-tape-r { top: -10px; right: 20px; }
-    #lh-settings-hero .lh-tape-b { bottom: -12px; margin-left: -39px; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    #lh-settings-hero .lh-hero-paper,
-    #lh-settings-hero:hover .lh-hero-paper { transition: none; transform: rotate(-.7deg); }
-  }
-</style>
-
 <div class="mx-auto max-w-3xl space-y-6">
-  <!-- Hero banner: paper pinned to the wall — the page's first UI, same as the dashboard -->
-  <section id="lh-settings-hero" class="reveal lh-hero overflow-hidden rounded-3xl p-5 text-slate-800 sm:p-8">
-    <div class="lh-hero-paper relative px-5 py-6 sm:px-9 sm:py-7">
-      <span class="lh-tape lh-tape-l" aria-hidden="true"></span>
-      <span class="lh-tape lh-tape-r" aria-hidden="true"></span>
-      <span class="lh-tape lh-tape-b" aria-hidden="true"></span>
-      <div class="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p class="lh-kicker text-emerald-700"><?= date('l, M j') ?></p>
-          <h1 class="mt-2 break-words text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">⚙️ E-mail &amp; live-class settings</h1>
-          <p class="mt-1.5 max-w-2xl text-sm text-slate-600">Delivery e-mail and the live-class video server for this site. Both are saved in the
-            database, so they apply to the deployed site without editing (or re-uploading) any file.</p>
-        </div>
-        <a href="admin.php" class="lh-hero-cta rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-800">🛡 Admin panel</a>
-      </div>
-    </div>
-  </section>
+  <div class="reveal">
+    <h1 class="text-2xl font-bold text-slate-900">⚙️ E-mail &amp; live-class settings</h1>
+    <p class="mt-1 text-sm text-slate-500">Delivery e-mail and the live-class video server for this site. Both are saved in the
+      database, so they apply to the deployed site without editing (or re-uploading) any file.</p>
+  </div>
 
   <div class="reveal lh-plain rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
     <h2 class="text-base font-bold text-slate-900">What this server will do right now</h2>
