@@ -1,0 +1,160 @@
+/* ============================================================
+   LearnHub theme: "Paper — taped to the wall"
+   The original LearnHub look: a textured wall canvas, cream
+   paper cards stacked on it, and a tilted ruled-paper hero
+   sheet pinned with emerald washi tape.
+   The hero treatment is lifted verbatim from the original
+   hero redesign (commit 83fe0b1: tape strips, tilt, ruled
+   texture). CSS-only: targets existing markup, changes no
+   functionality. Loaded after the inline base theme in
+   header.php; switchable in Settings → Appearance.
+   ============================================================ */
+
+/* ---------- canvas: the wall ---------- */
+body.lh-app {
+  background:
+    radial-gradient(120% 90% at 15% 0%, rgba(255, 255, 255, .5), transparent 50%),
+    repeating-linear-gradient(0deg, rgba(23, 52, 40, .03) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(23, 52, 40, .022) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, #eef3ee 0%, #e4ece5 100%) !important;
+}
+
+body.lh-app main.lh-main {
+  max-width: 1320px !important;
+}
+
+/* ---------- sidebar: manila paper panel ---------- */
+body.lh-app .lh-sidebar {
+  background: #fffdf6 !important;
+  border-right: 1px solid #e3ddcb !important;
+  box-shadow: 6px 0 22px -16px rgba(31, 41, 33, .35) !important;
+}
+
+.lh-sidebar .lh-side-head,
+.lh-sidebar .lh-side-foot {
+  border-color: #ece6d4 !important;
+}
+
+/* ---------- cards: paper sheets stacked on the wall ---------- */
+body.lh-app main .rounded-2xl.bg-white,
+body.lh-app main .rounded-3xl.bg-white {
+  background: linear-gradient(180deg, #fffef9 0%, #fdfaf1 100%) !important;
+  border: 1px solid #e8e2d0 !important;
+  border-radius: 8px !important;
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 1px 2px rgba(31, 41, 33, .08),
+    0 12px 24px -16px rgba(31, 41, 33, .35) !important;
+  transition: box-shadow .2s ease, transform .2s ease !important;
+}
+
+body.lh-app main .rounded-2xl.bg-white:hover,
+body.lh-app main .rounded-3xl.bg-white:hover {
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 2px 4px rgba(31, 41, 33, .1),
+    0 20px 34px -16px rgba(31, 41, 33, .4) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* ============================================================
+   Hero: a paper sheet taped to the wall
+   (original treatment from commit 83fe0b1 — wall backdrop,
+   cream ruled sheet with tilt, emerald washi tape strips)
+   ============================================================ */
+.lh-hero {
+  position: relative;
+  overflow: visible !important;   /* let the tape run past the panel edge */
+  background:
+    radial-gradient(130% 100% at 18% 0%, rgba(255, 255, 255, .55), transparent 55%),
+    repeating-linear-gradient(0deg, rgba(23, 52, 40, .035) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(23, 52, 40, .026) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, #eef3ee 0%, #e2ebe3 100%);
+  border: 1px solid #d3e0d4;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .65), 0 20px 44px -26px rgba(23, 46, 36, .4);
+}
+
+main>section.lh-hero {
+  animation: none !important;
+}
+
+main>section.lh-hero::before {
+  display: none !important;
+}
+
+/* the paper sheet: cream, faint rules, slight tilt, floats off the wall */
+.lh-hero-paper {
+  background:
+    linear-gradient(rgba(4, 63, 46, .045) 1px, transparent 1px) 0 0 / 100% 30px,
+    linear-gradient(180deg, #fdfbf5 0%, #f7f3e8 100%);
+  border: 1px solid #e6dfcd;
+  border-radius: 3px;
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 1px 2px rgba(31, 41, 33, .1),
+    0 3px 6px rgba(31, 41, 33, .08),
+    0 24px 40px -18px rgba(31, 41, 33, .38);
+  transform: rotate(-1.1deg);
+  transition: transform .25s ease;
+}
+
+.lh-hero-paper::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(45deg, rgba(31, 61, 48, .02) 0 2px, transparent 2px 6px);
+}
+
+.lh-hero:hover .lh-hero-paper {
+  transform: rotate(-.35deg);
+}
+
+/* tape strips: torn-ended washi tape in the brand green */
+.lh-tape {
+  position: absolute;
+  width: 104px;
+  height: 27px;
+  z-index: 2;
+  background: linear-gradient(180deg, rgba(209, 244, 227, .85), rgba(154, 222, 190, .68) 55%, rgba(129, 209, 175, .72));
+  box-shadow: 0 1px 3px rgba(31, 41, 33, .22), inset 0 0 0 1px rgba(255, 255, 255, .25);
+  clip-path: polygon(3% 8%, 97% 0, 100% 92%, 1% 100%);
+  opacity: .92;
+}
+
+.lh-tape-l { top: -14px; left: 30px; transform: rotate(-7deg); }
+.lh-tape-r { top: -12px; right: 34px; transform: rotate(5deg); }
+.lh-tape-b { bottom: -14px; left: 50%; margin-left: -52px; transform: rotate(1.6deg); }
+
+.lh-hero-cta {
+  box-shadow: 0 10px 22px -10px rgba(4, 120, 87, .55);
+}
+
+/* kicker: small-caps date stamp in ink green */
+.lh-hero .lh-kicker {
+  color: #047857;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.lh-hero h1 {
+  color: #26311f;
+}
+
+@media (max-width: 640px) {
+  .lh-hero-paper { transform: rotate(-.7deg); }
+  .lh-tape { width: 78px; height: 22px; }
+  .lh-tape-l { top: -12px; left: 18px; }
+  .lh-tape-r { top: -10px; right: 20px; }
+  .lh-tape-b { bottom: -12px; margin-left: -39px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lh-hero-paper,
+  .lh-hero:hover .lh-hero-paper {
+    transition: none;
+    transform: rotate(-.7deg);
+  }
+}

@@ -299,6 +299,10 @@ if (!defined('UI_THEME_DEFAULT')) define('UI_THEME_DEFAULT', 'material');
 function ui_theme_choices(): array
 {
     return [
+        'paper' => [
+            'Paper — taped to the wall',
+            'The original LearnHub look: textured wall canvas, cream paper cards, and a tilted ruled-sheet hero pinned with emerald washi tape.',
+        ],
         'material' => [
             'Material — creative dashboard',
             'Light-gray canvas, white floating sidebar with a dark active pill, white cards with dark icon tiles and green data accents.',
