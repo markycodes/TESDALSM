@@ -26,8 +26,8 @@ $ago = function (int $ts): string {
 /** Small stat card: emoji tile + value + label (clean — no chart). */
 $statCard = function (string $emoji, string $tile, string $label, string $value, string $key = ''): string {
   $live = $key !== '' ? ' data-live-stat="' . e($key) . '"' : '';
-  return '<div class="reveal flex min-w-[150px] shrink-0 snap-start items-center justify-between gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:min-w-0">'
-    . '<div class="min-w-0"><span class="grid h-9 w-9 place-items-center rounded-lg text-lg ' . $tile . '">' . $emoji . '</span>'
+  return '<div class="lh-stat-mini reveal flex min-w-[150px] shrink-0 snap-start items-center justify-between gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:min-w-0">'
+    . '<div class="min-w-0"><span class="lh-stat-tile grid h-9 w-9 place-items-center rounded-lg text-lg ' . $tile . '">' . $emoji . '</span>'
     . '<p class="mt-2 truncate text-2xl font-extrabold leading-7 text-slate-900 lh-num"' . $live . '>' . e($value) . '</p>'
     . '<p class="truncate text-[11px] font-semibold uppercase tracking-wide text-slate-500">' . e($label) . '</p></div>'
     . '</div>';
@@ -61,13 +61,13 @@ $statBars = function (string $emoji, string $tile, string $label, string $value,
       . e($days[$i] ?? '') . '</span>'
       . '</div>';
   }
-  return '<div class="reveal flex min-w-[150px] shrink-0 snap-start flex-col justify-between rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:col-span-2 sm:min-w-0">'
+  return '<div class="lh-stat-bars reveal flex min-w-[150px] shrink-0 snap-start flex-col justify-between rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:col-span-2 sm:min-w-0">'
     . '<div class="flex items-center gap-3">'
-    . '<span class="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-xl ' . $tile . '">' . $emoji . '</span>'
+    . '<span class="lh-stat-tile grid h-11 w-11 shrink-0 place-items-center rounded-lg text-xl ' . $tile . '">' . $emoji . '</span>'
     . '<div class="min-w-0"><p class="truncate text-2xl font-extrabold leading-7 text-slate-900 lh-num"' . $live . '>' . e($value) . '</p>'
     . '<p class="truncate text-[11px] font-semibold uppercase tracking-wide text-slate-500">' . e($label) . '</p></div>'
     . '</div>'
-    . '<div style="display:flex;align-items:stretch;gap:6px;height:64px;margin-top:10px">' . $cols . '</div>'
+    . '<div class="lh-stat-bars-chart" style="display:flex;align-items:stretch;gap:6px;height:64px;margin-top:10px">' . $cols . '</div>'
     . '<p class="mt-1.5 truncate text-[10px] font-medium text-slate-400">' . e($caption) . '</p>'
     . '</div>';
 };
@@ -126,13 +126,13 @@ require __DIR__ . '/header.php';
   <!-- Stats: 1/3 hero (Students + zigzag) + 2/3 column on desktop; compact swipeable row on mobile (swipe to reveal more) -->
   <div class="relative swipe-hint">
     <div
-      class="mt-6 flex gap-3 overflow-x-auto pb-1 no-scrollbar snap-x sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible sm:pb-0">
+      class="lh-stat-grid mt-6 flex gap-3 overflow-x-auto pb-1 no-scrollbar snap-x sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible sm:pb-0">
       <?php if ($isTeacher): ?>
         <!-- Left 1/3 — Students hero card, the only stat card with a graph -->
         <div
-          class="reveal flex min-w-[190px] shrink-0 snap-start flex-col justify-between rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:row-span-3 sm:min-w-0 sm:p-5">
+          class="lh-stat-hero reveal flex min-w-[190px] shrink-0 snap-start flex-col justify-between rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:row-span-3 sm:min-w-0 sm:p-5">
           <div class="flex items-center justify-between gap-3">
-            <span class="grid h-10 w-10 place-items-center rounded-lg bg-emerald-50 text-xl">👥</span>
+            <span class="lh-stat-tile grid h-10 w-10 place-items-center rounded-lg bg-emerald-50 text-xl">👥</span>
             <span
               class="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">Total</span>
           </div>
@@ -141,7 +141,7 @@ require __DIR__ . '/header.php';
               <?= (int) $tc['students'] ?></p>
             <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Students enrolled</p>
           </div>
-          <div class="mt-4 h-16 sm:h-24" data-live-svg="students">
+          <div class="lh-stat-hero-chart mt-4 h-16 sm:h-24" data-live-svg="students">
             <?= zigzag_svg($ts['enrollments'], '#047857', 'rgba(4,120,87,0.14)', $ts['labels'], 'New enrollments') ?></div>
           <p class="mt-2 text-[10px] font-medium text-slate-400">New enrollments · last 14 days</p>
         </div>

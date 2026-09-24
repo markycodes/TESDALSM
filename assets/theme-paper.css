@@ -299,3 +299,56 @@ main button[class*="border-slate-200"] {
     right: 2px;
   }
 }
+
+/* ============================================================
+   Dashboard stat band — compact (Paper only)
+   Hook classes (lh-stat-*) come from dashboard.php; only this
+   theme file styles them, so other themes stay untouched.
+   ============================================================ */
+.lh-stat-grid {
+  gap: 8px !important;
+  margin-top: 1rem !important;
+}
+
+@media (min-width: 640px) {
+  .lh-stat-grid {
+    gap: 10px !important;
+  }
+}
+
+.lh-stat-hero,
+.lh-stat-bars,
+.lh-stat-mini {
+  padding: .75rem !important;
+}
+
+.lh-stat-tile {
+  width: 2.25rem !important;
+  height: 2.25rem !important;
+  font-size: 1rem !important;
+}
+
+.lh-stat-hero .lh-num {
+  font-size: 1.9rem !important;
+  line-height: 2.2rem !important;
+}
+
+.lh-stat-bars .lh-num,
+.lh-stat-mini .lh-num {
+  font-size: 1.35rem !important;
+  line-height: 1.6rem !important;
+}
+
+.lh-stat-hero-chart {
+  height: 3.75rem !important;
+  margin-top: .75rem !important;
+}
+
+.lh-stat-bars .lh-stat-bars-chart {
+  height: 44px !important;
+  margin-top: 6px !important;
+}
+
+.lh-stat-bars>div:first-child {
+  gap: .5rem !important;
+}
