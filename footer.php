@@ -135,7 +135,7 @@
 })();
 </script>
 
-<script src="assets/app.js?v=21"></script>
+<script src="assets/app.js?v=22"></script>
 <script>
 /* Self-healing fallback for the invite-link buttons. If the browser served a
    stale (or the host a missing) app.js — i.e. window.lhWireShare never appeared

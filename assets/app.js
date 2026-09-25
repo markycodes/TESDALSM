@@ -1632,3 +1632,147 @@ if (dayFilter) {
     });
   }
 })();
+
+/* ================================================================
+   Mobile "peek" lists — the dashboard panels (Live now, Attendance
+   today, Needs attention, Recent activity) arrive with every row the
+   server sent, and on a phone that is a wall of text. Phones keep the
+   newest five rows and put the rest behind an open/close control:
+   opening a panel caps it at five rows and scrolling inside streams
+   the remaining rows in, a batch at a time.
+
+   The realtime poll rewrites each <ul>'s markup every ~10s, so a
+   MutationObserver re-applies the limit to the rows that just landed
+   (the newest five stay on screen). Retune a list with data-peek="<n>"
+   / data-peek-step="<n>", or opt out with data-no-peek. Desktop
+   (>=1024px, where the panels keep their own max-h cap) is untouched.
+   ================================================================ */
+(function () {
+  var MQ = '(max-width: 1023.98px)';   /* the edge the themes' `lg:` caps use */
+  var PEEK = 5, STEP = 5, REVEAL_AT = 36;
+
+  var lists = [].slice.call(document.querySelectorAll('main [data-live-list]'));
+  if (!lists.length) return;
+  var mq = window.matchMedia ? window.matchMedia(MQ) : null;
+
+  function positive(el, attr, fallback) {
+    var v = parseInt(el.getAttribute(attr), 10);
+    return isFinite(v) && v > 0 ? v : fallback;
+  }
+
+  lists.forEach(function (ul) {
+    if (ul.hasAttribute('data-no-peek')) return;
+    var peek = positive(ul, 'data-peek', PEEK);
+    var step = positive(ul, 'data-peek-step', STEP);
+    var show = peek;    /* rows the reader may see right now */
+    var open = false;   /* has the panel been opened into its scroll box? */
+
+    /* The control rides with the list but lives OUTSIDE it: the poll
+       replaces the <ul>'s markup, and a button in there would be wiped. */
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'lh-peek-btn mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50';
+    btn.hidden = true;
+    btn.setAttribute('aria-expanded', 'false');
+    var label = document.createElement('span');
+    var caret = document.createElement('span');
+    caret.className = 'lh-peek-caret';
+    caret.setAttribute('aria-hidden', 'true');
+    caret.textContent = '▾';
+    btn.appendChild(label);
+    btn.appendChild(caret);
+    ul.insertAdjacentElement('afterend', btn);
+
+    function rows() { return [].slice.call(ul.children); }
+
+    /* Height of a full peek: the first `peek` rows plus the gaps between
+       them. Measured, not guessed, so a theme or density that reshapes
+       rows still opens to exactly `peek` visible rows. */
+    function peekHeight(lis) {
+      var h = 0, prevBottom = null, n = Math.min(peek, lis.length);
+      for (var i = 0; i < n; i++) {
+        var r = lis[i].getBoundingClientRect();
+        if (r.height <= 0) return 0;                       /* hidden ancestor: keep the CSS default */
+        if (prevBottom !== null) h += r.top - prevBottom;   /* the space-y-* gap */
+        h += r.height;
+        prevBottom = r.bottom;
+      }
+      return Math.ceil(h) + 2;                             /* clear of the clip edge */
+    }
+
+    function apply() {
+      var lis = rows(), total = lis.length;
+      var limited = total > peek && (!mq || mq.matches);
+      var visible = open ? show : peek;
+
+      if (!limited) {                     /* desktop, short list, or opted out */
+        lis.forEach(function (li) { li.classList.remove('lh-peek-off', 'lh-peek-in'); });
+        ul.classList.remove('lh-peek-box');
+        ul.style.removeProperty('--lh-peek-h');
+        if (ul.scrollTop) ul.scrollTop = 0;
+        btn.hidden = true;
+        btn.setAttribute('aria-expanded', 'false');
+        return;
+      }
+
+      if (open) {
+        ul.classList.add('lh-peek-box');
+        var h = peekHeight(lis);
+        if (h) ul.style.setProperty('--lh-peek-h', h + 'px');
+      } else {
+        ul.classList.remove('lh-peek-box');
+        ul.style.removeProperty('--lh-peek-h');
+      }
+
+      lis.forEach(function (li, i) {
+        var was = li.classList.contains('lh-peek-off');
+        var off = i >= visible;
+        li.classList.toggle('lh-peek-off', off);
+        if (!off && was && open) {        /* streamed in: rise, then settle */
+          li.classList.add('lh-peek-in');
+          setTimeout(function () { li.classList.remove('lh-peek-in'); }, 400);
+        }
+      });
+
+      btn.hidden = false;
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      label.textContent = open ? 'Show less' : 'Show all ' + total;
+    }
+
+    btn.addEventListener('click', function () {
+      open = !open;
+      /* opening reveals the next batch; anything still hiding streams in
+         as the panel is scrolled */
+      show = open ? Math.min(ul.children.length, peek + step) : peek;
+      apply();
+    });
+
+    ul.addEventListener('scroll', function () {
+      if (!open || show >= ul.children.length) return;
+      if (ul.scrollTop + ul.clientHeight < ul.scrollHeight - REVEAL_AT) return;
+      show = Math.min(ul.children.length, show + step);
+      apply();
+    }, { passive: true });
+
+    /* the poll swaps the rows out from under us — re-apply to the new ones */
+    if (window.MutationObserver) new MutationObserver(apply).observe(ul, { childList: true });
+
+    /* row heights follow the width: re-measure after a rotate/resize */
+    var reflow = null;
+    window.addEventListener('resize', function () {
+      if (reflow) clearTimeout(reflow);
+      reflow = setTimeout(function () { reflow = null; apply(); }, 150);
+    });
+
+    var onMQ = function () {
+      if (mq && !mq.matches) { open = false; show = peek; }   /* back to the wide layout: reset */
+      apply();
+    };
+    if (mq) {
+      if (mq.addEventListener) mq.addEventListener('change', onMQ);
+      else if (mq.addListener) mq.addListener(onMQ);
+    }
+
+    apply();
+  });
+})();

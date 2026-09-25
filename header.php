@@ -809,6 +809,70 @@ if ($user) {
       display: none !important
     }
 
+    /* Mobile list "peek" — the dashboard panels (Live now / Attendance today /
+   Needs attention / Recent activity) arrive with every row the server sent,
+   which on a phone is a wall of text. app.js keeps the newest five rows
+   visible and puts the rest behind a Show-all control: opening a panel caps
+   it at five rows (the --lh-peek-h height app.js measures) and scrolling
+   inside streams the next batch of rows in.
+   `.lh-peek-btn` is hidden with the `hidden` attribute, so re-assert the
+   closed state here — same reason as .lh-panel.hidden above. */
+    .lh-peek-btn[hidden] {
+      display: none !important
+    }
+
+    .lh-peek-caret {
+      display: inline-block;
+      margin-left: .3rem;
+      line-height: 1;
+      transition: transform .18s
+    }
+
+    .lh-peek-btn[aria-expanded="true"] .lh-peek-caret {
+      transform: rotate(180deg)
+    }
+
+    @media (max-width: 1023.98px) {
+      /* a row the reader has not "loaded" yet */
+      .lh-peek-off {
+        display: none !important
+      }
+
+      /* the opened panel: a five-row window whose remaining rows stream in
+     as the list is scrolled (see app.js) */
+      .lh-peek-box {
+        max-height: var(--lh-peek-h, 15rem);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+        padding-right: .25rem;
+        scrollbar-width: thin
+      }
+
+      /* a row that just streamed in: a short rise, so it reads as "loaded" */
+      .lh-peek-in {
+        animation: lhPeekIn .22s ease-out both
+      }
+    }
+
+    @keyframes lhPeekIn {
+      from {
+        opacity: 0;
+        transform: translateY(4px)
+      }
+
+      to {
+        opacity: 1;
+        transform: none
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .lh-peek-in {
+        animation: none
+      }
+    }
+
     /* Rolling live stats: when the realtime poll changes a number (e.g. the
    "Total time" card on the attendance day page), the old value slides up and
    out while the new value slides in from the bottom. app.js adds .lh-rolling
