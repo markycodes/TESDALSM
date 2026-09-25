@@ -1657,7 +1657,7 @@ if ($user) {
       <?php endif; ?>
 
       <div class="lh-side-collapse-wrap"><button id="lh-side-collapse" type="button" class="lh-side-tip"
-          data-tip="Collapse sidebar" aria-label="Collapse sidebar">«</button></div>
+          data-tip="Close sidebar" aria-label="Close sidebar">«</button></div>
       <div class="lh-side-foot">
         <span
           class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-emerald-600 text-sm font-bold text-white"><?= e(strtoupper(substr((string) $user['name'], 0, 1))) ?></span>
@@ -1680,7 +1680,7 @@ if ($user) {
     <div class="lh-top-inner">
       <div class="flex min-w-0 items-center gap-1.5">
         <?php if ($user): ?>
-          <button id="lh-rail-toggle" type="button" data-tip="Collapse sidebar" aria-label="Collapse sidebar"
+          <button id="lh-rail-toggle" type="button" data-tip="Close sidebar" aria-label="Close sidebar"
             class="lh-ico lh-tip grid h-7 w-7 place-items-center rounded-lg text-slate-600"><svg width="16" height="16"
               viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" data-safe-chroma="true">
               <path fill-rule="evenodd" clip-rule="evenodd"

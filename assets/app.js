@@ -1045,10 +1045,11 @@ if (dayFilter) {
     try { localStorage.setItem('lh-rail', on ? '1' : '0'); } catch (e) {}
     railLabels();
   }
-  /* hover chip: both collapse buttons are icon-only — the tip must name the
-     state they will move TO ("Expand" while folded, "Collapse" while open) */
+  /* hover chip: both rail buttons are icon-only — the tip must name the
+     state they will move TO ("Open sidebar" while folded, "Close sidebar"
+     while open) */
   function railLabels() {
-    var txt = body.classList.contains('lh-rail') ? 'Expand sidebar' : 'Collapse sidebar';
+    var txt = body.classList.contains('lh-rail') ? 'Open sidebar' : 'Close sidebar';
     [collapseBtn, railBtn].forEach(function (b) {
       if (b) { b.setAttribute('data-tip', txt); b.setAttribute('aria-label', txt); }
     });
