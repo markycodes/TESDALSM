@@ -88,7 +88,7 @@ require __DIR__ . '/header.php';
     <div class="flex min-h-[560px] flex-col">
       <?php if ($active): ?>
       <div class="flex items-center gap-3 border-b border-slate-100 bg-slate-50/60 px-4 py-3">
-        <a href="dashboard.php" class="grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 lg:hidden" title="Back" aria-label="Back">←</a>
+        <a href="dashboard.php" class="lh-tip grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 lg:hidden" data-tip="Back" aria-label="Back">←</a>
         <span class="grid h-10 w-10 place-items-center rounded-full bg-emerald-600 text-sm font-bold text-white"><?= e(strtoupper(substr((string) $active['peer_name'], 0, 1))) ?></span>
         <div class="min-w-0 flex-1 leading-tight">
           <p class="truncate text-sm font-bold text-slate-900"><?= e((string) $active['peer_name']) ?></p>
@@ -119,7 +119,7 @@ require __DIR__ . '/header.php';
         <input type="hidden" name="conversation" value="<?= (int) $active['id'] ?>">
         <input id="chat-input" name="body" autocomplete="off" maxlength="2000" placeholder="Type a message…"
           class="min-w-0 flex-1 rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100">
-        <button type="submit" title="Send" aria-label="Send" class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-600 text-white shadow-sm hover:bg-emerald-700">
+        <button type="submit" data-tip="Send" aria-label="Send" class="lh-tip grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-600 text-white shadow-sm hover:bg-emerald-700">
           <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.27 3.13a.5.5 0 01.68-.59l16.34 7.7a.5.5 0 010 .9L3.95 18.46a.5.5 0 01-.68-.6L6 12zm0 0h7" /></svg>
         </button>
       </form>

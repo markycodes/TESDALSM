@@ -43,7 +43,7 @@
   </div>
 </footer>
 
-<button id="lh-top" class="grid h-11 w-11 place-items-center rounded-full bg-[linear-gradient(135deg,#047857,#059669,#10b981)] text-white shadow-[0_14px_30px_-12px_rgba(5,150,105,0.8)]" title="Back to top" aria-label="Back to top">
+<button id="lh-top" class="lh-tip lh-tip-up lh-tip-end grid h-11 w-11 place-items-center rounded-full bg-[linear-gradient(135deg,#047857,#059669,#10b981)] text-white shadow-[0_14px_30px_-12px_rgba(5,150,105,0.8)]" data-tip="Back to top" aria-label="Back to top">
   <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg>
 </button>
 
@@ -135,7 +135,7 @@
 })();
 </script>
 
-<script src="assets/app.js?v=18"></script>
+<script src="assets/app.js?v=19"></script>
 <script>
 /* Self-healing fallback for the invite-link buttons. If the browser served a
    stale (or the host a missing) app.js — i.e. window.lhWireShare never appeared

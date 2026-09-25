@@ -1493,6 +1493,66 @@ if ($user) {
         opacity: 1
       }
     }
+
+    /* ============================================================
+       Styled hover chip for icon-only controls — the same chip the
+       folded rail uses. Text lives in data-tip; native title is
+       omitted on purpose so the two never stack.
+       ============================================================ */
+    .lh-tip,
+    .lh-side-tip {
+      position: relative
+    }
+
+    .lh-tip::after,
+    .lh-side-tip::after {
+      content: attr(data-tip);
+      position: absolute;
+      white-space: nowrap;
+      background: #0f172a;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 5px 9px;
+      border-radius: 8px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .15s;
+      box-shadow: 0 8px 20px -8px rgba(15, 23, 42, .4);
+      z-index: 80
+    }
+
+    /* default: under the icon, centered (top bar / page controls) */
+    .lh-tip::after {
+      left: 50%;
+      top: calc(100% + 8px);
+      transform: translateX(-50%)
+    }
+
+    /* right-edge icons: keep the chip inside the viewport */
+    .lh-tip-end::after {
+      left: auto;
+      right: 0;
+      transform: none
+    }
+
+    /* bottom-fixed icons (back-to-top): open upward */
+    .lh-tip-up::after {
+      top: auto;
+      bottom: calc(100% + 8px)
+    }
+
+    /* inside the sidebar: open to the right, like the folded rail */
+    .lh-side-tip::after {
+      left: calc(100% + 10px);
+      top: 50%;
+      transform: translateY(-50%)
+    }
+
+    .lh-tip:hover::after,
+    .lh-side-tip:hover::after {
+      opacity: 1
+    }
   </style>
   <?php $lh_theme_css = ui_theme_url(); ?>
   <?php if ($lh_theme_css !== ''): ?>
@@ -1596,8 +1656,8 @@ if ($user) {
         </nav>
       <?php endif; ?>
 
-      <div class="lh-side-collapse-wrap"><button id="lh-side-collapse" type="button" title="Collapse sidebar"
-          aria-label="Collapse sidebar">«</button></div>
+      <div class="lh-side-collapse-wrap"><button id="lh-side-collapse" type="button" class="lh-side-tip"
+          data-tip="Collapse sidebar" aria-label="Collapse sidebar">«</button></div>
       <div class="lh-side-foot">
         <span
           class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-emerald-600 text-sm font-bold text-white"><?= e(strtoupper(substr((string) $user['name'], 0, 1))) ?></span>
@@ -1606,8 +1666,8 @@ if ($user) {
           <span
             class="block truncate text-[10px] uppercase tracking-wide text-slate-400"><?= ($user['role'] ?? '') === 'admin' ? 'Main Admin' : (($user['role'] ?? '') === 'teacher' ? 'Teacher' : 'Student') ?></span>
         </span>
-        <a href="logout.php" title="Log out" aria-label="Log out"
-          class="lh-ico grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-500">
+        <a href="logout.php" class="lh-ico lh-side-tip grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-500"
+          data-tip="Log out" aria-label="Log out">
           <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M5.636 5.636a9 9 0 1012.728 0M12 3v9" />
           </svg>
@@ -1620,15 +1680,15 @@ if ($user) {
     <div class="lh-top-inner">
       <div class="flex min-w-0 items-center gap-1.5">
         <?php if ($user): ?>
-          <button id="lh-rail-toggle" type="button" title="Collapse sidebar" aria-label="Collapse sidebar"
-            class="lh-ico grid h-7 w-7 place-items-center rounded-lg text-slate-600"><svg width="16" height="16"
+          <button id="lh-rail-toggle" type="button" data-tip="Collapse sidebar" aria-label="Collapse sidebar"
+            class="lh-ico lh-tip grid h-7 w-7 place-items-center rounded-lg text-slate-600"><svg width="16" height="16"
               viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" data-safe-chroma="true">
               <path fill-rule="evenodd" clip-rule="evenodd"
                 d="M9.67272 0.522841C10.8339 0.522841 11.76 0.522714 12.4963 0.602493C13.2453 0.683657 13.8789 0.854248 14.4264 1.25197C14.7504 1.48739 15.0355 1.77247 15.2709 2.0965C15.6686 2.64394 15.8392 3.27758 15.9204 4.02655C16.0002 4.7629 16 5.68895 16 6.85014V9.14986C16 10.3111 16.0002 11.2371 15.9204 11.9735C15.8392 12.7224 15.6686 13.3561 15.2709 13.9035C15.0355 14.2275 14.7504 14.5126 14.4264 14.748C13.8789 15.1458 13.2453 15.3163 12.4963 15.3975C11.76 15.4773 10.8339 15.4772 9.67272 15.4772H6.3273C5.16611 15.4772 4.24006 15.4773 3.50371 15.3975C2.75474 15.3163 2.1211 15.1458 1.57366 14.748C1.24963 14.5126 0.964549 14.2275 0.729131 13.9035C0.331407 13.3561 0.160817 12.7224 0.0796529 11.9735C-0.000126137 11.2371 1.25338e-09 10.3111 1.25338e-09 9.14986V6.85014C1.25329e-09 5.68895 -0.000126137 4.7629 0.0796529 4.02655C0.160817 3.27758 0.331407 2.64394 0.729131 2.0965C0.964549 1.77247 1.24963 1.48739 1.57366 1.25197C2.1211 0.854248 2.75474 0.683657 3.50371 0.602493C4.24006 0.522714 5.16611 0.522841 6.3273 0.522841H9.67272ZM5.54303 1.88715V14.1118C5.78636 14.1128 6.04709 14.1169 6.3273 14.1169H9.67272C10.8639 14.1169 11.7032 14.1164 12.3493 14.0465C12.9824 13.9779 13.3497 13.8494 13.6268 13.6482C13.8354 13.4966 14.0195 13.3125 14.1711 13.1039C14.3723 12.8268 14.5007 12.4595 14.5693 11.8264C14.6393 11.1803 14.6398 10.341 14.6398 9.14986V6.85014C14.6398 5.65896 14.6393 4.81967 14.5693 4.1736C14.5007 3.54048 14.3723 3.17318 14.1711 2.89609C14.0195 2.68747 13.8354 2.50337 13.6268 2.35179C13.3497 2.1506 12.9824 2.02212 12.3493 1.95353C11.7032 1.88358 10.8639 1.88307 9.67272 1.88307H6.3273C6.04709 1.88307 5.78636 1.8862 5.54303 1.88715ZM4.1828 1.91166C3.99125 1.9216 3.8148 1.93577 3.65076 1.95353C3.01764 2.02212 2.65034 2.1506 2.37325 2.35179C2.16463 2.50337 1.98052 2.68747 1.82895 2.89609C1.62776 3.17318 1.49928 3.54048 1.43069 4.1736C1.36074 4.81967 1.36023 5.65896 1.36023 6.85014V9.14986C1.36023 10.341 1.36074 11.1803 1.43069 11.8264C1.49928 12.4595 1.62776 12.8268 1.82895 13.1039C1.98052 13.3125 2.16463 13.4966 2.37325 13.6482C2.65034 13.8494 3.01764 13.9779 3.65076 14.0465C3.81478 14.0642 3.99127 14.0774 4.1828 14.0873V1.91166Z"
                 fill="currentColor"></path>
             </svg></button>
-          <button id="lh-side-toggle" class="lh-ico grid h-7 w-7 place-items-center rounded-lg text-slate-600 lg:hidden"
-            title="Open menu" aria-label="Open menu">
+          <button id="lh-side-toggle" class="lh-ico lh-tip grid h-7 w-7 place-items-center rounded-lg text-slate-600 lg:hidden"
+            data-tip="Open menu" aria-label="Open menu">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"
               data-safe-chroma="true">
               <path fill-rule="evenodd" clip-rule="evenodd"
@@ -1647,8 +1707,8 @@ if ($user) {
       <div class="flex items-center gap-1.5">
         <?php if ($user): ?>
           <div class="relative">
-            <button id="lh-notif-btn" class="lh-ico grid h-9 w-9 place-items-center rounded-lg text-slate-600"
-              title="Notifications" aria-label="Notifications">
+            <button id="lh-notif-btn" class="lh-ico lh-tip grid h-9 w-9 place-items-center rounded-lg text-slate-600"
+              data-tip="Notifications" aria-label="Notifications">
               <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round"
                   d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
@@ -1687,8 +1747,8 @@ if ($user) {
               </div>
             </div>
           </div>
-          <a href="messages.php" id="lh-chat-link" title="Messages"
-            class="lh-ico grid h-9 w-9 place-items-center rounded-lg text-slate-600" aria-label="Messages">
+          <a href="messages.php" id="lh-chat-link" data-tip="Messages"
+            class="lh-ico lh-tip grid h-9 w-9 place-items-center rounded-lg text-slate-600" aria-label="Messages">
             <span class="lh-side-ico"><svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.7"
                 stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.5L3 21l2-5.6A8.5 8.5 0 1 1 21 11.5z" />
@@ -1705,8 +1765,8 @@ if ($user) {
           <a href="logout.php" title="Log out" aria-label="Log out"
             class="hidden rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 sm:inline-block">Log
             out</a>
-          <a href="logout.php" title="Log out" aria-label="Log out"
-            class="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-500 sm:hidden">
+          <a href="logout.php" data-tip="Log out" aria-label="Log out"
+            class="lh-tip lh-tip-end grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-500 sm:hidden">
             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M5.636 5.636a9 9 0 1012.728 0M12 3v9" />
             </svg>
@@ -1727,7 +1787,7 @@ if ($user) {
       class="toast-in fixed right-4 top-20 z-50 flex max-w-sm items-start gap-3 rounded-xl border p-4 shadow-lg <?= ($f['type'] ?? '') === 'error' ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-emerald-200 bg-emerald-50 text-emerald-800' ?>">
       <span><?= ($f['type'] ?? '') === 'error' ? '⚠️' : '✅' ?></span>
       <p class="text-sm font-medium"><?= e((string) ($f['msg'] ?? '')) ?></p>
-      <button data-toast-close title="Dismiss" aria-label="Dismiss" class="ml-2 text-slate-400 hover:text-slate-600">✕</button>
+      <button data-toast-close data-tip="Dismiss" aria-label="Dismiss" class="lh-tip lh-tip-end ml-2 text-slate-400 hover:text-slate-600">✕</button>
     </div>
   <?php endforeach; ?>
 

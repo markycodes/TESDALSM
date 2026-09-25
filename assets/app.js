@@ -1015,11 +1015,11 @@ if (dayFilter) {
   var toggle = document.getElementById('lh-side-toggle');
   var sidebar = document.getElementById('lh-sidebar');
   var backdrop = document.getElementById('lh-side-backdrop');
-  /* hover text: the hamburger is icon-only — keep its title matching the real state */
+  /* hover chip: the hamburger is icon-only — keep its data-tip matching the real state */
   function setToggleLabel(open) {
     if (!toggle) return;
     var txt = open ? 'Close menu' : 'Open menu';
-    toggle.setAttribute('title', txt);
+    toggle.setAttribute('data-tip', txt);
     toggle.setAttribute('aria-label', txt);
   }
   function closeSide() {
@@ -1045,12 +1045,12 @@ if (dayFilter) {
     try { localStorage.setItem('lh-rail', on ? '1' : '0'); } catch (e) {}
     railLabels();
   }
-  /* hover text: both collapse buttons are icon-only — the title must name the
+  /* hover chip: both collapse buttons are icon-only — the tip must name the
      state they will move TO ("Expand" while folded, "Collapse" while open) */
   function railLabels() {
     var txt = body.classList.contains('lh-rail') ? 'Expand sidebar' : 'Collapse sidebar';
     [collapseBtn, railBtn].forEach(function (b) {
-      if (b) { b.setAttribute('title', txt); b.setAttribute('aria-label', txt); }
+      if (b) { b.setAttribute('data-tip', txt); b.setAttribute('aria-label', txt); }
     });
   }
   if (document.body.classList.contains('lh-app')) {

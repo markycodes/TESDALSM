@@ -297,8 +297,8 @@ require __DIR__ . '/header.php';
                   <?= csrf_field() ?>
                   <input type="hidden" name="course_id" value="<?= e((string) $c['id']) ?>">
                   <button
-                    class="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-500 hover:bg-rose-50 hover:text-rose-600"
-                    title="Delete course">🗑</button>
+                    class="lh-tip rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-500 hover:bg-rose-50 hover:text-rose-600"
+                    data-tip="Delete course" aria-label="Delete course">🗑</button>
                 </form>
               </div>
             </div>
