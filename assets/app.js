@@ -1015,11 +1015,23 @@ if (dayFilter) {
   var toggle = document.getElementById('lh-side-toggle');
   var sidebar = document.getElementById('lh-sidebar');
   var backdrop = document.getElementById('lh-side-backdrop');
-  function closeSide() { if (sidebar) sidebar.classList.remove('open'); body.classList.remove('lh-side-open'); }
+  /* hover text: the hamburger is icon-only — keep its title matching the real state */
+  function setToggleLabel(open) {
+    if (!toggle) return;
+    var txt = open ? 'Close menu' : 'Open menu';
+    toggle.setAttribute('title', txt);
+    toggle.setAttribute('aria-label', txt);
+  }
+  function closeSide() {
+    if (sidebar) sidebar.classList.remove('open');
+    body.classList.remove('lh-side-open');
+    setToggleLabel(false);
+  }
   if (toggle && sidebar) {
     toggle.addEventListener('click', function () {
       sidebar.classList.toggle('open');
       body.classList.toggle('lh-side-open');
+      setToggleLabel(sidebar.classList.contains('open'));
     });
   }
   if (backdrop) backdrop.addEventListener('click', closeSide);
@@ -1031,9 +1043,19 @@ if (dayFilter) {
   function setRail(on) {
     if (on) body.classList.add('lh-rail'); else body.classList.remove('lh-rail');
     try { localStorage.setItem('lh-rail', on ? '1' : '0'); } catch (e) {}
+    railLabels();
+  }
+  /* hover text: both collapse buttons are icon-only — the title must name the
+     state they will move TO ("Expand" while folded, "Collapse" while open) */
+  function railLabels() {
+    var txt = body.classList.contains('lh-rail') ? 'Expand sidebar' : 'Collapse sidebar';
+    [collapseBtn, railBtn].forEach(function (b) {
+      if (b) { b.setAttribute('title', txt); b.setAttribute('aria-label', txt); }
+    });
   }
   if (document.body.classList.contains('lh-app')) {
     try { if (localStorage.getItem('lh-rail') === '1' && window.innerWidth >= 1024) body.classList.add('lh-rail'); } catch (e) {}
+    railLabels();
   }
   var railToggle = function (e) {
     if (e && e.preventDefault) e.preventDefault();
@@ -1042,7 +1064,7 @@ if (dayFilter) {
   if (collapseBtn) collapseBtn.addEventListener('click', railToggle);
   if (railBtn) railBtn.addEventListener('click', railToggle);
   window.addEventListener('resize', function () {
-    if (window.innerWidth < 1024) body.classList.remove('lh-rail');
+    if (window.innerWidth < 1024) { body.classList.remove('lh-rail'); railLabels(); }
   });
 
   var csrf = (document.querySelector('meta[name="csrf"]') || {}).content || '';

@@ -7,7 +7,7 @@
         <h3 class="text-lg font-bold text-slate-900">Add a lesson</h3>
         <p class="mt-1 text-sm text-slate-500">Upload a document or videos, or paste text — students read &amp; watch it right in the browser.</p>
       </div>
-      <button data-modal-close class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">✕</button>
+      <button data-modal-close title="Close" aria-label="Close" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">✕</button>
     </div>
 
     <div class="mt-4 flex gap-1 rounded-xl bg-slate-100 p-1" data-tabs>

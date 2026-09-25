@@ -7,7 +7,7 @@
         <h3 class="text-lg font-bold text-slate-900">Create a new course</h3>
         <p class="mt-1 text-sm text-slate-500">You can upload lessons right after creating it.</p>
       </div>
-      <button data-modal-close class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">✕</button>
+      <button data-modal-close title="Close" aria-label="Close" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">✕</button>
     </div>
     <form method="post" action="course_create.php" class="mt-5 space-y-4">
       <?= csrf_field() ?>

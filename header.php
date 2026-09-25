@@ -1628,7 +1628,7 @@ if ($user) {
                 fill="currentColor"></path>
             </svg></button>
           <button id="lh-side-toggle" class="lh-ico grid h-7 w-7 place-items-center rounded-lg text-slate-600 lg:hidden"
-            aria-label="Open menu">
+            title="Open menu" aria-label="Open menu">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"
               data-safe-chroma="true">
               <path fill-rule="evenodd" clip-rule="evenodd"
@@ -1648,7 +1648,7 @@ if ($user) {
         <?php if ($user): ?>
           <div class="relative">
             <button id="lh-notif-btn" class="lh-ico grid h-9 w-9 place-items-center rounded-lg text-slate-600"
-              aria-label="Notifications">
+              title="Notifications" aria-label="Notifications">
               <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round"
                   d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
@@ -1687,12 +1687,12 @@ if ($user) {
               </div>
             </div>
           </div>
-          <a href="messages.php" id="lh-chat-link"
+          <a href="messages.php" id="lh-chat-link" title="Messages"
             class="lh-ico grid h-9 w-9 place-items-center rounded-lg text-slate-600" aria-label="Messages">
-            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                d="M4.75 3l7.5-4.75a4.75 4.75 0 003.78-3.78l-3.78-6.57M6.3 6.3h2.85M13.2 6.3h2.4M12.75 6.3h.9M3.75 13.05l1.8 4.5M4.75 16.05h7.5m3 2.25h.9M4.75 18.3h7.5m-.9 1.05l3.6 2.1M8.5 20.25h5.25m4.5 0l-5.25 2.1M17.35 9.3h3.6M16.9 12.15h3.6M4.75 6.3h2.7v3M9.6 9.3h1.05M8.05 6.3h2.7M4.75 6.9l-1.05 2.4M9.6 15.3h4.5M14.85 15.3h3.75" />
-            </svg>
+            <span class="lh-side-ico"><svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.7"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.5L3 21l2-5.6A8.5 8.5 0 1 1 21 11.5z" />
+              </svg></span>
             <span id="lh-chat-badge" class="lh-badge hidden">0</span>
           </a>
           <span class="hidden text-right sm:flex sm:flex-col sm:items-start leading-tight">
@@ -1727,7 +1727,7 @@ if ($user) {
       class="toast-in fixed right-4 top-20 z-50 flex max-w-sm items-start gap-3 rounded-xl border p-4 shadow-lg <?= ($f['type'] ?? '') === 'error' ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-emerald-200 bg-emerald-50 text-emerald-800' ?>">
       <span><?= ($f['type'] ?? '') === 'error' ? '⚠️' : '✅' ?></span>
       <p class="text-sm font-medium"><?= e((string) ($f['msg'] ?? '')) ?></p>
-      <button data-toast-close class="ml-2 text-slate-400 hover:text-slate-600">✕</button>
+      <button data-toast-close title="Dismiss" aria-label="Dismiss" class="ml-2 text-slate-400 hover:text-slate-600">✕</button>
     </div>
   <?php endforeach; ?>
 
