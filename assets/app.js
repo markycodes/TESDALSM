@@ -1466,7 +1466,7 @@ if (dayFilter) {
         act.innerHTML = d.activity.length
           ? d.activity.map(function (r) {
             var icon = r.kind === 'enrolled' ? '🎒' : '✅';
-            return '<li class="flex items-start gap-3 px-4 py-2.5"><span class="mt-0.5 text-base">' + icon + '</span><span class="min-w-0 flex-1"><span class="block text-sm text-slate-700"><span class="font-semibold text-slate-900">' + lmsEsc(r.who) + '</span> ' + (r.kind === 'enrolled' ? 'enrolled in' : 'completed') + ' <span class="font-semibold text-indigo-700">' + lmsEsc(r.course) + '</span>' + (r.lesson ? ' · ' + lmsEsc(r.lesson) : '') + '</span></span><span class="shrink-0 text-xs text-slate-400">' + lmsAgo(r.ts) + '</span></li>';
+            return '<li class="flex items-start gap-3 px-4 py-2.5"><span class="mt-0.5 text-base">' + icon + '</span><span class="min-w-0 flex-1"><span class="block break-words text-sm text-slate-700"><span class="font-semibold text-slate-900">' + lmsEsc(r.who) + '</span> ' + (r.kind === 'enrolled' ? 'enrolled in' : 'completed') + ' <span class="font-semibold text-indigo-700">' + lmsEsc(r.course) + '</span>' + (r.lesson ? ' · ' + lmsEsc(r.lesson) : '') + '</span></span><span class="shrink-0 text-xs text-slate-400">' + lmsAgo(r.ts) + '</span></li>';
           }).join('')
           : '<li class="px-4 py-4 text-center text-sm text-slate-400">No recent activity.</li>';
       }

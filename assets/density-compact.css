@@ -162,9 +162,15 @@ body.lh-app main [data-live-scope] .h-16 {
   height: 2.6rem !important
 }
 
-/* long panels: show more rows before scrolling starts */
-body.lh-app main [class*='max-h-72'] {
-  max-height: 15rem !important
+/* long panels: show more rows before scrolling starts.
+   Scoped to >=1024px: the markup pairs this cap with `lg:overflow-y-auto`, and
+   a `lg:` class only exists from 1024px up. Un-scoped the cap also clamped the
+   list on phones — where there is no inner scroll, so `overflow` stays visible
+   and the surplus rows painted OUTSIDE the card. */
+@media (min-width:1024px) {
+  body.lh-app main [class*='max-h-72'] {
+    max-height: 15rem !important
+  }
 }
 
 /* ---- tables & forms: denser rows ---- */

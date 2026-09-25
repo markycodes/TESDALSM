@@ -499,8 +499,13 @@ body.lh-app main select,
 body.lh-app main textarea { padding-top: .4rem !important; padding-bottom: .4rem !important }
 body.lh-app main button { padding-top: .4rem !important; padding-bottom: .4rem !important }
 
-/* long panels: more rows before inner scroll */
-body.lh-app main [class*='max-h-72'] { max-height: 14rem !important }
+/* long panels: more rows before inner scroll.
+   Scoped like the markup's `lg:` prefix: the paired `lg:overflow-y-auto` only
+   applies from 1024px up, and on phones the un-scoped cap made rows spill out
+   of the card (overflow stays visible there). */
+@media (min-width:1024px) {
+  body.lh-app main [class*='max-h-72'] { max-height: 14rem !important }
+}
 
 /* logos: fix the oversized header marks */
 html body.lh-app .lh-topbar img[src*="logo"] {
