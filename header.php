@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/lib.php';
+require_once __DIR__ . '/skeleton.php';   /* the loading pane: lh_skeleton_css() + lh_skeleton_body() */
 $user = current_user();
 $page_title = $page_title ?? 'LearnHub';
 $nav_active = $nav_active ?? '';
@@ -1626,9 +1627,11 @@ if ($user) {
   <?php if ($lh_density_css !== ''): ?>
     <link rel="stylesheet" href="<?= e($lh_density_css) ?>">
   <?php endif; ?>
+  <?php lh_skeleton_css(); ?>
 </head>
 
 <body class="flex min-h-screen flex-col font-sans text-slate-800<?= $user ? ' lh-app' : '' ?>" <?= $user ? ' data-heartbeat="1"' : '' ?>>
+  <?php lh_skeleton_body(); ?>
   <div id="lh-progress"></div>
 
   <?php if ($user): ?>

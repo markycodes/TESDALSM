@@ -12,6 +12,7 @@
  * sent to the browser before submission.
  */
 require_once __DIR__ . '/lib.php';
+require_once __DIR__ . '/skeleton.php';   /* the loading pane (this page has no app shell) */
 $user = require_login();
 $userId = (int) $user['id'];
 $courseId = (int) ($_GET['c'] ?? 0);
@@ -64,8 +65,10 @@ $passed = $result && $result['status'] === 'PASSED';
 <link rel="stylesheet" href="assets/tailwind.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>html{scroll-behavior:smooth}</style>
+<?php lh_skeleton_css(); ?>
 </head>
 <body class="min-h-screen bg-slate-100 font-sans text-slate-800">
+<?php lh_skeleton_body(); ?>
 <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
   <div class="mx-auto flex h-14 max-w-3xl items-center justify-between gap-3 px-4">
     <a href="course.php?id=<?= (int) $courseId ?>" class="shrink-0 rounded-lg px-2 py-1.5 text-sm font-semibold text-indigo-600 hover:bg-indigo-50">← Back to course</a>

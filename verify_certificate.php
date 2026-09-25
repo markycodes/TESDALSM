@@ -1,6 +1,7 @@
 <?php
 /** Verify a certificate — public page: anyone with a Certificate ID can confirm it. */
 require_once __DIR__ . '/lib.php';
+require_once __DIR__ . '/skeleton.php';   /* the loading pane (public page) */
 
 $code = trim((string) ($_GET['code'] ?? ''));
 $row = $code !== '' ? certificate_by_code($code) : null;
@@ -48,8 +49,10 @@ $checkUrl = app_link('verify_certificate.php');
     .foot { margin-top: 22px; text-align: center; font-size: 12px; color: #94a3b8; }
     .foot a { color: #047857; font-weight: 600; text-decoration: none; }
   </style>
+  <?php lh_skeleton_css(); ?>
 </head>
 <body>
+  <?php lh_skeleton_body(false); /* one centred card, no app bar */ ?>
   <div class="card">
     <div class="brand"><img src="logo/logo.png" alt="LearnHub"><span>LearnHub <em style="color:#059669;font-style:normal">LMS</em></span></div>
     <h1>Certificate verification</h1>

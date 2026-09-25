@@ -2,6 +2,7 @@
 /** Certificate — printable e-certificate for a completed course (A4 landscape → Save as PDF).
  *  Auto-issues on the student's first visit after 100% lesson completion. */
 require_once __DIR__ . '/lib.php';
+require_once __DIR__ . '/skeleton.php';   /* the loading pane (printable page) */
 $user = require_login();
 
 $courseId = (int) ($_GET['course'] ?? 0);
@@ -94,8 +95,10 @@ $verifyUrl = app_link('verify_certificate.php?code=' . urlencode((string) $cert[
     }
     @media (max-width: 900px) { .sheet { aspect-ratio: auto; height: auto; padding: 24px; } .title { font-size: 30px; } .name { font-size: 32px; } }
   </style>
+  <?php lh_skeleton_css(); ?>
 </head>
 <body>
+  <?php lh_skeleton_body(false); /* the certificate sheet, no app bar */ ?>
   <div class="toolbar">
     <button class="btn-print" onclick="window.print()">🖨️ Download / Print PDF</button>
     <a class="btn-back" href="course.php?id=<?= $courseId ?>">← Back to course</a>
