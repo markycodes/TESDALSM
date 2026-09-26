@@ -1467,13 +1467,21 @@ if ($user) {
 
     /* collapsed rail on desktop only */
     @media(min-width:1024px) {
-      body.lh-rail .lh-sidebar {
-        width: 76px;
+
+      /* `html … !important` so the fold outranks BOTH a theme's own width
+         pins AND density-compact.css' `.lh-sidebar{width:232px!important}`.
+         Without it the rail keeps the full panel width while the label rules
+         below already hide the text — an icon-only, 232px-wide sidebar that
+         looks like it never closed (Console/Bright/Calm/Minimal + Compact).
+         Themes that really want another rail width (material: 64px/88px,
+         paper: 76px) still win from their own later sheet. */
+      html body.lh-rail .lh-sidebar {
+        width: 76px !important;
         overflow: visible
       }
 
-      body.lh-rail {
-        padding-left: 76px
+      html body.lh-rail {
+        padding-left: 76px !important
       }
 
       body.lh-rail .lh-side-head {
