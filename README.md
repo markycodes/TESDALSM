@@ -92,6 +92,7 @@ Uploaded files themselves live in `uploads/` (filenames are stored in `materials
 - 👥 **Enrollments & attendance page** (`enrollments.php`): see every student enrolled with you, filter **by category and by course**, see who is **online** (3-minute presence window, refreshed automatically), and a **complete attendance log** per course (student, entered/left time, time spent, IP address)
 - 🟢 **Live presence**: heartbeats keep `presence.last_seen` fresh; every visit to a course page is recorded in `attendance`
 - 🗄️ All entities stored in MySQL via prepared statements
+- ⏳ **Per-page skeleton loading screens** (`skeleton.php`): from the very first paint every page shows a frosted ghost of **its own** layout — 11 archetypes (auth card, certificate check, dashboard, course cards, course page, data table, chat, reader, quiz, live-classroom stage, certificate sheet) picked automatically from the script name + sign-in state, overridable per page. The content is already rendered server-side underneath, so the pane only makes the wait read as "this page is coming": it fades out once the page (fonts included) has loaded, and lifts early when a link or form hands over to the next page. Off switches: `?noskeleton=1` on any URL, `$lh_skeleton = false;` per page, `define('LH_SKELETON', false);` site-wide.
 
 ## Adding lessons
 
@@ -155,6 +156,7 @@ LMS/
 ├── course_create.php / course_delete.php / delete_material.php
 ├── lib.php             core library (PDO connection, schema, queries, auth, uploads)
 ├── header.php / footer.php
+├── skeleton.php        skeleton loading screens, one per page layout (11 archetypes)
 ├── assets/app.js       toasts, modals, tabs, search, progress
 ├── data/               legacy JSON storage (auto-imported once; kept web-blocked)
 └── uploads/            uploaded files (web-blocked; streamed via download.php)

@@ -52,7 +52,7 @@ $checkUrl = app_link('verify_certificate.php');
   <?php lh_skeleton_css(); ?>
 </head>
 <body>
-  <?php lh_skeleton_body(false); /* one centred card, no app bar */ ?>
+  <?php lh_skeleton_body(false, 'verify'); /* one centred card, no app bar */ ?>
   <div class="card">
     <div class="brand"><img src="logo/logo.png" alt="LearnHub"><span>LearnHub <em style="color:#059669;font-style:normal">LMS</em></span></div>
     <h1>Certificate verification</h1>

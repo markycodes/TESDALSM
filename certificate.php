@@ -98,7 +98,7 @@ $verifyUrl = app_link('verify_certificate.php?code=' . urlencode((string) $cert[
   <?php lh_skeleton_css(); ?>
 </head>
 <body>
-  <?php lh_skeleton_body(false); /* the certificate sheet, no app bar */ ?>
+  <?php lh_skeleton_body(false, 'certificate'); /* the certificate sheet, no app bar */ ?>
   <div class="toolbar">
     <button class="btn-print" onclick="window.print()">🖨️ Download / Print PDF</button>
     <a class="btn-back" href="course.php?id=<?= $courseId ?>">← Back to course</a>

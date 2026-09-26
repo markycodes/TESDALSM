@@ -81,7 +81,7 @@ if (is_file($absFile)) {
 <?php lh_skeleton_css(); ?>
 </head>
 <body class="min-h-screen bg-slate-100 font-sans text-slate-800">
-<?php lh_skeleton_body(); ?>
+<?php lh_skeleton_body(true, 'reader'); ?>
 <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
   <div class="mx-auto flex h-14 max-w-5xl items-center justify-between gap-3 px-4">
     <a href="course.php?id=<?= (int) $courseId ?>" class="shrink-0 rounded-lg px-2 py-1.5 text-sm font-semibold text-indigo-600 hover:bg-indigo-50">← Back to course</a>
