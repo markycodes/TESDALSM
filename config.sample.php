@@ -107,4 +107,19 @@ define('DB_PASS_LOCAL', '');            define('DB_PASS_PROD', 'your-mysql-passw
  */
 // define('UI_DENSITY', 'comfortable');
 
+/* Arrangement of the logged-in shell (Settings → Appearance → Layout).
+ * Independent of the design and the density — every combination works:
+ *   'classic' — fixed sidebar + sticky top bar + 1152px column (shipped)
+ *   'wide'    — slimmer rail, content up to 1800px, tiles reflow
+ *   'focus'   — 1088px centred reading column, roomier leading
+ *   'dock'    — the sidebar is permanently the 76px icon rail
+ *   'topnav'  — no sidebar; the nav links become a strip under the top bar
+ *   'ledger'  — slim chrome, edge-to-edge zebra tables, tabular figures
+ *   'float'   — rail, bar and content as rounded panels over the canvas
+ * Each key maps to assets/layout-<key>.css (loaded after the theme and the
+ * density layer). Layouts only reshape desktop (>=1024px): phones keep the
+ * drawer + normal scrolling either way.
+ */
+// define('UI_LAYOUT', 'wide');
+
 

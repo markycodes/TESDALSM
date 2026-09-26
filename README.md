@@ -94,6 +94,49 @@ Uploaded files themselves live in `uploads/` (filenames are stored in `materials
 - 🗄️ All entities stored in MySQL via prepared statements
 - ⏳ **Per-page skeleton loading screens** (`skeleton.php`): from the very first paint every page shows a frosted ghost of **its own** layout — 11 archetypes (auth card, certificate check, dashboard, course cards, course page, data table, chat, reader, quiz, live-classroom stage, certificate sheet) picked automatically from the script name + sign-in state, overridable per page. The content is already rendered server-side underneath, so the pane only makes the wait read as "this page is coming": it fades out once the page (fonts included) has loaded, and lifts early when a link or form hands over to the next page. Off switches: `?noskeleton=1` on any URL, `$lh_skeleton = false;` per page, `define('LH_SKELETON', false);` site-wide.
 
+## Appearance
+
+Three independent picks live in **Settings → Appearance** (admin only), each one a small stylesheet that is
+loaded after the base design. They stack — any design works with any density and any layout — and switching back
+is instant, because nothing about the content or the logic changes.
+
+| Pick | Who decides | Options |
+|---|---|---|
+| **Design** | `ui_theme_choices()` in `lib.php` → `assets/theme-<key>.css` | Paper, Material (default), Console, Fresh & friendly, Calm studio, Minimal |
+| **Density** | `ui_density_choices()` → `assets/density-<key>.css` | Compact (default), Comfortable |
+| **Layout** | `ui_layout_choices()` → `assets/layout-<key>.css` | Classic shell (default), Wide canvas, Focused column, Icon dock, Top navigation, Data first, Floating panels |
+
+**Layouts** arrange the logged-in shell: where the navigation sits, how wide the content column is, how much
+chrome surrounds it, how tables read.
+
+| Layout | What it changes |
+|---|---|
+| **Classic shell** | What LearnHub ships — fixed sidebar, sticky top bar, 1152px column. Loads no extra file. |
+| **Wide canvas** | 248px rail, content up to **1800px**, fluid gutters, stat tiles reflow into as many columns as fit. For big monitors. |
+| **Focused column** | **1088px** centred column, roomier leading, more air between cards, quieter top bar. For reading a lesson or taking a quiz. |
+| **Icon dock** | The sidebar is permanently the **76px icon rail** with hover labels; the fold buttons stand down. For laptops. |
+| **Top navigation** | No sidebar — the nav links become one horizontal strip under the top bar, content starts at the left edge. |
+| **Data first** | Slim 52px chrome plus edge-to-edge tables: zebra rows, tinted uppercase column heads, tabular figures, hover row, taller list panels. |
+| **Floating panels** | Rail, top bar and content become rounded panels inset 12px over the theme's canvas. |
+
+Layouts are **desktop only (≥1024px)** on purpose: phones keep the drawer, the swipe rows and normal document
+scrolling, so an admin can never lock a phone out of the menu. `<html>` carries `data-theme`, `data-density` and
+`data-layout` so a layout can respect a theme whose shell it must not fight — Material's floating rail and
+inner-scroll frame, for example.
+
+To add another one:
+
+1. Create `assets/layout-<key>.css`. Scope it to `.lh-app` and, for shell geometry, to `@media (min-width:1024px)`.
+   Use `html body.lh-app … { … !important }` for anything a theme or the density layer also sets — layouts load
+   last, so on equal specificity the layout wins.
+2. Add a `'<key>' => ['Name', 'One or two sentences: what changes and when to pick it.']` entry to
+   `ui_layout_choices()` in `lib.php`.
+
+That is the whole change: the picker, the `<link>`, the cache-busting stamp and the wireframe thumbnail slot
+appear automatically (a key with no thumbnail simply falls back to the classic frame). A missing file is never an
+error — the built-in shell still styles every page — and `config.php` can pin a choice for a machine with
+`define('UI_LAYOUT', 'dock');` (`UI_THEME`, `UI_DENSITY` work the same way).
+
 ## Adding lessons
 
 Open a course you teach and click **＋ Add lesson**. The modal has one tab per material type:
@@ -158,6 +201,9 @@ LMS/
 ├── header.php / footer.php
 ├── skeleton.php        skeleton loading screens, one per page layout (11 archetypes)
 ├── assets/app.js       toasts, modals, tabs, search, progress
+├── assets/theme-*.css   the design (Settings → Appearance → Design)
+├── assets/density-*.css the spacing rhythm (Settings → Appearance → Density)
+├── assets/layout-*.css  the shell arrangement (Settings → Appearance → Layout)
 ├── data/               legacy JSON storage (auto-imported once; kept web-blocked)
 └── uploads/            uploaded files (web-blocked; streamed via download.php)
 ```

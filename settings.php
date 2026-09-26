@@ -77,15 +77,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         setting_set('turnstile_secret_key', '');
         set_flash('success', 'Turnstile keys removed — registration falls back to the built-in question.');
     } elseif ($action === 'save_theme') {
-        /* appearance — see ui_theme*() / ui_density*() in lib.php */
+        /* appearance — see ui_theme*() / ui_density*() / ui_layout*() in lib.php */
         $theme = strtolower(trim((string) ($_POST['ui_theme'] ?? '')));
         if (!isset(ui_theme_choices()[$theme])) $theme = UI_THEME_DEFAULT;
         setting_set('ui_theme', $theme);
         $dens = strtolower(trim((string) ($_POST['ui_density'] ?? '')));
         if (!isset(ui_density_choices()[$dens])) $dens = UI_DENSITY_DEFAULT;
         setting_set('ui_density', $dens);
+        $lay = strtolower(trim((string) ($_POST['ui_layout'] ?? '')));
+        if (!isset(ui_layout_choices()[$lay])) $lay = UI_LAYOUT_DEFAULT;
+        setting_set('ui_layout', $lay);
         set_flash('success', 'Appearance saved — “' . ui_theme_choices()[$theme][0] . '” at '
-            . ui_density_choices()[$dens][0] . ' density.');
+            . ui_density_choices()[$dens][0] . ' density, ' . ui_layout_choices()[$lay][0] . ' layout.');
     }
     header('Location: settings.php');
     exit;
@@ -384,13 +387,21 @@ require __DIR__ . '/header.php';
     <input type="hidden" name="action" value="save_theme">
     <h2 class="text-base font-bold text-slate-900">🎨 Appearance</h2>
     <p class="mt-1 text-sm text-slate-600">
-      Which design every page uses, and how tightly the logged-in pages are packed. Both share the same layout and
-      content — only the look changes, and you can switch back at any time. Currently in use:
-      <b><?= e(ui_theme_choices()[ui_theme()][0]) ?></b> at <b><?= e(strtolower(ui_density_choices()[ui_density()][0])) ?></b> density.
+      Three picks, one page: the <b>design</b> every page uses, how tightly the logged-in pages are packed, and how
+      the app shell itself is arranged. All three share the same content and logic — only the look changes, and you can
+      switch back at any time. Currently in use:
+      <b><?= e(ui_theme_choices()[ui_theme()][0]) ?></b> at
+      <b><?= e(strtolower(ui_density_choices()[ui_density()][0])) ?></b> density,
+      <b><?= e(ui_layout_choices()[ui_layout()][0]) ?></b> layout.
     </p>
     <?php if (defined('UI_THEME') && UI_THEME !== ''): ?>
       <p class="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800">
         This server's <b>config.php</b> pins <b>UI_THEME</b> to “<?= e((string) UI_THEME) ?>”, so it overrides this page.
+      </p>
+    <?php endif; ?>
+    <?php if (defined('UI_LAYOUT') && UI_LAYOUT !== ''): ?>
+      <p class="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800">
+        This server's <b>config.php</b> pins <b>UI_LAYOUT</b> to “<?= e((string) UI_LAYOUT) ?>”, so it overrides this page.
       </p>
     <?php endif; ?>
 
@@ -434,6 +445,80 @@ require __DIR__ . '/header.php';
       </div>
     </div>
 
+    <div class="mt-5 border-t border-slate-100 pt-4">
+      <h3 class="text-sm font-bold text-slate-900">Layout</h3>
+      <p class="mt-1 text-xs text-slate-500">
+        How the logged-in shell is arranged: where the navigation sits and how much room the page content gets.
+        Arrangements only reshape desktop screens (1024px and wider) — phones keep the drawer and normal scrolling
+        either way, so no visitor ever loses the menu. <code>Classic shell</code> is what LearnHub ships.
+      </p>
+      <div class="mt-3 grid gap-3 sm:grid-cols-2">
+        <?php
+        /* Decorative wireframe of each arrangement (80x52), drawn inline so the
+           picker shows the shape before it is saved. Inline SVG on purpose: no
+           extra request and no dependency on which Tailwind utilities happen to
+           be in the prebuilt stylesheet. Unknown keys fall back to "classic". */
+        $lhMock = static function (string $k): string {
+          $rail = '<rect x="0" y="0" width="%d" height="52" rx="3" fill="#cbd5e1"/>';
+          $bar  = '<rect x="%d" y="%d" width="%d" height="%d" rx="2.5" fill="#e8eef5"/>';
+          $pane = '<rect x="%d" y="%d" width="%d" height="%d" rx="5" fill="#ffffff" stroke="#e2e8f0"/>';
+          switch ($k) {
+            case 'wide':
+              return sprintf($rail, 9) . sprintf($bar, 9, 0, 71, 6)
+                . sprintf($pane, 13, 10, 63, 38);
+            case 'focus':
+              return sprintf($rail, 12) . sprintf($bar, 12, 0, 68, 6)
+                . sprintf($pane, 30, 10, 30, 38)
+                . '<rect x="13" y="10" width="15" height="38" rx="4" fill="#f4f7fb"/>'
+                . '<rect x="62" y="10" width="15" height="38" rx="4" fill="#f4f7fb"/>';
+            case 'dock':
+              return sprintf($rail, 7)
+                . '<circle cx="3.5" cy="10" r="1.8" fill="#fff"/><circle cx="3.5" cy="20" r="1.8" fill="#fff"/>'
+                . '<circle cx="3.5" cy="30" r="1.8" fill="#fff"/><circle cx="3.5" cy="40" r="1.8" fill="#fff"/>'
+                . sprintf($bar, 7, 0, 73, 6) . sprintf($pane, 11, 10, 65, 38);
+            case 'topnav':
+              return '<rect x="0" y="0" width="80" height="11" rx="3" fill="#cbd5e1"/>'
+                . sprintf($pane, 0, 15, 80, 33);
+            case 'ledger':
+              return sprintf($bar, 0, 0, 80, 7) . sprintf($pane, 0, 11, 80, 41)
+                . '<rect x="4" y="16" width="72" height="3" rx="1.5" fill="#cbd5e1"/>'
+                . '<rect x="4" y="24" width="72" height="1.5" rx="0.75" fill="#e2e8f0"/>'
+                . '<rect x="4" y="31" width="72" height="1.5" rx="0.75" fill="#e2e8f0"/>'
+                . '<rect x="4" y="38" width="72" height="1.5" rx="0.75" fill="#e2e8f0"/>'
+                . '<rect x="4" y="45" width="72" height="1.5" rx="0.75" fill="#e2e8f0"/>';
+            case 'float':
+              return sprintf($pane, 3, 4, 13, 44) . sprintf($pane, 19, 3, 58, 9)
+                . sprintf($pane, 19, 15, 58, 33);
+            default: /* classic */
+              return sprintf($rail, 15) . sprintf($bar, 15, 0, 65, 7)
+                . sprintf($pane, 19, 11, 57, 37);
+          }
+        };
+        ?>
+        <?php foreach (ui_layout_choices() as $lkey => $linfo): $lOn = ui_layout() === $lkey; ?>
+          <label class="cursor-pointer rounded-2xl border p-4 transition <?= $lOn
+              ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200'
+              : 'border-slate-200 bg-white hover:border-slate-300' ?>">
+            <span class="flex items-start gap-3">
+              <svg viewBox="0 0 80 52" class="h-11 w-16 shrink-0 rounded-lg bg-slate-50 ring-1 ring-slate-200"
+                aria-hidden="true"><?= $lhMock($lkey) ?></svg>
+              <span class="min-w-0">
+                <span class="flex flex-wrap items-center gap-2">
+                  <input type="radio" name="ui_layout" value="<?= e($lkey) ?>" <?= $lOn ? 'checked' : '' ?> class="h-4 w-4">
+                  <span class="text-sm font-semibold text-slate-900"><?= e($linfo[0]) ?></span>
+                  <?php if ($lOn): ?><span class="rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white">in use</span><?php endif; ?>
+                </span>
+                <span class="mt-1 block text-xs leading-5 text-slate-500"><?= e($linfo[1]) ?></span>
+                <span class="mt-2 block text-[11px] font-semibold text-slate-400"><?= $lkey === 'classic'
+                    ? 'built in — no extra stylesheet'
+                    : e('assets/layout-' . $lkey . '.css') ?></span>
+              </span>
+            </span>
+          </label>
+        <?php endforeach; ?>
+      </div>
+    </div>
+
     <div class="mt-4 flex flex-wrap items-center gap-3">
       <button type="submit"
         class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700">
@@ -441,6 +526,7 @@ require __DIR__ . '/header.php';
       <span class="text-xs text-slate-500">
         Loaded: <code><?= ui_theme_url() === '' ? 'theme missing (upload assets/theme-' . e(ui_theme()) . '.css)' : e(ui_theme_url()) ?></code>
         <?php if (ui_density_url() !== ''): ?> <code><?= e(ui_density_url()) ?></code><?php endif; ?>
+        <?php if (ui_layout_url() !== ''): ?> <code><?= e(ui_layout_url()) ?></code><?php endif; ?>
       </span>
     </div>
   </form>

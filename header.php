@@ -9,7 +9,14 @@ if ($user) {
   touch_presence((int) $user['id']);
 } // keep the heartbeat fresh on every page view
 ?><!DOCTYPE html>
-<html lang="en">
+<?php /* data-theme / data-density / data-layout mirror the three Appearance
+         picks. They are read-only hooks: a layout stylesheet can key off a
+         theme whose shell geometry it must respect (material's floating rail
+         and inner-scroll frame, say) without knowing which files were saved,
+         and they make "which look is this page actually using?" one glance in
+         DevTools instead of three settings lookups. */ ?>
+<html lang="en" data-theme="<?= e(ui_theme()) ?>" data-density="<?= e(ui_density()) ?>"
+  data-layout="<?= e(ui_layout()) ?>">
 
 <head>
   <meta charset="UTF-8">
@@ -1634,6 +1641,12 @@ if ($user) {
   <?php $lh_density_css = $user ? ui_density_url() : ''; ?>
   <?php if ($lh_density_css !== ''): ?>
     <link rel="stylesheet" href="<?= e($lh_density_css) ?>">
+  <?php endif; ?>
+  <?php /* shell arrangement (Settings → Appearance → Layout) — loaded last so a
+           layout's geometry outranks the theme's and the density layer's ties */ ?>
+  <?php $lh_layout_css = $user ? ui_layout_url() : ''; ?>
+  <?php if ($lh_layout_css !== ''): ?>
+    <link rel="stylesheet" href="<?= e($lh_layout_css) ?>">
   <?php endif; ?>
   <?php lh_skeleton_css(); ?>
 </head>

@@ -1,0 +1,74 @@
+/* ============================================================
+   LearnHub layout — "Focused column"
+   One thing at a time: a 1088px centred column (a comfortable
+   ~85 characters of body copy), roomier leading, a little more air
+   between stacked cards and a top bar that stops shouting with a
+   hard shadow. Best for reading a lesson, taking a quiz or working
+   through a long form.
+   Chosen in Settings → Appearance → Layout. Loaded after the theme
+   and the density layer, so the geometry here wins their ties.
+   Desktop only (>=1024px): phones keep the drawer + document scroll.
+   ============================================================ */
+@media (min-width:1024px) {
+
+  /* a quieter rail */
+  html body.lh-app {
+    padding-left: 240px !important
+  }
+
+  html body.lh-app .lh-sidebar {
+    width: 240px !important
+  }
+
+  html body.lh-rail {
+    padding-left: 76px !important
+  }
+
+  html body.lh-rail .lh-sidebar {
+    width: 76px !important
+  }
+
+  /* material's floating rail sits 12px inside the viewport on each side */
+  html[data-theme="material"] body.lh-app {
+    padding-left: 264px !important
+  }
+
+  /* the reading column */
+  html body.lh-app main.lh-main {
+    max-width: 1088px !important;
+    padding-left: clamp(1.25rem, 3vw, 2.75rem) !important;
+    padding-right: clamp(1.25rem, 3vw, 2.75rem) !important;
+    padding-top: 1.75rem !important;
+    padding-bottom: 4rem !important
+  }
+
+  /* prose comfort: more leading for running text and list/table rows.
+     The stat tiles keep their tight numerals — they are figures, not prose. */
+  html body.lh-app main p,
+  html body.lh-app main li,
+  html body.lh-app main td,
+  html body.lh-app main label {
+    line-height: 1.7 !important
+  }
+
+  html body.lh-app main [data-live-scope] p,
+  html body.lh-app main .lh-hero-paper p,
+  html body.lh-app main .lh-hero-paper li {
+    line-height: 1.45 !important
+  }
+
+  /* a little more air between stacked blocks than the compact rhythm */
+  html body.lh-app main [class*='space-y-6']>*+* {
+    margin-top: 1.15rem !important
+  }
+
+  html body.lh-app main [class*='space-y-5']>*+* {
+    margin-top: 1rem !important
+  }
+
+  /* the chrome recedes: no hard rule or drop shadow under the top bar */
+  html body.lh-app .glass.lh-topbar {
+    border-bottom-color: rgba(226, 232, 240, .5) !important;
+    box-shadow: none !important
+  }
+}

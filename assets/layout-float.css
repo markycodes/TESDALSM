@@ -1,0 +1,69 @@
+/* ============================================================
+   LearnHub layout — "Floating panels"
+   Lifts the shell off the screen edge: the rail and the top bar become
+   rounded panels inset 12px over whatever canvas the active theme
+   paints, and the page content sits in its own soft, translucent pane.
+   Nothing here introduces colour — the panes are white-veiled, so the
+   theme's palette stays in charge; only the geometry, radii and depth
+   change. A modern, airy frame for any theme.
+   Chosen in Settings → Appearance → Layout. Loaded after the theme and
+   the density layer, so the geometry here wins their ties (the numbers
+   mirror material's floating shell, which this generalises to all
+   themes). Desktop only (>=1024px): phones keep the drawer.
+   ============================================================ */
+@media (min-width:1024px) {
+
+  /* ---- the rail floats: 12 + 232 + 12 = 256 ---- */
+  html body.lh-app {
+    padding-left: 256px !important
+  }
+
+  html body.lh-app .lh-sidebar {
+    top: 12px !important;
+    left: 12px !important;
+    bottom: 12px !important;
+    width: 232px !important;
+    height: auto !important;
+    border-radius: 18px !important;
+    border: 1px solid rgba(15, 23, 42, .07) !important;
+    box-shadow: 0 20px 44px -26px rgba(15, 23, 42, .4) !important
+  }
+
+  /* folded rail floats too: 12 + 76 + 12 = 100 */
+  html body.lh-rail {
+    padding-left: 100px !important
+  }
+
+  html body.lh-rail .lh-sidebar {
+    width: 76px !important
+  }
+
+  /* ---- the top bar becomes a glass bar instead of a full-bleed strip ---- */
+  html body.lh-app .glass.lh-topbar {
+    margin: 12px 12px 0 !important;
+    border: 1px solid rgba(255, 255, 255, .7) !important;
+    border-radius: 14px !important;
+    background: rgba(255, 255, 255, .82) !important;
+    -webkit-backdrop-filter: blur(10px) saturate(1.15);
+    backdrop-filter: blur(10px) saturate(1.15);
+    box-shadow: 0 12px 30px -24px rgba(15, 23, 42, .5) !important
+  }
+
+  /* ---- content: a soft inset pane, whichever theme is active ---- */
+  html body.lh-app main.lh-main {
+    max-width: 1440px !important;
+    margin: 14px auto 18px !important;
+    padding: 1.4rem clamp(1.1rem, 2vw, 2.1rem) 2.4rem !important;
+    background: rgba(255, 255, 255, .74) !important;
+    border: 1px solid rgba(255, 255, 255, .8) !important;
+    border-radius: 20px !important;
+    box-shadow: 0 24px 52px -34px rgba(15, 23, 42, .45) !important
+  }
+
+  /* material scrolls <main> itself and pins it to the viewport: give the
+     pane the height that is actually left (100dvh − bar 12+52 − gap 14
+     − bottom gap 18) so it never runs off the screen bottom. */
+  html[data-theme="material"] body.lh-app main.lh-main {
+    height: calc(100dvh - 96px) !important
+  }
+}

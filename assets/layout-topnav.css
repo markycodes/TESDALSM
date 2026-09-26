@@ -1,0 +1,107 @@
+/* ============================================================
+   LearnHub layout — "Top navigation"
+   No sidebar: the navigation links move into one horizontal strip
+   pinned directly under the top bar, and the page content starts at
+   the very left edge. Best on wide monitors and for hopping between
+   a handful of pages.
+   Chosen in Settings → Appearance → Layout. Loaded after the theme
+   and the density layer, so the geometry here wins their ties.
+   The strip takes over the <aside> the shell already renders (same
+   links, same active state) instead of moving markup around, and a
+   leftover fold state is neutralised so a rail can never shrink it.
+   Desktop only (>=1024px): phones keep the drawer + document scroll.
+   ============================================================ */
+@media (min-width:1024px) {
+
+  /* the shell owns the bar height so the strip always lines up */
+  html body.lh-app .lh-topbar .lh-top-inner {
+    height: 52px !important
+  }
+
+  /* ---- the panel becomes a horizontal strip ---- */
+  html body.lh-app,
+  html body.lh-rail {
+    padding-left: 0 !important
+  }
+
+  html body.lh-app .lh-sidebar,
+  html body.lh-rail .lh-sidebar {
+    top: 52px !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: auto !important;
+    width: auto !important;
+    height: 46px !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    padding: 0 .75rem !important;
+    border: none !important;
+    border-bottom: 1px solid rgba(226, 232, 240, .92) !important;
+    border-radius: 0 !important;
+    box-shadow: 0 12px 24px -24px rgba(15, 23, 42, .5) !important;
+    overflow: visible
+  }
+
+  /* panel chrome only a vertical rail needs */
+  html body.lh-app .lh-side-head,
+  html body.lh-app .lh-side-sec,
+  html body.lh-app .lh-side-foot,
+  html body.lh-app .lh-side-collapse-wrap,
+  html body.lh-app #lh-rail-toggle,
+  html body.lh-rail #lh-rail-toggle {
+    display: none !important
+  }
+
+  /* ---- links in a row ---- */
+  html body.lh-app .lh-side-nav,
+  html body.lh-rail .lh-side-nav {
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: .3rem !important;
+    padding: 0 !important;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none
+  }
+
+  html body.lh-app .lh-side-nav::-webkit-scrollbar,
+  html body.lh-rail .lh-side-nav::-webkit-scrollbar {
+    display: none
+  }
+
+  html body.lh-app .lh-side-link,
+  html body.lh-rail .lh-side-link {
+    flex: 0 0 auto !important;
+    justify-content: flex-start !important;
+    gap: .5rem !important;
+    padding: .45rem .7rem !important;
+    margin: 0 !important;
+    border-radius: 10px !important;
+    white-space: nowrap
+  }
+
+  /* the active pip is anchored outside the panel's left edge — wrong
+     place in a row, so the filled pill carries the state on its own */
+  html body.lh-app .lh-side-link.active::before,
+  html body.lh-rail .lh-side-link.active::before {
+    display: none
+  }
+
+  /* the folded-rail hover chip would hang into the strip: labels show */
+  html body.lh-app .lh-side-link::after,
+  html body.lh-rail .lh-side-link::after {
+    content: none !important
+  }
+
+  /* a fold state saved on another device must not hide the labels */
+  html body.lh-rail .lh-side-link .lh-side-label {
+    display: block !important
+  }
+
+  /* ---- content: full width, cleared past bar + strip ---- */
+  html body.lh-app main.lh-main {
+    max-width: 1440px !important;
+    padding-top: 3.75rem !important;
+    padding-bottom: 3rem !important
+  }
+}

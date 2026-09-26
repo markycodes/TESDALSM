@@ -264,6 +264,36 @@ if (!function_exists('lh_skeleton_css')) {
             html.lh-skel-app #lh-skel .lh-skel-page {
               padding-left: 264px
             }
+
+            /* Layouts that move the shell redraw the ghost with it, so the pane
+               never promises chrome the page will not show: the icon dock keeps
+               a 76px rail, top navigation has none at all (the numbers mirror
+               assets/layout-dock.css / layout-topnav.css). The other layouts
+               only nudge the rail width, which the frosted pane hides. */
+            html[data-layout="dock"] #lh-skel .lh-skel-rail {
+              width: 76px
+            }
+
+            html[data-layout="dock"] #lh-skel .lh-skel-top {
+              left: 76px
+            }
+
+            html[data-layout="dock"] #lh-skel .lh-skel-page {
+              padding-left: 76px
+            }
+
+            html[data-layout="topnav"] #lh-skel .lh-skel-rail {
+              display: none
+            }
+
+            html[data-layout="topnav"] #lh-skel .lh-skel-top {
+              left: 0
+            }
+
+            html[data-layout="topnav"] #lh-skel .lh-skel-page {
+              padding-left: 0;
+              padding-top: 98px /* 52px top bar + 46px nav strip */
+            }
           }
 
           /* ---- the page body: heading + cards ---- */

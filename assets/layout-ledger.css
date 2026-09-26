@@ -1,0 +1,97 @@
+/* ============================================================
+   LearnHub layout — "Data first"
+   Built for pages that are mostly rows and numbers: one slim band of
+   chrome, a wide content frame, and tables that are easy to read down
+   (zebra rows so a row never jumps, tinted uppercase column heads,
+   equal-width figures, a hover row to trace across). Long panels show
+   one more row before their inner scroll starts. Best for admin,
+   enrolment lists, attendance and marks.
+   Chosen in Settings → Appearance → Layout. Loaded after the theme
+   and the density layer, so the geometry here wins their ties.
+   Desktop only (>=1024px): phones keep the drawer + document scroll.
+   ============================================================ */
+@media (min-width:1024px) {
+
+  /* ---- chrome: pinned to one slim 52px band, hairline only ---- */
+  html body.lh-app .lh-topbar .lh-top-inner {
+    height: 52px !important
+  }
+
+  html body.lh-app .glass.lh-topbar {
+    border-bottom: 1px solid rgba(15, 23, 42, .08) !important;
+    box-shadow: none !important
+  }
+
+  /* ---- rail: 232px (what compact density already used) ---- */
+  html body.lh-app {
+    padding-left: 232px !important
+  }
+
+  html body.lh-app .lh-sidebar {
+    width: 232px !important
+  }
+
+  html body.lh-rail {
+    padding-left: 76px !important
+  }
+
+  html body.lh-rail .lh-sidebar {
+    width: 76px !important
+  }
+
+  /* material's floating rail is inset 12px on each side */
+  html[data-theme="material"] body.lh-app {
+    padding-left: 256px !important
+  }
+
+  /* ---- the frame: wide, with gutters that stay out of the numbers ---- */
+  html body.lh-app main.lh-main {
+    max-width: 1720px !important;
+    padding: .95rem clamp(.85rem, 1.6vw, 1.9rem) 2.5rem !important
+  }
+
+  /* ---- tables ---- */
+  html body.lh-app main table {
+    font-variant-numeric: tabular-nums !important
+  }
+
+  html body.lh-app main table thead th {
+    background: rgba(15, 23, 42, .04) !important;
+    color: #64748b !important;
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    letter-spacing: .05em !important;
+    white-space: nowrap;
+    border-bottom: 1px solid rgba(15, 23, 42, .1) !important
+  }
+
+  html body.lh-app main table thead th,
+  html body.lh-app main table tbody td {
+    padding: .5rem .7rem !important;
+    vertical-align: middle !important
+  }
+
+  /* zebra: a translucent ink wash works on every theme's light surfaces
+     (cream paper, hairlines, plain white) without repainting the card */
+  html body.lh-app main table tbody tr:nth-child(even) {
+    background: rgba(15, 23, 42, .022)
+  }
+
+  html body.lh-app main table tbody tr:hover {
+    background: rgba(16, 185, 129, .07)
+  }
+
+  /* ---- figures in the stat tiles line up like a ledger ---- */
+  html body.lh-app main [data-live-scope] .text-4xl,
+  html body.lh-app main .lh-stat-grid .text-2xl {
+    font-variant-numeric: tabular-nums !important
+  }
+
+  /* ---- long panels: one more row before the inner scroll begins.
+          Scoped >=1024px for the same reason density-compact is: the
+          markup pairs this cap with `lg:overflow-y-auto`. ---- */
+  html body.lh-app main [class*='max-h-72'] {
+    max-height: 17rem !important
+  }
+}

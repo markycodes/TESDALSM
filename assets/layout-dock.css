@@ -1,0 +1,97 @@
+/* ============================================================
+   LearnHub layout — "Icon dock"
+   The sidebar is a permanent 76px icon rail, exactly like the
+   built-in fold, with the same hover labels — but without having to
+   fold it on every device. The two fold controls step aside (there
+   is nothing left to fold) and every page keeps the width.
+   Best on laptops and for users who already know their way around.
+   Chosen in Settings → Appearance → Layout. Loaded after the theme
+   and the density layer, so the geometry here wins their ties.
+   The icon/label rules deliberately mirror the `body.lh-rail` block
+   in header.php — same numbers, same hover chip — because the base
+   rules only fire when the JS sets the .lh-rail class on <body>.
+   Desktop only (>=1024px): phones keep the drawer + document scroll.
+   ============================================================ */
+@media (min-width:1024px) {
+
+  /* ---- the rail ---- */
+  html body.lh-app .lh-sidebar,
+  html body.lh-rail .lh-sidebar {
+    width: 76px !important;
+    overflow: visible
+  }
+
+  html body.lh-app,
+  html body.lh-rail {
+    padding-left: 76px !important
+  }
+
+  /* material keeps its floating rail: 12px inset each side of the dock */
+  html[data-theme="material"] body.lh-app {
+    padding-left: 100px !important
+  }
+
+  /* ---- nothing left to fold: both controls stand down ---- */
+  html body.lh-app #lh-rail-toggle,
+  html body.lh-rail #lh-rail-toggle,
+  html body.lh-app .lh-side-collapse-wrap,
+  html body.lh-rail .lh-side-collapse-wrap {
+    display: none !important
+  }
+
+  /* ---- rows become icons (mirrors header.php's body.lh-rail block) ---- */
+  html body.lh-app .lh-side-head {
+    justify-content: center !important;
+    padding: .9rem .5rem .8rem !important
+  }
+
+  html body.lh-app .lh-side-head>div,
+  html body.lh-app .lh-side-head .lh-side-wordmark {
+    display: none !important
+  }
+
+  html body.lh-app .lh-side-sec {
+    display: none !important
+  }
+
+  html body.lh-app .lh-side-nav {
+    padding: 0 .55rem !important
+  }
+
+  html body.lh-app .lh-side-link {
+    justify-content: center !important;
+    gap: 0 !important;
+    padding: .62rem .4rem !important
+  }
+
+  html body.lh-app .lh-side-link .lh-side-label {
+    display: none !important
+  }
+
+  html body.lh-app .lh-side-foot {
+    justify-content: center !important;
+    padding: .8rem .4rem !important
+  }
+
+  html body.lh-app .lh-side-foot>span:not(:first-child),
+  html body.lh-app .lh-side-foot>a {
+    display: none !important
+  }
+
+  html body.lh-app .lh-side-link .lh-badge {
+    position: absolute !important;
+    top: -2px !important;
+    right: 2px !important
+  }
+
+  /* ---- hover labels: the chip markup lives in header.php, only the
+          reveal is scoped to `body.lh-rail` there, so re-trigger it ---- */
+  html body.lh-app .lh-side-link:hover::after {
+    opacity: 1
+  }
+
+  /* ---- content: the width the rail gave back ---- */
+  html body.lh-app main.lh-main {
+    max-width: 1600px !important
+  }
+}

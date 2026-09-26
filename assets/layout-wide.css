@@ -1,0 +1,66 @@
+/* ============================================================
+   LearnHub layout — "Wide canvas"
+   Reclaims the empty margins a big monitor leaves behind: the rail
+   gives 16px back to the page, the content column grows with the
+   screen (up to 1800px) instead of stopping at 1152/1280px, and the
+   gutters scale with the viewport so lines never stretch absurdly.
+   Stat tiles stop being a fixed three per row and reflow into as
+   many columns as there is room for.
+   Chosen in Settings → Appearance → Layout. Loaded after the theme
+   and the density layer, so the geometry here wins their ties —
+   `html body.lh-app …` matches the specificity the themes use and
+   `!important` outranks density-compact's own pins.
+   Desktop only (>=1024px): phones keep the drawer + document scroll.
+   ============================================================ */
+@media (min-width:1024px) {
+
+  /* the rail: 16px slimmer than the shipped 264px */
+  html body.lh-app {
+    padding-left: 248px !important
+  }
+
+  html body.lh-app .lh-sidebar {
+    width: 248px !important
+  }
+
+  /* a folded rail keeps the built-in width whatever the theme chose */
+  html body.lh-rail {
+    padding-left: 76px !important
+  }
+
+  html body.lh-rail .lh-sidebar {
+    width: 76px !important
+  }
+
+  /* material floats its rail 12px off the edge, so the offset is
+     12 + 232 + 12 wide: keep the floating look, clear the panels */
+  html[data-theme="material"] body.lh-app {
+    padding-left: 272px !important
+  }
+
+  /* the page frame: fluid up to 1800px, gutters that grow with it */
+  html body.lh-app main.lh-main {
+    max-width: 1800px !important;
+    padding-left: clamp(1rem, 2.2vw, 3rem) !important;
+    padding-right: clamp(1rem, 2.2vw, 3rem) !important;
+    padding-top: 1.35rem !important;
+    padding-bottom: 3rem !important
+  }
+
+  /* stat band: as many tiles per row as the width allows.
+     `overflow: visible` undoes the phone swipe row that the sm:/lg:
+     classes would otherwise leave in place at this width. */
+  html body.lh-app main .lh-stat-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)) !important;
+    gap: .85rem !important;
+    overflow: visible !important;
+    padding-bottom: 0 !important
+  }
+
+  /* card grids used across the dashboard: one more column when it fits,
+     never a tile narrower than a readable 15rem */
+  html body.lh-app main > [class*='lg:grid-cols-3'] {
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)) !important
+  }
+}

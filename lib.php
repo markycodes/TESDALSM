@@ -397,6 +397,83 @@ function ui_theme_url(): string
     return $v > 0 ? $f . '?v=' . $v : $f;
 }
 
+/* ---------------- appearance / layout ---------------- */
+
+/** The shell arrangement shipped as the default (see ui_layout_choices()). */
+if (!defined('UI_LAYOUT_DEFAULT')) define('UI_LAYOUT_DEFAULT', 'classic');
+
+/** How the logged-in app shell is arranged (Settings → Appearance → Layout).
+ *  Each key maps to assets/layout-<key>.css, which is loaded AFTER the theme
+ *  and the density layer — so a layout owns the shell geometry (sidebar and
+ *  content widths, chrome height, panel treatment) and wins any tie with them
+ *  on equal specificity + !important, without needing a body class.
+ *  'classic' is the shell header.php already ships, so it needs no file: it
+ *  is the one entry whose ui_layout_file() is '' — the same reason a missing
+ *  file is never an error, the inline base layout still styles every page.
+ *  Add a file + an entry here to offer another arrangement; nothing else
+ *  needs changing. Every layout is scoped to >=1024px, so phones always keep
+ *  the drawer + normal document scroll and never lose navigation. */
+function ui_layout_choices(): array
+{
+    return [
+        'classic' => [
+            'Classic shell',
+            'What LearnHub ships: fixed sidebar, sticky top bar, 1152px content column. Loads no extra stylesheet.',
+        ],
+        'wide' => [
+            'Wide canvas',
+            'Reclaims the margins on big monitors: a slimmer sidebar, a content column that grows to 1800px and stat tiles that reflow into extra columns. Best for ultrawide screens, admin tables and roomy timetables.',
+        ],
+        'focus' => [
+            'Focused column',
+            'Drops to a 1088px centred column with roomier leading and a quieter top bar, so a lesson, quiz or long form reads top-to-bottom. Best for reading and one-thing-at-a-time work.',
+        ],
+        'dock' => [
+            'Icon dock',
+            'Keeps the sidebar as a permanent 76px icon rail with hover labels — the fold buttons step aside and every page keeps the extra width. Best for laptops and users who already know their way around.',
+        ],
+        'topnav' => [
+            'Top navigation',
+            'Turns the navigation into a single row under the top bar and gives the full screen width to the page content. Best for wide monitors and hopping between a handful of pages.',
+        ],
+        'ledger' => [
+            'Data first',
+            'Slim chrome and edge-to-edge tables: zebra rows, tabular figures, uppercase column heads and tight rows. Best for admin, enrolment lists, attendance and marks.',
+        ],
+        'float' => [
+            'Floating panels',
+            'Lifts the sidebar and top bar off the screen edge into rounded panels over the theme canvas, with the content in a soft inset pane. A modern, airy frame that works with every theme.',
+        ],
+    ];
+}
+
+/** Which arrangement this site uses — config.php can pin it with UI_LAYOUT,
+ *  otherwise the saved setting decides, otherwise the default above. */
+function ui_layout(): string
+{
+    $pinned = defined('UI_LAYOUT') ? strtolower(trim((string) UI_LAYOUT)) : '';
+    $key    = $pinned !== '' ? $pinned : strtolower(trim(setting_get('ui_layout', '')));
+    return isset(ui_layout_choices()[$key]) ? $key : UI_LAYOUT_DEFAULT;
+}
+
+/** Extra stylesheet for the chosen arrangement, or '' when there is none —
+ *  'classic' is the built-in shell, and a half-finished upload keeps the base
+ *  layout instead of leaving the site unstyled. */
+function ui_layout_file(): string
+{
+    $f = 'assets/layout-' . ui_layout() . '.css';
+    return is_file(__DIR__ . '/' . $f) ? $f : '';
+}
+
+/** Same path with a cache-busting stamp, for the <link> tag. */
+function ui_layout_url(): string
+{
+    $f = ui_layout_file();
+    if ($f === '') return '';
+    $v = (int) @filemtime(__DIR__ . '/' . $f);
+    return $v > 0 ? $f . '?v=' . $v : $f;
+}
+
 
 /** Default sender when nothing is set: the first (admin) teacher account. Keeps
  *  the address out of the source code while still giving a fresh deploy with no
