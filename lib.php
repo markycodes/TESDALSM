@@ -2490,9 +2490,11 @@ function maintenance_enabled(): bool
 
 /* ---- boot-time shutdown gate ------------------------------------------------
  * Lives in lib.php (included by EVERY page) and runs before any auth redirect,
- * so a shut-down site really is closed: every visitor gets HTTP 503 + the
- * "temporarily closed" paper notice — even when the page would have redirected
- * to login.php first (the header.php gate alone is bypassed by that redirect).
+ * so a shut-down site really is closed: every visitor gets HTTP 503 + a stock
+ * "website has an error" page that shares nothing with the look of the rest of
+ * the site, redrawn with a different error on every reload. Pages that bounce a
+ * visitor to login.php before header.php ever paints would have walked straight
+ * past a gate placed there, which is why this one sits in lib.php.
  * Still reachable while closed: admin.php (control panel), login.php/logout.php
  * (so the admin can sign in/out), ping.php (heartbeat), and any logged-in ADMIN
  * browsing the site. CLI scripts skip the gate entirely. */
@@ -2505,26 +2507,116 @@ if (PHP_SAPI !== 'cli') {
         if (($lh_me['role'] ?? '') !== 'admin' && maintenance_enabled()) {
             http_response_code(503);
             header('Retry-After: 3600');
+
+            /* A different error every reload. The code, the detail line, the
+               reference and the trace are invented for the page alone - nothing
+               real is printed: no path, version or user data. */
+            $lh_codes = [500, 502, 503, 504, 507, 509, 520, 522, 524, 526];
+            $lh_heads = [
+                'Internal Server Error', 'Bad Gateway', 'Service Unavailable',
+                'Gateway Time-out', 'Insufficient Storage', 'Bandwidth Limit Exceeded',
+                'Origin Error', 'Connection Timed Out', 'A Timeout Occurred',
+                'Revalidation Failed',
+            ];
+            $lh_detail = [
+                'The application stopped while building this page.',
+                'The upstream process closed the connection before it sent a response.',
+                'A worker took too long to answer and was released.',
+                'The request could not be handed to a handler.',
+                'A required backend did not reply in time.',
+                'The response was too large to buffer and was dropped.',
+                'The last request in the chain failed without a status of its own.',
+                'The cache could not be reached and the origin refused the request.',
+            ];
+            $lh_trace = [
+                "PHP Fatal error:  Uncaught Error: Call to a member function get() on null in /srv/app/bootstrap/cache/services.php:%d\nStack trace:\n#0 /srv/app/public/index.php(37): illuminate()\n#1 {main}\n  thrown in /srv/app/bootstrap/cache/services.php on line %d",
+                "connect to service at 127.0.0.1:%d failed (Connection refused)\n  at Connection.open (%h:%d)\n  at Pool.checkout (%h:%d)\n  at Route.dispatch (%h:%d)",
+                "SQLSTATE[HY000] [2002] No such file or directory\n  in PDO->connect() (%h:%d)\n  in Database->reconnect() (%h:%d)",
+                "ERR max number of clients reached\n  at Client.accept(%h:%d)\n  at Worker.loop(%h:%d)",
+                "worker process %d exited on signal 11 (core dumped)\n  at Supervisor.reap(%h:%d)",
+                "file_put_contents(/srv/app/storage/framework/views/%h.php): Failed to open stream: Read-only file system\n  at View->compile(%h:%d)",
+                "SSL_do_handshake() failed (SSL: error:14094410:SSL routines:ssl3_read_bytes:sslv3 alert handshake failure)\n  at Proxy.forward(%h:%d)",
+                "Premature end of script headers\n  at CGI::run(%h:%d)",
+            ];
+            $lh_hex  = static function (int $n): string {
+                $s = '';
+                for ($i = 0; $i < $n; $i++) $s .= dechex(mt_rand(0, 15));
+                return $s;
+            };
+            $lh_code = $lh_codes[array_rand($lh_codes)];
+            $lh_head = $lh_heads[array_rand($lh_heads)];
+            $lh_note = $lh_detail[array_rand($lh_detail)];
+            $lh_ref  = strtoupper(base_convert((string) mt_rand(100000000, 999999999), 10, 36)) . '-'
+                     . strtoupper($lh_hex(4)) . '-' . strtoupper($lh_hex(4)) . '-'
+                     . strtoupper(base_convert((string) mt_rand(100000, 999999), 10, 36));
+            /* %d = a line number, %h = a host, filled in per occurrence so a
+               template may carry as many of them as it likes. */
+            $lh_trc  = $lh_trace[array_rand($lh_trace)]
+                     . "\n  at Request->run(%h:%d)\n  at Server->accept(%h:%d)";
+            $lh_trc  = preg_replace_callback('/%([dh])/', static function (array $m): string {
+                return $m[1] === 'h'
+                    ? '10.' . mt_rand(0, 40) . '.' . mt_rand(1, 250) . '.' . mt_rand(2, 250)
+                    : (string) mt_rand(20, 899);
+            }, $lh_trc);
+            $lh_req  = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) . ' '
+                     . preg_replace('/[^A-Za-z0-9\-._~\/?=&%#]/', '', (string) ($_SERVER['REQUEST_URI'] ?? '/'));
+            $lh_when = gmdate('D, d M Y H:i:s') . ' GMT';
+            $lh_size = mt_rand(4096, 262144);
+            $lh_secs = sprintf('%.2f', mt_rand(100, 4500) / 100);
             ?><!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LearnHub — temporarily closed</title>
+<title>Website has an error</title>
 <style>
-  body{margin:0;min-height:100vh;display:grid;place-items:center;background:#eef1ee radial-gradient(circle at 20% 0%,rgba(16,185,129,.12),transparent 55%);font-family:ui-sans-serif,system-ui,'Segoe UI',Roboto,Arial,sans-serif;color:#1f2937}
-  .paper{position:relative;width:min(92vw,460px);background:repeating-linear-gradient(#fffdf6,#fffdf6 30px,#f4f0e4 31px);border-radius:6px;padding:44px 34px 38px;box-shadow:0 18px 40px rgba(15,23,42,.22);transform:rotate(-1.4deg)}
-  .tape{position:absolute;top:-13px;left:50%;margin-left:-56px;width:112px;height:24px;background:rgba(16,185,129,.45);box-shadow:0 1px 3px rgba(0,0,0,.15)}
-  h1{margin:0;font-size:22px}p{margin:10px 0 0;font-size:14px;line-height:1.6;color:#4b5563}
-  .sig{margin-top:18px;font-size:12px;color:#9ca3af}
+  html,body{margin:0;padding:0;background:#fff;color:#000}
+  body{padding:24px 28px 44px;font-family:"Times New Roman",Times,serif;font-size:15px;line-height:1.45}
+  h1{margin:0;font-size:27px;font-weight:bold}
+  h2{margin:24px 0 6px;font-size:14px;font-weight:bold;text-transform:uppercase;letter-spacing:.05em}
+  hr{border:0;border-top:2px solid #000;margin:8px 0 16px}
+  p{margin:8px 0}
+  .num{color:#a00;font-weight:bold}
+  table{border-collapse:collapse;font:13px Verdana,Arial,sans-serif}
+  td{border:1px solid #999;padding:3px 9px;vertical-align:top}
+  td.k{background:#eee;font-weight:bold;white-space:nowrap}
+  pre{margin:6px 0 0;padding:10px;background:#eee;border:1px solid #999;font:12px/1.5 "Courier New",Courier,monospace;white-space:pre-wrap;word-break:break-all}
+  ul{margin:6px 0 0;padding-left:22px}
+  li{margin:3px 0}
+  address{margin-top:28px;padding-top:6px;border-top:1px solid #999;font:12px Verdana,Arial,sans-serif;font-style:normal;color:#555}
 </style></head>
-<body><div class="paper"><div class="tape"></div>
-  <h1>🛠️ LearnHub is temporarily closed</h1>
-  <p>The administrator has paused the website for maintenance. Please check back soon —
-     lessons, quizzes and your progress are safe and will be right here when we reopen.</p>
-  <p class="sig">— LearnHub LMS</p>
-</div></body></html><?php
+<body>
+  <h1>Error <span class="num"><?= (int) $lh_code ?></span> - <?= e($lh_head) ?></h1>
+  <hr>
+  <p><b>Website has an error.</b> <?= e($lh_note) ?> The page you asked for could not be
+     delivered. Reloading it, or asking again in a few minutes, may or may not help.</p>
+
+  <h2>Request</h2>
+  <table>
+    <tr><td class="k">Line</td><td><?= e($lh_req) ?></td></tr>
+    <tr><td class="k">Status</td><td><?= (int) $lh_code ?> <?= e($lh_head) ?></td></tr>
+    <tr><td class="k">Reference</td><td><?= e($lh_ref) ?></td></tr>
+    <tr><td class="k">Recorded</td><td><?= e($lh_when) ?></td></tr>
+  </table>
+
+  <h2>Log entry</h2>
+  <pre>[<?= e($lh_when) ?>] [client 10.<?= (int) mt_rand(0, 40) ?>.<?= (int) mt_rand(1, 250) ?>.<?= (int) mt_rand(2, 250) ?>] <?= (int) $lh_code ?> <?= e($lh_req) ?> ref=<?= e($lh_ref) ?> bytes=<?= (int) $lh_size ?><?= "\n" . e($lh_trc) ?></pre>
+
+  <h2>Try this</h2>
+  <ul>
+    <li>Reload the page.</li>
+    <li>Go back one step and take another route to it.</li>
+    <li>Clear the stored copy of this page in your browser and reload.</li>
+    <li>If it keeps happening, pass the reference <b><?= e($lh_ref) ?></b> to whoever runs this server.</li>
+  </ul>
+
+  <address>HTTP/1.1 <?= (int) $lh_code ?> - gateway worker <?= e($lh_hex(3)) ?> - <?= e($lh_secs) ?> s elapsed</address>
+</body></html><?php
             exit;
         }
     }
-    unset($lh_self, $lh_me);
+    unset(
+        $lh_self, $lh_me, $lh_codes, $lh_heads, $lh_detail, $lh_trace, $lh_hex,
+        $lh_code, $lh_head, $lh_note, $lh_ref, $lh_trc, $lh_req, $lh_when,
+        $lh_size, $lh_secs
+    );
 }
 
 /* ---------------- main-admin overview (admin.php) ---------------- */

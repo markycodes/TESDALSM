@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/lib.php';
-require_once __DIR__ . '/skeleton.php';   /* the loading pane: lh_skeleton_css() + lh_skeleton_body() */
+require_once __DIR__ . '/skeleton.php';   /* the loading screen: lh_skeleton_css() + lh_skeleton_body() */
 $user = current_user();
 $page_title = $page_title ?? 'LearnHub';
 $nav_active = $nav_active ?? '';

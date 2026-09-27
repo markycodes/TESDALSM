@@ -1,0 +1,106 @@
+/* ============================================================
+   Curtain reveal — the loading style
+   ------------------------------------------------------------
+   The real content is already in the DOM and painted normally.
+   While data is being fetched, a plain gray cover sits ON TOP of
+   each content block; when the data lands, the cover fades away
+   and what was underneath all along is simply still there. Nothing
+   is swapped out, nothing is replaced with fake bars, and the app
+   shell (rail + top bar) is never covered — the covers live inside
+   <main> only, and the `isolation` below keeps their z-index from
+   ever climbing over the sidebar, the top bar or a toast.
+
+   Markup (added by assets/curtain.js, or written by hand):
+
+     <div class="card rounded-2xl skeleton-wrap">
+       <h2>Real heading</h2>
+       <div class="skeleton-cover" aria-hidden="true"></div>
+     </div>
+
+   Fade it out with one class:
+
+     wrapper.classList.add('skeleton-loaded');
+
+   Colours are variables, so a theme (or one page) can retune them
+   without touching this file:
+
+     --lh-curtain:      the gray itself
+     --lh-curtain-hi:   the shimmer highlight riding over it
+     --lh-curtain-fade: how long the reveal takes
+     --lh-curtain-i:    per-block stagger, set by the script
+   ============================================================ */
+
+/* One local stacking context for the page: a cover can paint over its
+   own block, never over the rail (z 28), the top bar (z 70) or toasts (z 80). */
+main {
+  isolation: isolate
+}
+
+.skeleton-wrap {
+  position: relative
+}
+
+.skeleton-cover {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: inherit;
+  background-color: var(--lh-curtain, #e2e8f0);
+  /* the fade lives HERE, not on .skeleton-loaded, so taking the class
+     off again (a refresh re-covering the block) snaps back to gray
+     instead of easing through the content */
+  transition: opacity var(--lh-curtain-fade, .5s) ease;
+  will-change: opacity
+}
+
+/* the shimmer: one soft highlight crossing the block, offset per block so a
+   grid of cards does not pulse in lockstep */
+.skeleton-cover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(90deg, transparent 0%, var(--lh-curtain-hi, rgba(255, 255, 255, .06)) 20%, var(--lh-curtain-hi, rgba(255, 255, 255, .5)) 50%, var(--lh-curtain-hi, rgba(255, 255, 255, .06)) 80%, transparent 100%);
+  animation: lh-curtain-shimmer 1.55s ease-in-out infinite;
+  animation-delay: calc(var(--lh-curtain-i, 0) * 90ms)
+}
+
+/* the reveal */
+.skeleton-loaded > .skeleton-cover {
+  opacity: 0
+}
+
+.skeleton-loaded > .skeleton-cover::after {
+  animation-play-state: paused
+}
+
+@keyframes lh-curtain-shimmer {
+  0% {
+    transform: translateX(-100%)
+  }
+
+  60%,
+  100% {
+    transform: translateX(100%)
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-cover::after {
+    animation: none;
+    background-image: none
+  }
+
+  .skeleton-cover {
+    transition-duration: .01s
+  }
+}
+
+/* a cover is a live-state affordance: it has no business on paper */
+@media print {
+  .skeleton-cover {
+    display: none
+  }
+}

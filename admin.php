@@ -160,7 +160,7 @@ require __DIR__ . '/header.php';
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h2 class="text-base font-bold text-slate-900">Website status</h2>
-        <p class="mt-1 text-sm text-slate-500">Shutting down shows every visitor a "temporarily closed" notice. Only you can browse while it is closed.</p>
+        <p class="mt-1 text-sm text-slate-500">Shutting down hides the site: every visitor gets a plain &quot;Website has an error&quot; page (HTTP 503) that is redrawn differently on each reload. Only you can browse while it is closed.</p>
       </div>
       <?php if ($maint): ?>
         <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-600">● SHUT DOWN</span>
@@ -174,7 +174,7 @@ require __DIR__ . '/header.php';
         <button name="action" value="maintenance_off"
           class="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700">✅ Bring the website back online</button>
       <?php else: ?>
-        <button name="action" value="maintenance_on" data-confirm="Shut down the website? Every student and teacher will see a closed notice until you bring it back online."
+        <button name="action" value="maintenance_on" data-confirm="Shut down the website? Every student and teacher will see a plain 'Website has an error' page until you bring it back online."
           class="rounded-xl bg-rose-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-rose-700">🛑 Shut down the website</button>
       <?php endif; ?>
     </form>

@@ -122,4 +122,27 @@ define('DB_PASS_LOCAL', '');            define('DB_PASS_PROD', 'your-mysql-passw
  */
 // define('UI_LAYOUT', 'wide');
 
+/* The loading screen — how a page says "still working" before it settles.
+ *   'curtain' — the shipped default. The page renders its real content and
+ *               each content block sits under a gray cover that fades away
+ *               when the page has settled (fonts included). The sidebar and
+ *               the top bar are never covered, forms and buttons stay live,
+ *               and nothing stands in for real text. assets/curtain.*
+ *   'pane'    — the earlier full-screen ghost, which drew its own rail and
+ *               bars. Kept only as a rollback; it ignores the layout keys.
+ */
+// define('LH_SKELETON_STYLE', 'curtain');
+
+/* Loading screen off entirely. Same as ?noskeleton=1 on any URL, or
+ * $lh_skeleton = false; inside a single page. */
+// define('LH_SKELETON', false);
+
+/* How long a loaded page keeps the curtain covers on before lifting them, in
+ * ms. A floor, not a delay: a page that is still working is never held back by
+ * it, only a page that is ready is kept. Default 300 — enough for the reveal to
+ * read as a reveal rather than a flash; 0 uncovers the instant it settles.
+ * To look at the covers on one page without touching this, add
+ * ?curtainhold=1500 to that page's URL. */
+// define('LH_SKELETON_MIN', 600);
+
 

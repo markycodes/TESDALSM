@@ -3,11 +3,21 @@
  * Skeleton loading screen — one shared partial, used by every page.
  *
  * WHAT IT IS
- *   A frosted pane shaped like the app shell (nav rail, top bar, stat cards)
- *   that sits over the page from the first paint until the page has really
- *   loaded — stylesheets, webfonts, scripts and images in. The page's content
- *   is already rendered server-side underneath it, so this is only about the
- *   wait reading as "this page is coming" instead of as an empty canvas.
+ *   The way every page says "still working", in two styles — see
+ *   lh_skeleton_style():
+ *
+ *   curtain (the default) — the page's real content is rendered normally and
+ *   each content block is laid under a gray cover, one per block, that fades
+ *   out once the page has settled. No fake bars and no overlay across the
+ *   shell: the rail and the top bar are painted the whole time. Styles and
+ *   script live in assets/curtain.css + assets/curtain.js, and page code can
+ *   drive it by hand with window.showSkeletons() / window.hideSkeletons().
+ *
+ *   pane (legacy, kept as a rollback) — a frosted pane shaped like the app
+ *   shell (nav rail, top bar, stat cards) that sits over the page from the
+ *   first paint until everything is really in. Put
+ *   define('LH_SKELETON_STYLE', 'pane'); in config.php to get it back; the
+ *   rest of this note describes it.
  *
  * HOW A PAGE USES IT — two calls:
  *   <head> : lh_skeleton_css();      the styles (inline, so no extra request)
@@ -33,10 +43,16 @@
  *   $lh_skeleton = false;           before header.php is required
  *   ?noskeleton=1                   quick check while working on a page
  *
- * IT CAN NEVER GET IN THE WAY: the pane ignores pointer events, with scripting
- * off it never appears at all (its CSS needs html.lh-skel-on, which only its
- * own script adds), it fades out and is then taken out of the layout for good,
- * and a hard cap dismisses it even if "load" never fires.
+ *  LOOK SWITCHES — on a local server the curtain is up for less than half a
+ *  second, which is the point (it must never hold back content) but makes it
+ *  awkward to study. These two are for studying it:
+ *   ?curtainhold=1500               keep the covers up that long past "ready"
+ *   define('LH_SKELETON_MIN', 600); config.php, the floor in place of 300ms
+ *
+ * IT CAN NEVER GET IN THE WAY: either style ignores pointer events; with
+ * scripting off — or if its script fails to load — neither appears at all and
+ * the page simply shows; both fade out and are then taken out of the document
+ * for good; and a hard cap puts them away even if "load" never fires.
  */
 
 if (!function_exists('lh_skeleton_off')) {
@@ -48,6 +64,58 @@ if (!function_exists('lh_skeleton_off')) {
         if (isset($lh_skeleton) && !$lh_skeleton) return true;
         if (!empty($lh_no_skeleton)) return true;
         return isset($_GET['noskeleton']) && (string) $_GET['noskeleton'] !== '0';
+    }
+}
+
+if (!function_exists('lh_skeleton_style')) {
+    /** How a page says "still working".
+     *
+     *  'curtain' (the default) — the content is rendered normally and each
+     *  content block is laid under a gray cover that fades away when the page
+     *  settles. The rail and the top bar are never covered, and no fake shape
+     *  ever stands in for real text (see assets/curtain.css + curtain.js).
+     *  'pane' — the older full-screen ghost that drew its own rail and bars.
+     *  Kept only as a one-line rollback: define('LH_SKELETON_STYLE', 'pane').
+     */
+    function lh_skeleton_style(): string
+    {
+        global $lh_skeleton_style;
+        if (defined('LH_SKELETON_STYLE')) {
+            return ((string) constant('LH_SKELETON_STYLE')) === 'pane' ? 'pane' : 'curtain';
+        }
+        if (isset($lh_skeleton_style) && $lh_skeleton_style !== '') {
+            return ((string) $lh_skeleton_style) === 'pane' ? 'pane' : 'curtain';
+        }
+        return 'curtain';
+    }
+}
+
+if (!function_exists('lh_skeleton_floor')) {
+    /** How long a loaded page keeps the covers on, in ms.
+     *
+     *  Not a delay: the floor only ever applies once the page is genuinely
+     *  ready, so it never holds back content that is still arriving — a slow
+     *  page lifts the moment it finishes, exactly as it always did. What it
+     *  buys is that the reveal reads as a reveal instead of a flash on a local
+     *  server, which answers in well under one frame.
+     *
+     *  Raise it to study the covers (define('LH_SKELETON_MIN', 600)); set it to
+     *  0 to have a loaded page uncover the instant it settles.
+     */
+    function lh_skeleton_floor(): int
+    {
+        $min = defined('LH_SKELETON_MIN') ? (int) constant('LH_SKELETON_MIN') : 300;
+        return max(0, min(2500, $min));
+    }
+}
+
+if (!function_exists('lh_curtain_url')) {
+    /** assets/curtain.* with a cache-busting stamp, same stamp as the themes. */
+    function lh_curtain_url(string $ext): string
+    {
+        $f = 'assets/curtain.' . $ext;
+        $v = (int) @filemtime(__DIR__ . '/' . $f);
+        return $v > 0 ? $f . '?v=' . $v : $f;
     }
 }
 
@@ -101,6 +169,15 @@ if (!function_exists('lh_skeleton_css')) {
     function lh_skeleton_css(): void
     {
         if (lh_skeleton_off()) return;
+        if (lh_skeleton_style() === 'curtain') {
+            /* The curtain's own sheet — emitted here, which header.php calls
+               after the theme, the density layer and the layout sheet, so a
+               theme that retunes --lh-curtain still has the last word. */
+            ?>
+            <link rel="stylesheet" href="<?= e(lh_curtain_url('css')) ?>">
+            <?php
+            return;
+        }
         ?>
         <style>
           /* ============================================================
@@ -1044,6 +1121,14 @@ if (!function_exists('lh_skeleton_body')) {
     function lh_skeleton_body(bool $shell = true, ?string $layout = null): void
     {
         if (lh_skeleton_off()) return;
+        if (lh_skeleton_style() === 'curtain') {
+            /* Nothing to print — the page's own markup is what the visitor is
+               waiting for, so there is no ghost to draw. curtain.js lays the
+               covers over that markup, and the rail and the top bar stay
+               exactly as they are the whole time. */
+            lh_curtain_boot();
+            return;
+        }
         $layout = lh_skeleton_detect_layout($layout);
         ?>
         <div id="lh-skel"<?= $shell ? '' : ' class="lh-skel-bare"' ?> aria-hidden="true">
@@ -1405,6 +1490,7 @@ if (!function_exists('lh_skeleton_boot')) {
     function lh_skeleton_boot(): void
     {
         if (lh_skeleton_off()) return;
+        if (lh_skeleton_style() === 'curtain') { lh_curtain_boot(); return; }
         ?>
         <script>
           /* Runs during the parse, right after the pane, so the pane is on
@@ -1525,6 +1611,157 @@ if (!function_exists('lh_skeleton_boot')) {
 
             /* anything else may drive it (app.js, inline handlers) */
             window.lhSkeleton = { show: preview, hide: hide, pane: pane };
+          })();
+        </script>
+        <?php
+    }
+}
+
+if (!function_exists('lh_curtain_boot')) {
+    /** Drives the curtain: covers go up as soon as the script can put them
+     *  there, and come down once the page has settled (fonts included). The
+     *  floor is lh_skeleton_floor()'s and the ceiling 3s, so a page whose
+     *  "load" never fires still shows; the rail and the top bar are simply
+     *  never part of it.
+     *
+     *  HOLD is ?curtainhold=<ms> — the one case where staying up longer than
+     *  the floor is right, because it is asked for in the URL rather than
+     *  decided for the visitor. It applies only once the page is ready.
+     *
+     *  window.showSkeletons() / window.hideSkeletons() are the page's own
+     *  handles (curtain.js defines them); this only adds the automatic timing.
+     */
+    function lh_curtain_boot(): void
+    {
+        static $emitted;
+        if ($emitted) return;   /* a page that reaches both body() and boot() */
+        $emitted = true;
+        ?>
+        <script src="<?= e(lh_curtain_url('js')) ?>" defer></script>
+        <script>
+          /* Inline, during the parse: it only has to remember when the page
+             started and be ready at DOMContentLoaded, which is the first moment
+             the whole body exists to be covered. Everything here is a no-op if
+             curtain.js did not load — a page then shows its content, nothing more. */
+          (function () {
+            var doc = document.documentElement;
+            if (!doc || doc.getAttribute('data-curtain') === '1') return;
+            doc.setAttribute('data-curtain', '1');
+            var MIN = <?= (int) lh_skeleton_floor() ?>;
+                                /* once ready, never flash for less than this */
+            var HOLD = <?= (int) max(0, min(20000, (float) ($_GET['curtainhold'] ?? 0))) ?>;
+                                /* ?curtainhold=1500: stay up this long past ready */
+            var CAP = 3000;     /* the content is already there — never hold it back */
+            var NAV_CAP = 6000; /* a click that turns out not to navigate falls back */
+
+            var t0 = Date.now();
+            var navTimer = 0;
+            var up = false;
+            var done = false;
+            var loaded = document.readyState === 'complete';
+            var fonts = !(document.fonts && document.fonts.ready && document.fonts.ready.then);
+
+            function cover() {
+              if (up || !window.LHCurtain) return;
+              up = true;
+              window.LHCurtain.show();
+            }
+
+            function uncover() {
+              if (navTimer) { clearTimeout(navTimer); navTimer = 0; }
+              if (!up) return;
+              up = false;
+              if (window.LHCurtain) window.LHCurtain.hide();
+            }
+
+            function finish() {
+              if (done) return;
+              done = true;
+              var wait = HOLD ? HOLD : MIN - (Date.now() - t0);
+              setTimeout(uncover, wait > 0 ? wait : 0);
+            }
+
+            function maybe() { if (loaded && fonts) finish(); }
+
+            /* the trip to the next page: cover what is on screen while it loads */
+            function preview() {
+              if (navTimer) clearTimeout(navTimer);
+              up = false;
+              cover();
+              navTimer = setTimeout(uncover, NAV_CAP);
+            }
+
+            function boot() {
+              if (!window.LHCurtain) return;   /* no curtain.js: the page shows as it is */
+              cover();
+              if (!loaded) window.addEventListener('load', function () { loaded = true; maybe(); });
+              if (!fonts) document.fonts.ready.then(function () { fonts = true; maybe(); }, function () { fonts = true; maybe(); });
+              maybe();
+              setTimeout(finish, CAP);
+
+              /* back/forward cache: a restored page is ready by definition */
+              window.addEventListener('pageshow', function (e) {
+                if (!e.persisted) return;
+                done = true;
+                uncover();
+              });
+
+              /* Both handlers wait a task before believing the navigation really
+                 happens: a handler that calls preventDefault — a modal opener, an
+                 AJAX form — has finished by then, so anything that stays on the
+                 page never puts the covers up. */
+              document.addEventListener('click', function (e) {
+                if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+                if (!a) return;
+                setTimeout(function () {
+                  if (e.defaultPrevented || !a.isConnected) return;
+                  if (a.hasAttribute('download') || a.hasAttribute('data-no-skeleton')) return;
+                  var target = a.getAttribute('target');
+                  if (target && target !== '_self') return;
+                  var raw = a.getAttribute('href') || '';
+                  if (!raw || raw.charAt(0) === '#' || /^(mailto:|tel:|javascript:|data:|blob:)/i.test(raw)) return;
+                  var url;
+                  try { url = new URL(a.href, location.href); } catch (err) { return; }
+                  if (url.origin !== location.origin) return;
+                  if (/download\.php$/i.test(url.pathname)) return;
+                  if (url.pathname === location.pathname && url.search === location.search) return;
+                  preview();
+                }, 0);
+              }, true);
+
+              document.addEventListener('submit', function (e) {
+                var f = e.target;
+                if (!f || f.nodeName !== 'FORM') return;
+                setTimeout(function () {
+                  if (e.defaultPrevented || !f.isConnected) return;
+                  if (f.hasAttribute('data-no-skeleton')) return;
+                  var target = f.getAttribute('target');
+                  if (target && target !== '_self') return;
+                  var url;
+                  try { url = new URL(f.getAttribute('action') || location.href, location.href); } catch (err) { return; }
+                  if (url.origin !== location.origin) return;
+                  preview();
+                }, 0);
+              }, true);
+
+              /* back on the tab and the trip never happened: put the covers away */
+              document.addEventListener('visibilitychange', function () {
+                if (document.visibilityState === 'visible' && navTimer) uncover();
+              });
+
+              /* app.js and inline handlers keep the old handle; page code has
+                 window.showSkeletons() / window.hideSkeletons() from curtain.js */
+              window.lhSkeleton = { show: preview, hide: uncover };
+            }
+
+            /* document.readyState, not doc.readyState: doc is the <html> element,
+               which has no readyState of its own. An undefined one reads as not
+               loading, so the else branch would run boot() right here at the top of
+               the body - before the deferred curtain.js has run, when LHCurtain does
+               not exist yet - and the curtain would silently cover nothing. */
+            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+            else boot();
           })();
         </script>
         <?php

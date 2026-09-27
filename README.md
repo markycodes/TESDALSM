@@ -13,7 +13,9 @@ Teachers create courses and upload **learning materials** (PDF, DOCX, PPTX, imag
 
 - On first run the app auto-creates the main admin account — **`admin@learnhub.local`** with a random password written to **`data/admin-credentials.txt`** (that folder is blocked from the web and git). Log in and change the password on the Admin page.
 - **`admin.php` — Admin control panel** (main admin only):
-  - **Shut down / reopen the website** (maintenance mode): visitors see a "temporarily closed" notice (HTTP 503); only the admin can browse.
+  - **Shut down / reopen the website** (maintenance mode): visitors get a plain, generic
+    "Website has an error" page (HTTP 503, a different error on every reload — none of the
+    site's own design is shown); only the admin can browse.
   - **Teacher access codes** (`T-XXXXXX`, one-time): a person can only register as a **teacher** with one of these codes. Student invite codes remain a teacher tool (`codes.php`).
   - **Site settings** (e-mail delivery/provider) — moved here from the teacher account; `settings.php` is admin-only.
   - **Change the admin password.**
@@ -92,7 +94,7 @@ Uploaded files themselves live in `uploads/` (filenames are stored in `materials
 - 👥 **Enrollments & attendance page** (`enrollments.php`): see every student enrolled with you, filter **by category and by course**, see who is **online** (3-minute presence window, refreshed automatically), and a **complete attendance log** per course (student, entered/left time, time spent, IP address)
 - 🟢 **Live presence**: heartbeats keep `presence.last_seen` fresh; every visit to a course page is recorded in `attendance`
 - 🗄️ All entities stored in MySQL via prepared statements
-- ⏳ **Per-page skeleton loading screens** (`skeleton.php`): from the very first paint every page shows a frosted ghost of **its own** layout — 11 archetypes (auth card, certificate check, dashboard, course cards, course page, data table, chat, reader, quiz, live-classroom stage, certificate sheet) picked automatically from the script name + sign-in state, overridable per page. The content is already rendered server-side underneath, so the pane only makes the wait read as "this page is coming": it fades out once the page (fonts included) has loaded, and lifts early when a link or form hands over to the next page. Off switches: `?noskeleton=1` on any URL, `$lh_skeleton = false;` per page, `define('LH_SKELETON', false);` site-wide.
+- ⏳ **Per-page loading screens** (`skeleton.php` + `assets/curtain.css` / `curtain.js`): the shipped style is a **curtain**. Every page renders its real content normally, and each content block — heading, card, table, paragraph — is laid under a plain gray cover that fades away once the page has settled (fonts included), one block after the next in a slight cascade. Nothing fakes a line of text, and the app shell is never part of it: the sidebar and the top bar stay painted and clickable the whole time, and `<nav>`, `<form>`, buttons and inputs are always left live. Page code can drive it directly — `showSkeletons(root)` re-covers, `hideSkeletons()` reveals — so an AJAX refresh curtains just the block it refilled, and `data-skeleton-skip` keeps any region clear. It lifts early when a link or form hands over to the next page, and a hard cap puts it away even if `load` never fires. With scripting off, or if the script fails to load, no cover is ever created and the page simply shows. Off switches: `?noskeleton=1` on any URL, `$lh_skeleton = false;` per page, `define('LH_SKELETON', false);` site-wide. `define('LH_SKELETON_STYLE', 'pane');` brings back the earlier full-screen ghost (11 per-layout archetypes, still in `skeleton.php`) if you want to compare them. On a local server the covers are up for well under a second — correct, but hard to catch: add `?curtainhold=1500` to any URL to keep them up that long past "ready", or `define('LH_SKELETON_MIN', 600);` to lift the floor everywhere. `assets/curtain-fixture.html` shows the same thing on a page of its own.
 
 ## Appearance
 
@@ -199,8 +201,10 @@ LMS/
 ├── course_create.php / course_delete.php / delete_material.php
 ├── lib.php             core library (PDO connection, schema, queries, auth, uploads)
 ├── header.php / footer.php
-├── skeleton.php        skeleton loading screens, one per page layout (11 archetypes)
+├── skeleton.php        loading screens: the curtain (shipped) + the legacy pane
 ├── assets/app.js       toasts, modals, tabs, search, progress
+├── assets/curtain.css / curtain.js   the loading curtain (covers + reveal)
+├── assets/curtain-fixture.html       dev-only harness for the curtain (open it in a browser)
 ├── assets/theme-*.css   the design (Settings → Appearance → Design)
 ├── assets/density-*.css the spacing rhythm (Settings → Appearance → Density)
 ├── assets/layout-*.css  the shell arrangement (Settings → Appearance → Layout)
