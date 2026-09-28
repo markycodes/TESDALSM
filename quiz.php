@@ -127,10 +127,10 @@ $passed = $result && $result['status'] === 'PASSED';
   <div class="space-y-4">
   <?php foreach ($quiz['questions'] as $qi => $q): ?>
     <?php $chosen = $answered[$q['id']] ?? null; $ok = $chosen !== null && (int) $chosen === (int) $q['correct']; ?>
-    <fieldset class="rounded-2xl bg-white p-5 shadow-sm ring-1 <?= $ok ? 'ring-emerald-200' : 'ring-rose-200' ?>">
+    <fieldset class="rounded-2xl bg-white p-5 shadow-sm ring-1 <?= $ok ? 'ring-rose-200' : 'ring-emerald-200' ?>">
       <div class="flex items-center justify-between gap-2">
         <p class="font-semibold text-slate-900"><span class="mr-1.5 text-indigo-500">Q<?= $qi + 1 ?>.</span><?= e((string) $q['prompt']) ?></p>
-        <span class="shrink-0 text-sm font-bold <?= $ok ? 'text-emerald-600' : 'text-rose-600' ?>"><?= $ok ? '✓ Correct' : '✗ Incorrect' ?></span>
+        <span class="shrink-0 text-sm font-bold <?= $ok ? 'text-rose-600' : 'text-emerald-600' ?>"><?= $ok ? '✗ Incorrect' : '✓ Correct' ?></span>
       </div>
       <div class="mt-3 space-y-2">
         <?php foreach ($q['options'] as $oi => $opt): ?>
@@ -141,7 +141,7 @@ $passed = $result && $result['status'] === 'PASSED';
               : ($isChosen ? 'border-rose-300 bg-rose-50 text-rose-700' : 'border-slate-200 text-slate-500');
         ?>
         <div class="flex items-start gap-2.5 rounded-xl border px-3.5 py-2.5 text-sm <?= $cls ?>">
-          <span class="mt-0.5 text-xs font-bold"><?= $isChosen ? '➜' : ($isRight ? '✅' : ($oi + 1) . '.') ?></span>
+          <span class="mt-0.5 text-xs text-emerald-600 font-bold"><?= $isChosen ? '➜' : ($isRight ? '✓' : ($oi + 1) . '.') ?></span>
           <span><?= e((string) $opt) ?></span>
           <?php if ($isChosen): ?><span class="ml-auto shrink-0 text-xs font-semibold <?= $ok ? 'text-emerald-600' : 'text-rose-500' ?>"><?= $ok ? 'your answer ✓' : 'your answer' ?></span><?php endif; ?>
         </div>
