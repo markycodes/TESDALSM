@@ -50,6 +50,54 @@ require __DIR__ . '/header.php';
     </div>
   </div>
 </section><!-- Stats band: live -->
+<!-- 3D study stack: books + mortarboard, CSS 3D, drag to look round it.
+     Styles in assets/book3d.css, the looking-around in assets/book3d.js.
+     Every solid is one row of data below and six faces drawn by CSS from
+     the custom properties on it, so adding a prop to the pile is a line
+     here and nothing else. Sizes are px because the camera is px too. -->
+<link rel="stylesheet" href="assets/book3d.css?v=<?= (int) @filemtime(__DIR__ . '/assets/book3d.css') ?>">
+<section class="lh3d-wrap reveal py-10 md:py-14">
+  <div class="lh3d-scene" id="lh3d-scene" tabindex="0" role="img" aria-describedby="lh3d-hint"
+       aria-label="A floating stack of three books with a graduation cap on top, turning slowly">
+    <div class="lh3d-bob lh3d-keep">
+      <div class="lh3d-tilt lh3d-keep">
+        <div class="lh3d-turn lh3d-keep">
+          <div class="lh3d-obj">
+            <?php
+            // w = length across, d = depth, h = thickness, y = height of
+            // its centre (negative is up), ry = its own turn.
+            $lh3d_solids = [
+              ['cls' => '', 'w' => 240, 'd' => 164, 'h' => 26, 'x' => 0, 'y' => 30, 'z' => 0, 'ry' => -6, 'cover' => '#065f46'],
+              ['cls' => '', 'w' => 222, 'd' => 156, 'h' => 24, 'x' => 0, 'y' => 5, 'z' => 0, 'ry' => 5, 'cover' => '#b45309'],
+              ['cls' => '', 'w' => 200, 'd' => 148, 'h' => 22, 'x' => 0, 'y' => -18, 'z' => 0, 'ry' => -11, 'cover' => '#334155'],
+              ['cls' => ' lh3d-cap', 'w' => 92, 'd' => 92, 'h' => 24, 'x' => 0, 'y' => -42, 'z' => 0, 'ry' => 45, 'cover' => '#1f2937'],
+              ['cls' => ' lh3d-cap', 'w' => 150, 'd' => 150, 'h' => 8, 'x' => 0, 'y' => -58, 'z' => 0, 'ry' => 45, 'cover' => '#243447'],
+              ['cls' => ' lh3d-btn', 'w' => 12, 'd' => 12, 'h' => 8, 'x' => 0, 'y' => -66, 'z' => 0, 'ry' => 45, 'cover' => '#fbbf24'],
+              ['cls' => ' lh3d-cord', 'w' => 4, 'd' => 4, 'h' => 52, 'x' => 100, 'y' => -30, 'z' => 100, 'ry' => 45, 'cover' => '#f59e0b'],
+            ];
+            foreach ($lh3d_solids as $s): ?>
+              <i class="lh3d-solid<?= $s['cls'] ?>" style="--w:<?= (int) $s['w'] ?>px;--d:<?= (int) $s['d'] ?>px;--h:<?= (int) $s['h'] ?>px;--x:<?= (int) $s['x'] ?>px;--y:<?= (int) $s['y'] ?>px;--z:<?= (int) $s['z'] ?>px;--ry:<?= (int) $s['ry'] ?>deg;--cover:<?= $s['cover'] ?>"><i class="f"></i><i class="b"></i><i class="r"></i><i class="l"></i><i class="t"></i><i class="u"></i></i>
+            <?php endforeach; ?>
+            <?php
+            // Sparks on a slow orbit. a = starting angle, y = height,
+            // s = size, c = colour, t = how long one lap takes.
+            $lh3d_sparks = [
+              ['a' => -18, 'y' => -46, 's' => 16, 'c' => '#fbbf24', 't' => '19s'],
+              ['a' => 112, 'y' => -104, 's' => 12, 'c' => '#38bdf8', 't' => '27s'],
+              ['a' => 236, 'y' => -70, 's' => 14, 'c' => '#34d399', 't' => '23s'],
+            ];
+            foreach ($lh3d_sparks as $p): ?>
+              <i class="lh3d-spark" style="--a:<?= (int) $p['a'] ?>deg;--y:<?= (int) $p['y'] ?>px;--s:<?= (int) $p['s'] ?>px;--c:<?= $p['c'] ?>;--t:<?= $p['t'] ?>"><i></i><i></i></i>
+            <?php endforeach; ?>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="lh3d-shadow" aria-hidden="true"></div>
+</section>
+<script src="assets/book3d.js?v=<?= (int) @filemtime(__DIR__ . '/assets/book3d.js') ?>" defer></script>
+
 <section data-live-scope="index" class="reveal mt-4 grid grid-cols-3 overflow-hidden rounded-2xl border border-slate-200 bg-white">
   <div class="lh-band px-4 py-5 text-center">
     <p class="lh-num text-3xl font-semibold text-emerald-700" data-live-index="courses"><?= (int) $stats['courses'] ?></p>

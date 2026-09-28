@@ -1,0 +1,80 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="robots" content="noindex">
+<title>book3d fixture — what the browser actually computed</title>
+<style>
+  body { margin: 0; font: 13px/1.6 system-ui, sans-serif; background: #f1f5f9; }
+  #out { padding: 10px 14px; background: #0f172a; color: #a7f3d0; font: 12px/1.7 ui-monospace, Consolas, monospace; white-space: pre-wrap; }
+  iframe { display: block; margin: 0 auto; border: 0; background: #fff; width: 100%; max-width: 1280px; height: 1500px; }
+  h1 { font-size: 14px; margin: 14px 14px 6px; }
+  p { margin: 0 14px 10px; color: #475569; }
+</style>
+</head>
+<body>
+<!-- Dev-only harness for the landing page's 3D study stack (assets/book3d.css,
+     assets/book3d.js, markup in index.php). A CSS scene is hard to check by
+     eye in a screenshot, so this loads the real /index page in a same-origin
+     iframe and reports what the browser computed: is there a camera, did the
+     custom properties survive into real face matrices, are the animations
+     running, and does a simulated drag move both the pitch and the turn's
+     clock. Change the iframe's width above to ~390px to exercise the phone
+     branch. Headless version, from the repo root:
+
+       chrome --headless=new --user-data-dir=%TEMP%\cr --virtual-time-budget=9000 ^
+              --dump-dom http://localhost/LMS/assets/book3d-fixture.html
+
+     then look for the PROBE line in the output. -->
+<h1>3D study stack — computed-style harness</h1>
+<p>Waiting for the page below to settle…</p>
+<div id="out">pending</div>
+<iframe id="f" src="../index"></iframe>
+<script>
+var f = document.getElementById('f');
+f.onload = function () {
+  setTimeout(function () {
+    var w = f.contentWindow, d = f.contentDocument, rows = [];
+    function calc(sel, prop) {
+      var el = d.querySelector(sel);
+      return el ? w.getComputedStyle(el)[prop] : 'MISSING-EL';
+    }
+    function is3d(m) { return /^matrix3d/.test(m) ? 'matrix3d ✓' : 'NOT 3D ✗ (' + m + ')'; }
+
+    rows.push('solids               ' + d.querySelectorAll('.lh3d-solid').length + '  (want 7)');
+    rows.push('camera perspective   ' + calc('.lh3d-scene', 'perspective'));
+    rows.push('turn preserve-3d     ' + calc('.lh3d-turn', 'transformStyle'));
+    rows.push('turn transform       ' + is3d(calc('.lh3d-turn', 'transform')));
+    rows.push('turn animation       ' + calc('.lh3d-turn', 'animationName') + ' / ' + calc('.lh3d-turn', 'animationDuration'));
+    rows.push('face: spine          ' + is3d(calc('.lh3d-solid > .f', 'transform')));
+    rows.push('face: page edge      ' + is3d(calc('.lh3d-solid > .r', 'transform')));
+    rows.push('face: top cover      ' + is3d(calc('.lh3d-solid > .t', 'transform')));
+    rows.push('paper on fore-edge   ' + calc('.lh3d-solid > .b', 'backgroundImage').slice(0, 30) + '…');
+    rows.push('spark orbit          ' + calc('.lh3d-spark', 'animationName') + ' → ' + is3d(calc('.lh3d-spark', 'transform')));
+    var sceneBox = d.getElementById('lh3d-scene').getBoundingClientRect();
+    rows.push('scene size           ' + Math.round(sceneBox.width) + 'x' + Math.round(sceneBox.height));
+    rows.push('touch-action         ' + calc('.lh3d-scene', 'touchAction'));
+
+    var anims = d.getAnimations ? d.getAnimations() : [];
+    rows.push('animations running   ' + anims.filter(function (a) { return a.playState === 'running'; }).length + ' of ' + anims.length);
+
+    // Simulated drag: 120px across (half a turn) and 40px down.
+    var scene = sceneBox ? d.getElementById('lh3d-scene') : null;
+    var turn = d.querySelector('.lh3d-turn');
+    var before = turn.getAnimations()[0].currentTime;
+    function fire(type, x, y) {
+      scene.dispatchEvent(new w.PointerEvent(type, { pointerId: 7, clientX: x, clientY: y, bubbles: true, isPrimary: true }));
+    }
+    fire('pointerdown', sceneBox.left + 200, sceneBox.top + 200);
+    fire('pointermove', sceneBox.left + 320, sceneBox.top + 240);
+    var pitch = scene.style.getPropertyValue('--lh3d-rx');
+    var during = turn.getAnimations()[0].currentTime;
+    fire('pointerup', sceneBox.left + 320, sceneBox.top + 240);
+    rows.push('drag → pitch         ' + (pitch || 'UNSET ✗') + '   (want -24.80deg)');
+    rows.push('drag → yaw clock     ' + Math.round(before) + ' → ' + Math.round(during) + '   (want +' + Math.round(120 / 240 * 26000) + 'ms)');
+    rows.push('release resumes      ' + turn.getAnimations()[0].playState + '   (running = no jump; paused below the fold is correct)');
+
+    document.getElementById('out').textContent = 'PROBE\n' + rows.join('\n');
+    document.querySelector('h1').textContent = '3D study stack — computed-style harness';
+    document.querySelector('p').textContent = 'Findings above; the live landing page is below.';
+  }, 1200);
+};
+</script>
+</body></html>

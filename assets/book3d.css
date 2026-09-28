@@ -1,0 +1,120 @@
+/* =====================================================================
+   book3d.css — the landing page's 3D "study stack": a pile of books
+   with a mortarboard on top, turning slowly, that you can grab.
+
+   Deliberately CSS 3D (a camera + preserve-3d + six real faces per
+   solid) instead of a WebGL library, for reasons that matter to this
+   app: every other asset here is vendored locally (tailwind.min.css,
+   curtain.js) so a CDN viewer would be the one thing that dies
+   offline; phones on campus wifi would pay ~600 KB for a renderer they
+   meet once; and there is no .glb to host. The scene is DOM, so it
+   costs zero requests and stays crisp at any pixel density.
+
+   The turn is a CSS animation, so the stack still moves with JS
+   disabled; book3d.js only adds drag / keyboard looking and pauses the
+   loop when the stack is off screen or the OS wants less motion.
+   Markup lives in index.php, colours and sizes in its inline style vars.
+   ===================================================================== */
+
+/* ── camera ─────────────────────────────────────────────────────────── */
+.lh3d-wrap { position: relative; overflow: hidden; }
+/* the pool of light the objects sit in */
+.lh3d-wrap::before { content: ""; position: absolute; inset: -12% 0; background: radial-gradient(58% 62% at 50% 40%, rgba(16, 185, 129, .17), rgba(16, 185, 129, 0) 70%); pointer-events: none; }
+.lh3d-scene {
+  position: relative; height: 380px; perspective: 1250px; perspective-origin: 50% 42%;
+  cursor: grab; user-select: none; -webkit-user-select: none;
+  /* pan-y = we take horizontal drags, the page keeps vertical ones. */
+  touch-action: pan-y;
+}
+.lh3d-scene:focus-visible { border-radius: 24px; box-shadow: 0 0 0 2px #10b981; outline: none; }
+.lh3d-scene.lh3d--grab { cursor: grabbing; }
+/* Every layer between camera and faces has to keep the third dimension,
+   otherwise the browser flattens the faces back onto the page. */
+.lh3d-keep { transform-style: preserve-3d; }
+.lh3d-bob, .lh3d-tilt, .lh3d-turn, .lh3d-obj { position: absolute; inset: 0; }
+.lh3d-bob { animation: lh3d-bob 7s ease-in-out infinite; }
+.lh3d-tilt { transform: rotateX(var(--lh3d-rx, -16deg)); }   /* book3d.js writes --lh3d-rx */
+.lh3d-turn { transform: rotateY(-26deg); animation: lh3d-turn 26s linear infinite; }
+.lh3d-obj { left: 50%; top: 50%; right: auto; bottom: auto; width: 0; height: 0; }  /* origin the solids are measured from */
+
+/* ── one solid = six faces ──────────────────────────────────────────── */
+.lh3d-solid {
+  position: absolute; left: 0; top: 0; width: var(--w); height: var(--h);
+  margin: calc(var(--h) / -2) 0 0 calc(var(--w) / -2);
+  transform-style: preserve-3d;
+  transform: translate3d(var(--x), var(--y), var(--z)) rotateY(var(--ry));
+}
+.lh3d-solid > i { position: absolute; left: 50%; top: 50%; border-radius: 2px; }
+/* Centring with the percentage translate BEFORE hinging, then pushing
+   out by half the box, is the one order that lands faces on the edges. */
+.lh3d-solid > .f { width: var(--w); height: var(--h); transform: translate(-50%, -50%) translateZ(calc(var(--d) / 2)); }
+.lh3d-solid > .b { width: var(--w); height: var(--h); transform: translate(-50%, -50%) rotateY(180deg) translateZ(calc(var(--d) / 2)); }
+.lh3d-solid > .r { width: var(--d); height: var(--h); transform: translate(-50%, -50%) rotateY(90deg) translateZ(calc(var(--w) / 2)); }
+.lh3d-solid > .l { width: var(--d); height: var(--h); transform: translate(-50%, -50%) rotateY(-90deg) translateZ(calc(var(--w) / 2)); }
+.lh3d-solid > .t { width: var(--w); height: var(--d); transform: translate(-50%, -50%) rotateX(90deg) translateZ(calc(var(--h) / 2)); }
+.lh3d-solid > .u { width: var(--w); height: var(--d); transform: translate(-50%, -50%) rotateX(-90deg) translateZ(calc(var(--h) / 2)); }
+
+/* A book is cloth on the boards and spine, paper on the three page
+   sides. The top face is lit and the bottom shaded, so the pile reads
+   as solid volume even where two books share a colour. */
+.lh3d-solid > .f { background: var(--cover); }
+.lh3d-solid > .t { background: var(--cover); filter: brightness(1.18); }
+.lh3d-solid > .u { background: var(--cover); filter: brightness(.68); }
+.lh3d-solid > .b, .lh3d-solid > .r, .lh3d-solid > .l { background: repeating-linear-gradient(180deg, #f8fafc 0 2px, #d7e0ea 2px 3px); }
+/* embossed title plate on the spine */
+.lh3d-solid > .f::after { content: ""; position: absolute; left: 12%; right: 12%; top: 28%; bottom: 28%; border-radius: 2px; background: rgba(255, 255, 255, .22); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .18); }
+/* The mortarboard, its button and the braid are cloth all over, so the
+   paper sides and the title plate have to be switched back off. */
+.lh3d-cap > .b, .lh3d-cap > .r, .lh3d-cap > .l,
+.lh3d-btn > .b, .lh3d-btn > .r, .lh3d-btn > .l,
+.lh3d-cord > .b, .lh3d-cord > .r, .lh3d-cord > .l { background: var(--cover); filter: brightness(.86); }
+.lh3d-cap > .f::after, .lh3d-btn > .f::after, .lh3d-cord > .f::after { display: none; }
+.lh3d-btn > i { border-radius: 50%; }
+
+/* ── sparks on an orbit ─────────────────────────────────────────────── */
+.lh3d-spark {
+  position: absolute; left: 0; top: 0; width: var(--s); height: var(--s);
+  margin: calc(var(--s) / -2) 0 0 calc(var(--s) / -2);
+  transform-style: preserve-3d; animation: lh3d-orbit var(--t) linear infinite;
+}
+.lh3d-spark > i {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #fff 0 16%, var(--c) 46%, rgba(255, 255, 255, 0) 74%);
+  animation: lh3d-twinkle 3.4s ease-in-out infinite;
+}
+/* The second quad is hinged 90° away: two crossed quads survive a whole
+   revolution without ever going edge-on and disappearing. */
+.lh3d-spark > i + i { transform: rotateY(90deg); }
+
+/* ── ground, caption, small screens ─────────────────────────────────── */
+.lh3d-shadow {
+  position: absolute; left: 50%; top: 50%; width: 330px; height: 46px; margin: 92px 0 0 -165px;
+  border-radius: 50%; filter: blur(3px); animation: lh3d-shade 7s ease-in-out infinite;
+  background: radial-gradient(50% 50% at 50% 50%, rgba(4, 47, 32, .26), rgba(4, 47, 32, 0) 72%);
+}
+.lh3d-hint { margin: 4px 0 0; text-align: center; font-size: 12px; color: #64748b; }
+@media (max-width: 640px) {
+  .lh3d-scene { height: 268px; perspective-origin: 50% 38%; }
+  /* Scale about the scene's middle, so the stack stays under the camera
+     instead of drifting off as it shrinks. */
+  .lh3d-tilt { transform: translate3d(0, 50%, 0) scale(.64) translate3d(0, -50%, 0) rotateX(var(--lh3d-rx, -16deg)); }
+  .lh3d-shadow { width: 220px; margin: 78px 0 0 -110px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lh3d-bob, .lh3d-turn, .lh3d-spark, .lh3d-spark > i, .lh3d-shadow { animation: none; }
+}
+
+/* 26s is also the number book3d.js divides drags by to turn "how far you
+   pulled" into "how far along the loop are we" — change one, change both. */
+@keyframes lh3d-turn { from { transform: rotateY(-26deg); } to { transform: rotateY(334deg); } }
+@keyframes lh3d-bob { 0%, 100% { transform: translate3d(0, -9px, 0); } 50% { transform: translate3d(0, 9px, 0); } }
+/* --a and --y ride through the keyframes so each spark keeps its own
+   angle and height, while both ends still interpolate cleanly. */
+@keyframes lh3d-orbit {
+  from { transform: rotateY(var(--a)) translateZ(232px) translateY(var(--y)) rotateY(calc(-1 * var(--a))); }
+  to { transform: rotateY(calc(var(--a) + 360deg)) translateZ(232px) translateY(var(--y)) rotateY(calc(-1 * (var(--a) + 360deg))); }
+}
+@keyframes lh3d-twinkle { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
+/* The ground tightens and pales as the stack floats up away from it. */
+@keyframes lh3d-shade { 0%, 100% { transform: scale(.88); opacity: .62; } 50% { transform: scale(1.04); opacity: .95; } }
+
