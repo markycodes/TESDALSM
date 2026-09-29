@@ -12,6 +12,31 @@ if ($displayName === '') {
   $displayName = $isTeacher ? 'Trainer' : 'Student';
 }
 
+/* The owl that perches at the right end of the Hero banner below is two
+   pictures from logo/ drawn on one and the same 500×500 canvas: the body, and
+   the right wing that goes exactly over it. assets/hero.css turns that wing on
+   its shoulder, so the owl waves. Either may be a .webp/.jpg/.jpeg instead; a
+   wing that is not there leaves an owl that simply holds still, and while no
+   body is there the owl is left out rather than shown broken. */
+$lh_owl = '';
+$lh_owl_wing = '';
+$lh_owl_v = 0;
+$lh_owl_wing_v = 0;
+foreach (['owl-body.png', 'owl-body.webp', 'owl-body.jpg', 'owl-body.jpeg'] as $lh_owl_file) {
+  if (is_file(__DIR__ . '/logo/' . $lh_owl_file)) {
+    $lh_owl = 'logo/' . $lh_owl_file;
+    $lh_owl_v = (int) filemtime(__DIR__ . '/logo/' . $lh_owl_file);
+    break;
+  }
+}
+foreach (['owl-rightwing.png', 'owl-rightwing.webp', 'owl-rightwing.jpg', 'owl-rightwing.jpeg'] as $lh_owl_file) {
+  if (is_file(__DIR__ . '/logo/' . $lh_owl_file)) {
+    $lh_owl_wing = 'logo/' . $lh_owl_file;
+    $lh_owl_wing_v = (int) filemtime(__DIR__ . '/logo/' . $lh_owl_file);
+    break;
+  }
+}
+
 $ago = function (int $ts): string {
   $d = max(0, time() - $ts);
   if ($d < 60)
@@ -104,6 +129,9 @@ $page_title = 'Dashboard';
 require __DIR__ . '/header.php';
 ?>
 
+<!-- The owl perched in the banner below has styles of its own, and only here. -->
+<link rel="stylesheet" href="assets/hero.css?v=<?= (int) @filemtime(__DIR__ . '/assets/hero.css') ?>">
+
 <!-- Hero banner: paper pinned to the wall -->
 <section class="reveal lh-hero overflow-hidden rounded-3xl p-5 text-slate-800 sm:p-8">
   <div class="lh-hero-paper relative px-5 py-6 sm:px-9 sm:py-7">
@@ -118,10 +146,27 @@ require __DIR__ . '/header.php';
         <p class="mt-1.5 max-w-2xl text-sm text-slate-600">
           <?= $isTeacher ? 'Here is what is happening in your courses today.' : 'Ready to continue learning?' ?></p>
       </div>
-      <?php if ($isTeacher): ?>
-        <button data-modal-open="course-modal"
-          class="lh-hero-cta rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-800">＋
-          New course</button>
+      <?php if ($isTeacher || $lh_owl): ?>
+        <!-- The right end of the banner: the owl, then the call to action. -->
+        <div class="lh-hero-side flex items-center gap-4">
+          <?php if ($lh_owl): ?>
+            <!-- Two layers on one canvas, so the wing needs no offset — and the
+                 wing is the half that moves. -->
+            <span class="lh-hero-owl" aria-hidden="true">
+              <img class="lh-hero-owl-body" src="<?= e($lh_owl) ?>?v=<?= $lh_owl_v ?>" alt="" width="500"
+                height="500">
+              <?php if ($lh_owl_wing): ?>
+                <img class="lh-hero-owl-wing" src="<?= e($lh_owl_wing) ?>?v=<?= $lh_owl_wing_v ?>" alt="" width="500"
+                  height="500">
+              <?php endif; ?>
+            </span>
+          <?php endif; ?>
+          <?php if ($isTeacher): ?>
+            <button data-modal-open="course-modal"
+              class="lh-hero-cta rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-800">＋
+              New course</button>
+          <?php endif; ?>
+        </div>
       <?php endif; ?>
     </div>
   </div>
