@@ -1,16 +1,22 @@
 /* ============================================================
    Curtain reveal — the loader
    ------------------------------------------------------------
-   showSkeletons([root])  lays a gray cover over the content blocks
-                          inside root (default: <main>), one per
-                          block, so they can reveal independently.
+   showSkeletons([root])  lays a gray cover over the data inside root
+                          (default: <main>) — the headings, the
+                          paragraphs, the values, the cells, the
+                          charts — one per piece, so they can reveal
+                          independently.
    hideSkeletons()        fades every cover that is up and then
                           removes it, leaving the real content —
                           which was never touched — in place.
 
-   The sidebar is out of reach by construction: the walk only ever
-   starts from the content root and <aside>/<nav> are refused on the
-   way, so a cover can never land on the rail or the top bar.
+   What is covered is the CONTENT, never the box around it. A card
+   keeps its background, its border and its radius, a table keeps
+   its frame and its row lines, and what turns gray is the words and
+   the media inside them. The sidebar is out of reach by
+   construction: the walk only ever starts from the content root and
+   <aside>/<nav> are refused on the way, so a cover can never land
+   on the rail or the top bar.
 
    Nothing here is required for a page to work: with scripting off,
    or if this file fails to load, no cover is ever created and the
@@ -24,17 +30,30 @@
   var DEFAULTS = {
     /* what counts as a page of content */
     root: 'main',
-    /* a childless match is a block of text/media: cover it as it stands */
-    blocks: 'h1,h2,h3,h4,h5,p,ul,ol,dl,table,figure,blockquote,pre,address,summary,iframe,video,canvas,svg,img',
-    /* the repeated item inside a grid or a list — cover the items, not the grid */
-    cards: '.card,[class*="rounded-"],[class*="border-b"]',
-    /* never walk deeper looking for blocks — page content nests two, three levels */
-    maxDepth: 5,
-    /* a block has to be a real box before it is worth covering */
+    /* What a cover is FOR: the words and the pictures. A heading, a
+       paragraph, a list item, a table cell, a chart, an image — each one is
+       covered as it stands. The box it sits in (the card, the panel, the
+       table, the table's rows) is walked THROUGH instead of covered, so the
+       page keeps its own shape while it loads and only the data turns gray.
+       A card of bare words is a leaf with no children: there the card is
+       what holds the text, and it is the one covered (down to its content
+       box — see padOf()). */
+    data: 'h1,h2,h3,h4,h5,h6,p,li,dt,dd,figcaption,address,summary,td,th,'
+        + 'img,svg,canvas,video,iframe,object,embed',
+    /* Never walk deeper looking for data — page content nests three, four
+       levels (main > section > grid > card > body). Past this a wrapper is
+       covered as one box rather than followed forever, which is a last
+       resort: it only happens to something buried ten levels deep, so the
+       box that ends up gray is a small one inside a card, never the card. */
+    maxDepth: 10,
+    /* a cover has to be a real box before it is worth covering */
     minW: 24,
     minH: 12,
-    /* an admin index with 200 rows should not mean 200 nodes either */
-    maxCount: 160,
+    /* One cover per card used to be the rule; now it is one per value, so a
+       page of cards means more of them. Still bounded: a 200-row table must
+       not mean a thousand shimmering gradients. Past this the rest of the
+       page shows its real content — it is below the fold anyway. */
+    maxCount: 240,
     /* shell chrome, overlays and anything that must stay reachable.
        [data-skeleton-skip] / [data-no-skeleton] are the escape hatch a page
        raises to keep one region clear — a live timer, a captcha, a widget it
@@ -78,27 +97,33 @@
   }
 
   function blockKids(el) {
+    /* The children that are boxes of their own. An inline child — <a>,
+       <strong>, <br>, <svg>, a chip — is part of a line of text, not a block
+       on its own: covering one of those alone would leave the rest of the
+       line readable, so the element holding the line is covered instead. */
     var out = [], kids = el.children;
     for (var i = 0; i < kids.length; i++) {
-      if (getComputedStyle(kids[i]).display === 'none') continue;   /* tabs, collapsed filters */
+      var display = getComputedStyle(kids[i]).display;
+      if (display === 'none') continue;    /* tabs, collapsed filters */
+      if (display === 'inline') continue;  /* part of a text line */
       out.push(kids[i]);
     }
     return out;
   }
 
-  function oneShape(kids) {
-    /* the tell-tale of a card grid / a list of rows: several siblings, same tag,
-       and they all look like items — then each item earns its own curtain */
-    if (kids.length < 2) return false;
-    var tag = kids[0].tagName;
-    for (var i = 0; i < kids.length; i++) {
-      if (kids[i].tagName !== tag) return false;
-      if (!kids[i].matches(DEFAULTS.cards)) return false;
-    }
-    return true;
+  function padOf(el) {
+    /* The padding of whatever is about to be covered, so its cover can shrink
+       to the CONTENT box: a card that is only words keeps its padding, a table
+       cell keeps its gutters, and what turns gray is the data rather than the
+       box around it. Null when there is no padding to give back — the cover is
+       then the block itself, exactly as .skeleton-cover says. */
+    var cs = getComputedStyle(el);
+    var out = [cs.paddingTop, cs.paddingRight, cs.paddingBottom, cs.paddingLeft];
+    for (var i = 0; i < 4; i++) if (parseFloat(out[i]) > 0) return out;
+    return null;
   }
 
-  /** The content blocks of one root, at the deepest level that still makes sense. */
+  /** The data inside one root — the words, the values, the media. */
   function collect(root) {
     var found = [];
 
@@ -112,14 +137,17 @@
     function walk(el, depth) {
       if (found.length >= DEFAULTS.maxCount) return;
       var kids = blockKids(el);
+      /* a holder of text, or a wrapper too deep to be worth following: what is
+         in hand is the data, so it is the thing covered */
       if (!kids.length || depth >= DEFAULTS.maxDepth) { push(el); return; }
-      if (oneShape(kids)) { kids.forEach(push); return; }
       for (var i = 0; i < kids.length; i++) {
         var k = kids[i];
         if (covered.has(k) || skippable(k) || !boxed(k)) continue;
-        /* a known block of content gets its own cover; a plain layout div is
-           descended through, so its cards and headings are the ones covered */
-        if (k.matches(DEFAULTS.blocks) || k.matches(DEFAULTS.cards)) push(k);
+        /* a known piece of data gets its own cover; a card, a panel, a table
+           or a plain layout div is descended through, so it is the words
+           inside it that turn gray — the box keeps its background, its border
+           and its radius, and the page goes on looking like itself */
+        if (k.matches(DEFAULTS.data)) push(k);
         else walk(k, depth + 1);
       }
     }
@@ -127,7 +155,7 @@
     var kids = blockKids(root);
     if (!kids.length) { push(root); return found; }
     kids.forEach(function (k) {
-      if (k.matches(DEFAULTS.blocks) || k.matches(DEFAULTS.cards) || oneShape(blockKids(k))) push(k);
+      if (k.matches(DEFAULTS.data)) push(k);
       else walk(k, 1);
     });
     return found;
@@ -145,6 +173,17 @@
       c.className = 'skeleton-cover';
       c.setAttribute('aria-hidden', 'true');
       c.style.setProperty('--lh-curtain-i', String(Math.min(i, 8)));
+      var pad = padOf(el);
+      if (pad) {
+        /* it has padding of its own — a cell's gutter, a card's breathing
+           room — so the cover is measured to the content box and the box is
+           left standing instead of being painted over */
+        c.className += ' skeleton-inset';
+        c.style.setProperty('--lh-curtain-pt', pad[0]);
+        c.style.setProperty('--lh-curtain-pr', pad[1]);
+        c.style.setProperty('--lh-curtain-pb', pad[2]);
+        c.style.setProperty('--lh-curtain-pl', pad[3]);
+      }
       el.appendChild(c);
       active.set(el, c);
       live.push({ el: el, cover: c });

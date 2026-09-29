@@ -11,10 +11,19 @@
 
   Read the <pre id="report"> it prints. The lines that must never move:
   covers_inside_aside=0, covers_inside_topbar=0, covers_inside_form=0, and the
-  aside/topbar rows showing the shell never carrying skeleton-wrap. It also
+  aside/topbar rows showing the shell never carrying skeleton-wrap. The same
+  goes for the boxes themselves, which is the whole point of the curtain:
+  card_e_wrapped=false with card_e_cover_inside=0 and card_e_texts=2 (a card
+  keeps its own background, border and radius; only its heading and paragraph
+  turn gray), table_wrapped=0 row_wrapped=0 with cells_all_covered=true (a
+  table keeps its frame and its row lines, its cells get the covers), and
+  card_d_shrunk=true (a card of bare words is a leaf, so it *is* covered — but
+  through skeleton-inset, down to its content box, keeping its padding).
+  It also
   proves curtain.js decides nothing on its own (auto_shown_on_load=0) and that a
   block can be covered, uncovered, covered again, and covered while the previous
   cover is still fading without losing its position:relative.
+  Add ?stress=1 to pour 120 more rows into the table and check cap_held=true.
 -->
 <html lang="en">
 <head>
@@ -29,6 +38,10 @@
   .topbar { height: 62px; background: #fff; border-bottom: 1px solid #ddd; }
   .content { padding: 28px; background: #f7f7f9; min-height: 100vh; }
   .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  /* the app's tables are Tailwind-padded rows inside a rounded wrapper: the
+     fixture keeps the same shape so a cell cover has gutters to give back */
+  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
 </style>
 </head>
 <body>
@@ -54,6 +67,18 @@
         <div class="card" id="nested">a card inside a card</div>
       </div>
       <div class="card" id="card-skip" data-skeleton-skip="true">never cover me</div>
+      <div class="card" id="card-d">bare words in a padded card</div>
+      <div class="card" id="card-e">
+        <h2>Heading</h2>
+        <p>A paragraph of real text.</p>
+      </div>
+      <table id="data-table">
+        <thead><tr><th>Student</th><th>Score</th></tr></thead>
+        <tbody>
+          <tr><td>Ana</td><td>91</td></tr>
+          <tr><td>Ben</td><td>84</td></tr>
+        </tbody>
+      </table>
       <section id="plain-section"><div>plain</div><div>plain too</div></section>
     </div>
     </main>
@@ -64,6 +89,7 @@
 <script>
   /* The harness calls show()/hide() by hand: curtain.js by itself never decides
      when a page is shown, which is the first thing this checks. */
+  var STRESS = /[?&]stress=1/.test(location.search);
   function snap(label, out) {
     var q = function (sel) { return document.querySelectorAll(sel).length; };
     var has = function (id, cls) { return document.getElementById(id).classList.contains(cls); };
@@ -82,6 +108,27 @@
     out.push('wrap_nested_grandchild=' + has('nested', 'skeleton-wrap'));
     out.push('wrap_skipped=' + String(has('card-skip', 'skeleton-wrap') === false));
     out.push('wrap_plain_section=' + has('plain-section', 'skeleton-wrap'));
+    /* --- the point of the curtain: the data is covered, the box is not --- */
+    var d = document.getElementById('card-d'), dc = d.querySelector('.skeleton-cover');
+    out.push('card_d_wrapped=' + has('card-d', 'skeleton-wrap')
+      + ' card_d_inset=' + (dc ? dc.classList.contains('skeleton-inset') : 'n/a')
+      + ' card_d_shrunk=' + (dc ? String(dc.getBoundingClientRect().width
+          < d.getBoundingClientRect().width - 8) : 'n/a'));
+    out.push('card_e_wrapped=' + has('card-e', 'skeleton-wrap')
+      + ' card_e_cover_inside=' + q('#card-e > .skeleton-cover')
+      + ' card_e_texts=' + q('#card-e .skeleton-wrap'));
+    out.push('card_c_wrapped=' + has('card-c', 'skeleton-wrap')
+      + ' card_c_cover_inside=' + q('#card-c > .skeleton-cover'));
+    var cells = q('#data-table td, #data-table th'), cellCovers = q('#data-table .skeleton-cover');
+    out.push('table_wrapped=' + q('#data-table.skeleton-wrap')
+      + ' row_wrapped=' + q('#data-table tr.skeleton-wrap')
+      + ' head_wrapped=' + q('#data-table thead.skeleton-wrap, #data-table tbody.skeleton-wrap'));
+    out.push('table_cells=' + cells + ' table_cell_covers=' + cellCovers
+      + (STRESS ? '' : ' cells_all_covered=' + String(cellCovers === cells)));
+    out.push('cell_cover_inside_cell=' + q('#data-table td .skeleton-cover, #data-table th .skeleton-cover'));
+    out.push('lines_covers=' + q('h2 .skeleton-cover, p .skeleton-cover'));
+    out.push('cap_max=' + window.LHCurtain.options.maxCount
+      + ' cap_held=' + String(q('.skeleton-cover') <= window.LHCurtain.options.maxCount));
     out.push('h1_covered=' + (document.querySelector('h1').className !== ''));
     var cs = getComputedStyle(document.querySelector('.skeleton-cover') || document.body);
     out.push('css_loaded=' + (q('.skeleton-cover')
@@ -92,7 +139,17 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     var out = [];
+    var stress = STRESS;
+    if (stress) {
+      /* ?stress=1: 120 more rows, so the ceiling has something to bite on */
+      var rows = '', r;
+      for (r = 0; r < 120; r++) {
+        rows += '<tr><td>Student ' + r + '</td><td>' + (70 + r % 30) + '</td></tr>';
+      }
+      document.querySelector('#data-table tbody').innerHTML += rows;
+    }
     out.push('auto_shown_on_load=' + document.querySelectorAll('.skeleton-cover').length);
+    out.push('stress=' + stress + ' stress_rows=' + document.querySelectorAll('#data-table tbody tr').length);
     window.LHCurtain.show();
     snap('after show', out);
     out.push('aside_html_len=' + document.querySelector('aside').innerHTML.length);

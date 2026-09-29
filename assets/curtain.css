@@ -3,31 +3,47 @@
    ------------------------------------------------------------
    The real content is already in the DOM and painted normally.
    While data is being fetched, a plain gray cover sits ON TOP of
-   each content block; when the data lands, the cover fades away
-   and what was underneath all along is simply still there. Nothing
-   is swapped out, nothing is replaced with fake bars, and the app
-   shell (rail + top bar) is never covered — the covers live inside
-   <main> only, and the `isolation` below keeps their z-index from
-   ever climbing over the sidebar, the top bar or a toast.
+   the data — a heading, a paragraph, a cell, a chart — while the
+   box it sits in (the card, the panel, the table) keeps its own
+   background, its border and its radius. When the data lands the
+   cover fades away and what was underneath all along is simply
+   still there. Nothing is swapped out, nothing is replaced with
+   fake bars, and the app shell (rail + top bar) is never covered —
+   the covers live inside <main> only, and the `isolation` below
+   keeps their z-index from ever climbing over the sidebar, the top
+   bar or a toast.
 
    Markup (added by assets/curtain.js, or written by hand):
 
-     <div class="card rounded-2xl skeleton-wrap">
-       <h2>Real heading</h2>
-       <div class="skeleton-cover" aria-hidden="true"></div>
+     <!-- a card: the box stays, what is inside it is covered -->
+     <div class="card rounded-2xl">
+       <h2 class="skeleton-wrap">
+         Real heading
+         <div class="skeleton-cover" aria-hidden="true"></div>
+       </h2>
      </div>
+
+   A cover carrying `skeleton-inset` sits on the CONTENT box rather than the
+   whole block — that is what the script reaches for whenever the thing it
+   covers has padding of its own, handing the four paddings over as the
+   custom properties below. A card of bare words then keeps its padding, a
+   table cell keeps its gutters, and the box being loaded goes on looking
+   like the box it was.
 
    Fade it out with one class:
 
      wrapper.classList.add('skeleton-loaded');
 
-   Colours are variables, so a theme (or one page) can retune them
+   Everything is a variable, so a theme (or one page) can retune it
    without touching this file:
 
      --lh-curtain:      the gray itself
      --lh-curtain-hi:   the shimmer highlight riding over it
      --lh-curtain-fade: how long the reveal takes
-     --lh-curtain-i:    per-block stagger, set by the script
+     --lh-curtain-i:    per-cover stagger, set by the script
+     --lh-curtain-pt / --lh-curtain-pr / --lh-curtain-pb / --lh-curtain-pl:
+                        the padding given back when the cover is inset,
+                        set by the script
    ============================================================ */
 
 /* One local stacking context for the page: a cover can paint over its
@@ -53,6 +69,17 @@ main {
      instead of easing through the content */
   transition: opacity var(--lh-curtain-fade, .5s) ease;
   will-change: opacity
+}
+
+/* The measured half, added by the script over anything with padding of its
+   own: the cover is the content box, so the block it belongs to is still
+   recognisable while it loads — a card of bare words keeps its padding, a
+   table cell keeps its gutters — and the small radius keeps it from looking
+   like a shrunken copy of the card. Without it the rule above stands and the
+   cover is the whole block. */
+.skeleton-inset {
+  inset: var(--lh-curtain-pt, 0) var(--lh-curtain-pr, 0) var(--lh-curtain-pb, 0) var(--lh-curtain-pl, 0);
+  border-radius: var(--lh-curtain-radius, 4px)
 }
 
 /* the shimmer: one soft highlight crossing the block, offset per block so a

@@ -6,12 +6,15 @@
  *   The way every page says "still working", in two styles — see
  *   lh_skeleton_style():
  *
- *   curtain (the default) — the page's real content is rendered normally and
- *   each content block is laid under a gray cover, one per block, that fades
- *   out once the page has settled. No fake bars and no overlay across the
- *   shell: the rail and the top bar are painted the whole time. Styles and
- *   script live in assets/curtain.css + assets/curtain.js, and page code can
- *   drive it by hand with window.showSkeletons() / window.hideSkeletons().
+ *   curtain (the default) — the page's real content is rendered normally, and
+ *   the data inside it is laid under gray covers, one per heading, paragraph,
+ *   value, cell or chart, that fade out once the page has settled. The boxes
+ *   those sit in — cards, panels, tables — keep their own background, border
+ *   and radius, so the page never stops looking like itself. No fake bars and
+ *   no overlay across the shell: the rail and the top bar are painted the
+ *   whole time. Styles and script live in assets/curtain.css + assets/curtain.js,
+ *   and page code can drive it by hand with window.showSkeletons() /
+ *   window.hideSkeletons().
  *
  *   pane (legacy, kept as a rollback) — a frosted pane shaped like the app
  *   shell (nav rail, top bar, stat cards) that sits over the page from the
@@ -70,10 +73,11 @@ if (!function_exists('lh_skeleton_off')) {
 if (!function_exists('lh_skeleton_style')) {
     /** How a page says "still working".
      *
-     *  'curtain' (the default) — the content is rendered normally and each
-     *  content block is laid under a gray cover that fades away when the page
-     *  settles. The rail and the top bar are never covered, and no fake shape
-     *  ever stands in for real text (see assets/curtain.css + curtain.js).
+     *  'curtain' (the default) — the content is rendered normally and the data
+     *  inside it is laid under gray covers that fade away when the page
+     *  settles: the words turn gray, the card around them does not. The rail
+     *  and the top bar are never covered, and no fake shape ever stands in for
+     *  real text (see assets/curtain.css + curtain.js).
      *  'pane' — the older full-screen ghost that drew its own rail and bars.
      *  Kept only as a one-line rollback: define('LH_SKELETON_STYLE', 'pane').
      */
@@ -1124,8 +1128,8 @@ if (!function_exists('lh_skeleton_body')) {
         if (lh_skeleton_style() === 'curtain') {
             /* Nothing to print — the page's own markup is what the visitor is
                waiting for, so there is no ghost to draw. curtain.js lays the
-               covers over that markup, and the rail and the top bar stay
-               exactly as they are the whole time. */
+               covers over the data in that markup, and the rail and the top
+               bar stay exactly as they are the whole time. */
             lh_curtain_boot();
             return;
         }

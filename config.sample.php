@@ -124,8 +124,10 @@ define('DB_PASS_LOCAL', '');            define('DB_PASS_PROD', 'your-mysql-passw
 
 /* The loading screen — how a page says "still working" before it settles.
  *   'curtain' — the shipped default. The page renders its real content and
- *               each content block sits under a gray cover that fades away
- *               when the page has settled (fonts included). The sidebar and
+ *               the data in it — headings, values, paragraphs, table cells,
+ *               charts — sits under gray covers that fade away when the page
+ *               has settled (fonts included). The boxes those sit in keep
+ *               their own background, border and radius. The sidebar and
  *               the top bar are never covered, forms and buttons stay live,
  *               and nothing stands in for real text. assets/curtain.*
  *   'pane'    — the earlier full-screen ghost, which drew its own rail and
