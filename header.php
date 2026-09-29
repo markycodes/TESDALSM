@@ -97,6 +97,12 @@ if ($user) {
                 <path d="M3 9.5h18M8 3v4M16 3v4" />
                 <path d="M9 14.25l2 2 4-3.75" />
               </svg></span><span class="lh-side-label">Attendance</span></a>
+          <a href="schedule.php" class="lh-side-link <?= $nav_active === 'schedule' ? 'active' : '' ?>"
+            data-tip="Schedule"><span class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7.25V12l3.25 2" />
+              </svg></span><span class="lh-side-label">Schedule</span></a>
         <?php endif; ?>
         <?php if (($user['role'] ?? '') === 'teacher'): ?>
           <a href="codes.php" class="lh-side-link <?= $nav_active === 'codes' ? 'active' : '' ?>"
@@ -120,6 +126,12 @@ if ($user) {
                 <path
                   d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.06A1.7 1.7 0 0 0 8.9 19.3a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.06A1.7 1.7 0 0 0 4.6 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6h.08A1.7 1.7 0 0 0 10.1 3.04V3a2 2 0 1 1 4 0v.06a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.08a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.06A1.7 1.7 0 0 0 19.4 15z" />
               </svg></span><span class="lh-side-label">Settings</span></a>
+          <a href="schedule.php" class="lh-side-link <?= $nav_active === 'schedule' ? 'active' : '' ?>"
+            data-tip="Schedule"><span class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7.25V12l3.25 2" />
+              </svg></span><span class="lh-side-label">Schedule</span></a>
         <?php endif; ?>
         <?php if (($user['role'] ?? '') !== 'admin'): ?>
           <a href="<?= ($user['role'] ?? '') === 'teacher' ? 'quiz_records.php' : 'my_records.php' ?>"

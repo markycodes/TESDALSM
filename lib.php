@@ -721,6 +721,35 @@ function db_ensure_schema(PDO $pdo): void
             CONSTRAINT fk_enrollments_course FOREIGN KEY (course_id) REFERENCES courses (id) ON DELETE CASCADE,
             CONSTRAINT fk_enrollments_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        /* The class timetable. One row is one slot and it is one of two things:
+           a weekly rule (repeat_mode 'weekly' + weekday, 0 = Sunday … 6 =
+           Saturday, as PHP's date('w')) or a one-off entry on an exact date
+           (repeat_mode 'once' + sched_date) — an exam, a field trip, a deadline.
+           DATE/TIME columns rather than the usual epoch seconds on purpose: a
+           timetable is a wall-clock promise ("Mondays at 9"), not an instant, so
+           it must read the same in every timezone and never shift over DST. */
+        "CREATE TABLE IF NOT EXISTS schedules (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            course_id INT UNSIGNED NOT NULL,
+            teacher_id INT UNSIGNED NOT NULL,
+            title VARCHAR(120) NOT NULL DEFAULT '',
+            kind ENUM('class','exam','activity','deadline') NOT NULL DEFAULT 'class',
+            repeat_mode ENUM('weekly','once') NOT NULL DEFAULT 'weekly',
+            weekday TINYINT UNSIGNED NULL,
+            sched_date DATE NULL,
+            start_time TIME NOT NULL DEFAULT '08:00:00',
+            end_time TIME NULL,
+            place VARCHAR(160) NOT NULL DEFAULT '',
+            notes VARCHAR(500) NOT NULL DEFAULT '',
+            created_at INT UNSIGNED NOT NULL DEFAULT 0,
+            updated_at INT UNSIGNED NOT NULL DEFAULT 0,
+            INDEX idx_sched_course (course_id),
+            INDEX idx_sched_teacher (teacher_id),
+            INDEX idx_sched_day (repeat_mode, weekday),
+            INDEX idx_sched_date (sched_date),
+            CONSTRAINT fk_sched_course FOREIGN KEY (course_id) REFERENCES courses (id) ON DELETE CASCADE,
+            CONSTRAINT fk_sched_teacher FOREIGN KEY (teacher_id) REFERENCES users (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
         "CREATE TABLE IF NOT EXISTS progress (
             user_id INT UNSIGNED NOT NULL,
             material_id INT UNSIGNED NOT NULL,
@@ -1113,6 +1142,21 @@ function db_seed_if_empty(PDO $pdo): void
     $addCode = $pdo->prepare('INSERT INTO enroll_codes (code, course_id, teacher_id, created_at) VALUES (?,?,?,?)');
     $addCode->execute(['DEMO-7K3P', $course1, $teacherId, $now]);
     $addCode->execute(['DEMO-9X4Q', $course2, $teacherId, $now]);
+
+    // Demo timetable: two weekly classes plus a once-only midterm, so the
+    // Schedule page (and the dashboard card) have something to show out of the box.
+    $addSlot = $pdo->prepare('INSERT INTO schedules (course_id, teacher_id, title, kind, repeat_mode, weekday, sched_date,
+                                                     start_time, end_time, place, notes, created_at, updated_at)
+                              VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)');
+    $addSlot->execute([$course1, $teacherId, 'HTML & CSS lab', 'class', 'weekly', 1, null,
+        '09:00:00', '11:00:00', 'Computer Lab 1', 'Bring your laptop — we build the page live.', $now, $now]);
+    $addSlot->execute([$course1, $teacherId, 'JavaScript workshop', 'class', 'weekly', 3, null,
+        '09:00:00', '11:00:00', 'Computer Lab 1', '', $now, $now]);
+    $addSlot->execute([$course2, $teacherId, 'Design studio', 'class', 'weekly', 5, null,
+        '13:00:00', '15:00:00', 'Room 204', 'Bring your colour swatches.', $now, $now]);
+    $addSlot->execute([$course1, $teacherId, 'Midterm exam', 'exam', 'once', null,
+        date('Y-m-d', strtotime('next monday')), '09:00:00', '12:00:00', 'Computer Lab 1',
+        'Covers lessons 1–4.', $now, $now]);
 }
 /* ---------------- users ---------------- */
 
@@ -2342,6 +2386,333 @@ function toggle_enroll(int $courseId, int $userId): bool
     }
     db()->prepare('INSERT INTO enrollments (course_id, user_id, created_at) VALUES (?,?,?)')->execute([$courseId, $userId, time()]);
     return true;
+}
+
+/* ---------------- class schedule (the teacher's timetable) ---------------- */
+
+/** The kinds of slot a teacher can put on the timetable, with the chip it wears. */
+function schedule_kinds(): array
+{
+    return [
+        'class'    => ['label' => 'Class',    'icon' => '📘', 'chip' => 'bg-indigo-50 text-indigo-700'],
+        'exam'     => ['label' => 'Exam',     'icon' => '📝', 'chip' => 'bg-rose-50 text-rose-700'],
+        'activity' => ['label' => 'Activity', 'icon' => '🧩', 'chip' => 'bg-amber-50 text-amber-700'],
+        'deadline' => ['label' => 'Deadline', 'icon' => '⏰', 'chip' => 'bg-slate-100 text-slate-600'],
+    ];
+}
+
+/** Weekday number => name, Monday first. The numbers are PHP's date('w') (0 = Sunday). */
+function schedule_weekdays(): array
+{
+    return [1 => 'Monday', 2 => 'Tuesday', 3 => 'Wednesday', 4 => 'Thursday', 5 => 'Friday', 6 => 'Saturday', 0 => 'Sunday'];
+}
+
+/** A stored time ('09:30:00' or '09:30') as 'HH:MM'; anything unusable becomes ''. */
+function schedule_hm($t): string
+{
+    $t = trim((string) $t);
+    return preg_match('~^([01]\d|2[0-3]):[0-5]\d~', $t) ? substr($t, 0, 5) : '';
+}
+
+/** '09:30' as '9:30 AM'. '' (no end time set) stays ''. */
+function schedule_clock($hm): string
+{
+    $hm = schedule_hm($hm);
+    return $hm === '' ? '' : date('g:i A', (int) strtotime('2000-01-01 ' . $hm));
+}
+
+/** '9:00 AM – 11:00 AM', or just the start when the slot has no end time. */
+function schedule_time_label(array $row): string
+{
+    $from = schedule_clock($row['start_time'] ?? '');
+    $to = schedule_clock($row['end_time'] ?? '');
+    return $to === '' ? $from : $from . ' – ' . $to;
+}
+
+/** One slot in words: 'Every Monday · 9:00 AM – 11:00 AM', 'Mon, Sep 1 · 9:00 AM – 12:00 PM'. */
+function schedule_when_label(array $row): string
+{
+    if (($row['repeat_mode'] ?? 'weekly') === 'once') {
+        $ts = strtotime((string) ($row['sched_date'] ?? '') . ' 12:00:00');
+        return ($ts ? date('D, M j, Y', $ts) . ' · ' : '') . schedule_time_label($row);
+    }
+    $name = schedule_weekdays()[(int) ($row['weekday'] ?? -1)] ?? '';
+    return 'Every ' . ($name !== '' ? $name : 'week') . ' · ' . schedule_time_label($row);
+}
+
+/** A raw row as the rest of this file expects it (ints, 'HH:MM' times, never-null mode). */
+function schedule_shape(array $r): array
+{
+    $r['id'] = (int) $r['id'];
+    $r['course_id'] = (int) $r['course_id'];
+    $r['teacher_id'] = (int) $r['teacher_id'];
+    $r['weekday'] = $r['weekday'] === null ? null : (int) $r['weekday'];
+    $r['repeat_mode'] = ((string) $r['repeat_mode'] === 'once') ? 'once' : 'weekly';
+    $r['start_time'] = schedule_hm($r['start_time'] ?? '');
+    $r['end_time'] = schedule_hm($r['end_time'] ?? '');
+    return $r;
+}
+
+/**
+ * Every slot of the given courses, earliest start first, each row carrying its
+ * course title. This is the one gate on the schedule — it is always called with
+ * courses the signed-in user is allowed to see, which is how a student can never
+ * read another course's timetable.
+ */
+function schedule_rows_for_courses(array $courseIds): array
+{
+    $ids = array_values(array_unique(array_filter(array_map('intval', $courseIds), fn ($i) => $i > 0)));
+    if (!$ids) return [];
+    $in = implode(',', array_fill(0, count($ids), '?'));
+    $st = db()->prepare("SELECT s.*, c.title AS course_title, c.category AS course_category
+                         FROM schedules s JOIN courses c ON c.id = s.course_id
+                         WHERE s.course_id IN ($in)
+                         ORDER BY s.start_time ASC, s.id ASC");
+    $st->execute($ids);
+    return array_map('schedule_shape', $st->fetchAll());
+}
+
+/** The course ids a teacher owns — or every course, for the main admin. */
+function schedule_teacher_course_ids(int $teacherId, bool $allCourses = false): array
+{
+    if ($allCourses) {
+        return array_map('intval', db()->query('SELECT id FROM courses')->fetchAll(PDO::FETCH_COLUMN));
+    }
+    $st = db()->prepare('SELECT id FROM courses WHERE teacher_id = ?');
+    $st->execute([$teacherId]);
+    return array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN));
+}
+
+/** Everything a teacher (or the admin) has put on their own courses. */
+function schedules_for_teacher(int $teacherId, bool $allCourses = false, int $courseId = 0): array
+{
+    $ids = schedule_teacher_course_ids($teacherId, $allCourses);
+    if ($courseId > 0) $ids = array_values(array_intersect($ids, [$courseId]));
+    return schedule_rows_for_courses($ids);
+}
+
+/** Everything a student may see: the slots of the courses they are enrolled in. */
+function schedules_for_student(int $userId): array
+{
+    $st = db()->prepare('SELECT course_id FROM enrollments WHERE user_id = ?');
+    $st->execute([$userId]);
+    return schedule_rows_for_courses($st->fetchAll(PDO::FETCH_COLUMN));
+}
+
+/** One slot by id. */
+function schedule_row(int $id): ?array
+{
+    $st = db()->prepare('SELECT * FROM schedules WHERE id = ? LIMIT 1');
+    $st->execute([$id]);
+    $row = $st->fetch();
+    return $row ? schedule_shape($row) : null;
+}
+
+/** May this user add, edit or delete slots of this course? A teacher owns their own
+ *  courses; the main admin passes every teacher gate. */
+function schedule_can_manage(array $user, int $courseId): bool
+{
+    $role = (string) ($user['role'] ?? '');
+    if ($courseId <= 0) return false;
+    if ($role === 'admin') return course_row($courseId) !== null;
+    if ($role !== 'teacher') return false;
+    return course_owner_id($courseId) === (int) $user['id'];
+}
+
+/**
+ * Check one posted slot: ['ok' => bool, 'errors' => string[], 'data' => array].
+ * A slot is either a weekly rule (a weekday, repeating forever) or a one-off
+ * entry on an exact date — the two things a real timetable is made of, and they
+ * are mutually exclusive, exactly as the columns are.
+ */
+function schedule_parse(array $in): array
+{
+    $errors = [];
+
+    $kind = (string) ($in['kind'] ?? 'class');
+    if (!array_key_exists($kind, schedule_kinds())) $kind = 'class';
+
+    $mode = ((string) ($in['repeat_mode'] ?? 'weekly') === 'once') ? 'once' : 'weekly';
+    $weekday = null;
+    $date = null;
+    if ($mode === 'weekly') {
+        $weekday = (int) ($in['weekday'] ?? -1);
+        if (!array_key_exists($weekday, schedule_weekdays())) {
+            $errors[] = 'Choose which day of the week the class repeats on.';
+            $weekday = null;
+        }
+    } else {
+        $raw = trim((string) ($in['sched_date'] ?? ''));
+        if (!preg_match('~^(\d{4})-(\d{2})-(\d{2})$~', $raw, $m) || !checkdate((int) $m[2], (int) $m[3], (int) $m[1])) {
+            $errors[] = 'Choose a valid date for a one-off entry.';
+        } else {
+            $date = $raw;
+        }
+    }
+
+    $start = schedule_hm($in['start_time'] ?? '');
+    if ($start === '') $errors[] = 'Enter a start time.';
+    $end = schedule_hm($in['end_time'] ?? '');
+    if ($end !== '' && $start !== '' && $end <= $start) $errors[] = 'The end time must be after the start time.';
+
+    $title = trim((string) ($in['title'] ?? ''));
+    $place = trim((string) ($in['place'] ?? ''));
+    $notes = trim((string) ($in['notes'] ?? ''));
+    if (mb_strlen($title) > 120 || mb_strlen($place) > 160 || mb_strlen($notes) > 500) {
+        $errors[] = 'One field is too long: title 120, place 160, notes 500 characters.';
+    }
+
+    return [
+        'ok' => !$errors,
+        'errors' => $errors,
+        'data' => [
+            'title' => $title,
+            'kind' => $kind,
+            'repeat_mode' => $mode,
+            'weekday' => $weekday,
+            'sched_date' => $date,
+            'start_time' => $start === '' ? '08:00' : $start,
+            'end_time' => $end === '' ? null : $end,
+            'place' => $place,
+            'notes' => $notes,
+        ],
+    ];
+}
+
+/**
+ * Create (id = 0) or update one slot.
+ * Returns ['ok' => bool, 'errors' => string[], 'id' => int, 'created' => bool, 'course_id' => int].
+ */
+function schedule_save(array $user, int $id, array $in): array
+{
+    $courseId = (int) ($in['course_id'] ?? 0);
+    if (!schedule_can_manage($user, $courseId)) {
+        return ['ok' => false, 'errors' => ['Pick one of your own courses — every slot belongs to a course.'],
+                'id' => 0, 'created' => false, 'course_id' => 0];
+    }
+    if ($id > 0) {
+        $existing = schedule_row($id);
+        if (!$existing || !schedule_can_manage($user, (int) $existing['course_id'])) {
+            return ['ok' => false, 'errors' => ['That schedule entry no longer exists.'],
+                    'id' => 0, 'created' => false, 'course_id' => 0];
+        }
+    }
+
+    $parsed = schedule_parse($in);
+    if (!$parsed['ok']) {
+        return ['ok' => false, 'errors' => $parsed['errors'], 'id' => $id, 'created' => false, 'course_id' => $courseId];
+    }
+    $d = $parsed['data'];
+    $owner = (int) (course_row($courseId)['teacher_id'] ?? 0);  /* the course's own teacher, even when an admin edits */
+    $now = time();
+
+    if ($id > 0) {
+        db()->prepare('UPDATE schedules SET course_id = ?, teacher_id = ?, title = ?, kind = ?, repeat_mode = ?,
+                       weekday = ?, sched_date = ?, start_time = ?, end_time = ?, place = ?, notes = ?, updated_at = ?
+                       WHERE id = ?')
+            ->execute([$courseId, $owner, $d['title'], $d['kind'], $d['repeat_mode'], $d['weekday'], $d['sched_date'],
+                       $d['start_time'], $d['end_time'], $d['place'], $d['notes'], $now, $id]);
+        return ['ok' => true, 'errors' => [], 'id' => $id, 'created' => false, 'course_id' => $courseId];
+    }
+
+    db()->prepare('INSERT INTO schedules (course_id, teacher_id, title, kind, repeat_mode, weekday, sched_date,
+                   start_time, end_time, place, notes, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
+        ->execute([$courseId, $owner, $d['title'], $d['kind'], $d['repeat_mode'], $d['weekday'], $d['sched_date'],
+                   $d['start_time'], $d['end_time'], $d['place'], $d['notes'], $now, $now]);
+    return ['ok' => true, 'errors' => [], 'id' => (int) db()->lastInsertId(), 'created' => true, 'course_id' => $courseId];
+}
+
+/** Remove one slot — only the teacher who owns its course may. */
+function schedule_delete(array $user, int $id): bool
+{
+    $row = schedule_row($id);
+    if (!$row || !schedule_can_manage($user, (int) $row['course_id'])) return false;
+    db()->prepare('DELETE FROM schedules WHERE id = ?')->execute([$id]);
+    return true;
+}
+
+/**
+ * The slots that fall on one calendar day, in start-time order: weekly rules
+ * whose weekday matches, plus one-off entries dated that exact day. Each item is
+ * flagged 'past' when it is today and it has already finished, so a page can dim
+ * what is over instead of hiding it.
+ */
+function schedule_items_on(array $rows, string $date): array
+{
+    $wd = (int) date('w', (int) strtotime($date . ' 12:00:00'));
+    $isToday = ($date === date('Y-m-d'));
+    $now = date('H:i');
+    $items = [];
+    foreach ($rows as $r) {
+        if (($r['repeat_mode'] ?? 'weekly') === 'once') {
+            if ((string) ($r['sched_date'] ?? '') !== $date) continue;
+        } elseif ((int) ($r['weekday'] ?? -1) !== $wd) {
+            continue;
+        }
+        $endsAt = ($r['end_time'] ?? '') !== '' ? $r['end_time'] : $r['start_time'];
+        $r['past'] = $isToday && $endsAt < $now;
+        $items[] = $r;
+    }
+    usort($items, fn ($a, $b) => [$a['start_time'], (string) $a['title']] <=> [$b['start_time'], (string) $b['title']]);
+    return $items;
+}
+
+/** One week laid out Monday → Sunday, each day carrying its own items.
+ *  $weekStartTs is any timestamp inside the week to build (0 = the current week). */
+function schedule_week(array $rows, int $weekStartTs = 0): array
+{
+    $base = (int) strtotime('monday this week', $weekStartTs > 0 ? $weekStartTs : time());
+    $today = date('Y-m-d');
+    $names = schedule_weekdays();
+    $days = [];
+    foreach (array_keys($names) as $i => $wd) {
+        $ts = (int) strtotime('+' . $i . ' day', $base);
+        $date = date('Y-m-d', $ts);
+        $days[] = [
+            'date' => $date,
+            'ts' => $ts,
+            'weekday' => $wd,
+            'label' => $names[$wd],
+            'short' => date('D', $ts),
+            'day' => (int) date('j', $ts),
+            'month' => date('M', $ts),
+            'is_today' => $date === $today,
+            'items' => schedule_items_on($rows, $date),
+        ];
+    }
+    return $days;
+}
+
+/** Today's slots — weekly rules landing on today, plus entries dated today. */
+function schedule_today(array $rows): array
+{
+    return schedule_items_on($rows, date('Y-m-d'));
+}
+
+/**
+ * The next few slots from right now: what is left of today first, then the days
+ * after it, scanning three weeks ahead. Each item gains 'on_date', 'day_short'
+ * and a readable 'when' ("Today", "Tomorrow", "Wed, Sep 3").
+ */
+function schedule_next_up(array $rows, int $limit = 3, int $fromTs = 0): array
+{
+    $noon = (int) strtotime(date('Y-m-d', $fromTs > 0 ? $fromTs : time()) . ' 12:00:00');
+    $today = date('Y-m-d', $noon);
+    $tomorrow = date('Y-m-d', (int) strtotime('+1 day', $noon));
+    $found = [];
+    for ($i = 0; $i < 21; $i++) {
+        $ts = (int) strtotime('+' . $i . ' day', $noon);
+        $date = date('Y-m-d', $ts);
+        foreach (schedule_items_on($rows, $date) as $item) {
+            if (!empty($item['past'])) continue;      /* today, but already finished */
+            $item['on_date'] = $date;
+            $item['day_short'] = date('D', $ts);
+            $item['when'] = $date === $today ? 'Today' : ($date === $tomorrow ? 'Tomorrow' : date('D, M j', $ts));
+            $found[] = $item;
+            if (count($found) >= $limit) return $found;
+        }
+    }
+    return $found;
 }
 
 /* ---------------- enrollment codes (invite-only) ---------------- */

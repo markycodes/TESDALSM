@@ -62,6 +62,7 @@ Schema (auto-created, InnoDB, utf8mb4, foreign keys with `ON DELETE CASCADE`):
 | `courses` | id PK, teacher_id FK→users, title, category, description, created_at |
 | `materials` | id PK, course_id FK→courses, type ENUM(file/video/youtube), title, description, filename, orig_name, mime, size, url, created_at |
 | `enrollments` | course_id FK→courses + user_id FK→users (composite PK), created_at |
+| `schedules` | id PK, course_id FK→courses, teacher_id FK→users, title, kind ENUM(class/exam/activity/deadline), repeat_mode ENUM(weekly/once), weekday (0 = Sunday, weekly slots), sched_date DATE (one-off entries), start_time TIME, end_time TIME, place, notes, created_at, updated_at |
 | `progress` | user_id FK→users + material_id FK→materials (composite PK), completed_at |
 | `video_progress` | user_id + material_id (composite PK), watched_seconds, duration_seconds, position_seconds, percent, updated_at |
 | `read_progress` | user_id + material_id (composite PK), depth, seconds, updated_at |
@@ -78,9 +79,11 @@ Uploaded files themselves live in `uploads/` (filenames are stored in `materials
 
 ## Features
 
+- 🗓️ **Class schedule** (`schedule.php`): a teacher builds a timetable out of two kinds of slot — a **weekly class** (a weekday, repeating every week) or a **one-off entry** on a date (an exam, an activity, a deadline) — each one tied to **one of their own courses**, with start/end time, room and an optional note. The week runs Monday → Sunday with today highlighted, finished slots dimmed, a course filter and previous/next-week navigation, and today's slots carry a live-class link. Students see the same week for **only the courses they are enrolled in** (every query is course-scoped, so another course's timetable can never be read), and the same list is echoed on their dashboard by `schedule_section.php`. Saving notifies that course's students (bell + e-mail) exactly like posting a new lesson; deleting is silent. One row per slot in `schedules` (`repeat_mode` = weekly/once), sidebar → **Schedule**.
+
 - 🔐 Register/login with roles (Teacher/Student), hashed passwords, session hardening, CSRF tokens on every form, and a **strong password policy** (min 8 characters with an uppercase letter, a lowercase letter and a number) enforced on registration, e-mail reset and the admin panel
 - 🔑 **Forgot password** (`reset_password.php`, linked from the login page): e-mailed single-use reset link — 32 random bytes, only its SHA-256 is stored (in `user_meta`), 30-minute expiry, throttled to one e-mail per account per minute, no user enumeration (unknown addresses get the same confirmation), confirmation e-mail on change. Delivery uses the configured provider (Brevo API key in admin Settings / `config.php`); every attempt is logged to `data/mail.log`
-- 📚 Teachers: create/delete courses, upload documents &amp; videos, add YouTube/Vimeo links, paste material text, delete lessons
+- 📚 Teachers: create/delete courses, upload documents &amp; videos, add YouTube/Vimeo links, paste material text, delete lessons, set each course's class schedule (`schedule.php`)
 - ✍️ **Paste a whole material**: no file needed — the "✍️ Paste text" tab saves pasted content (Markdown supported) as a reader page
 - 🎬 **Several videos in one go**: the video tab accepts **multiple files** (and the links tab accepts **one URL per line**); each video becomes its own numbered lesson
 - 📄 **Documents open directly on the website**: PDF and images render natively, TXT inline, DOCX with formatting (Mammoth.js), spreadsheets as tables (SheetJS), slides as slide cards (JSZip) — students never download anything
@@ -192,6 +195,7 @@ LMS/
 ├── courses.php         browse + search + category filter
 ├── course.php          course page (players, materials, progress)
 ├── lessons_section.php / lesson_modal.php / course_modal.php   partials
+├── schedule_section.php  partial: the dashboard card that echoes the schedule (today + next up)
 ├── quiz_modal.php        quiz editor modal (teacher)
 ├── quiz_save.php / quiz_delete.php   assign / replace / remove a lesson quiz
 ├── quiz.php              take a lesson quiz (gated; one attempt, locked per question)
@@ -208,6 +212,7 @@ LMS/
 ├── attendance.php      close-attendance endpoint (pagehide beacon)
 ├── enrollments.php     classmates by category/course + online + attendance log
 ├── enroll.php          enroll / leave a course
+├── schedule.php        the class timetable — teachers build it, students read it (weekly + one-off slots)
 ├── course_create.php / course_delete.php / delete_material.php
 ├── lib.php             core library (PDO connection, schema, queries, auth, uploads)
 ├── header.php / footer.php

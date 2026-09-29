@@ -93,6 +93,13 @@ if ($isTeacher) {
   $ss = student_daily_series((int) $user['id']);
 }
 
+/* Class schedule: the same week the Schedule page shows — what is on today, plus
+   what is next. A teacher reads their own courses; a student the courses they are
+   enrolled in. One load feeds the dashboard card below. */
+$schedRows = $isTeacher ? schedules_for_teacher((int) $user['id']) : schedules_for_student((int) $user['id']);
+$schedToday = schedule_today($schedRows);
+$schedNext = schedule_next_up($schedRows, 3);
+
 $page_title = 'Dashboard';
 require __DIR__ . '/header.php';
 ?>
@@ -269,6 +276,8 @@ require __DIR__ . '/header.php';
       </div>
     </section>
 
+    <?php require __DIR__ . '/schedule_section.php'; ?>
+
     <section class="reveal mt-10">
       <h2 class="text-lg font-bold text-slate-900">My courses</h2>
       <?php if (!$myCourses): ?>
@@ -327,6 +336,7 @@ require __DIR__ . '/header.php';
         <span>Today</span>
       </div>
     </section>
+    <?php require __DIR__ . '/schedule_section.php'; ?>
     <section class="reveal mt-10">
       <h2 class="text-lg font-bold text-slate-900">Continue learning</h2>
       <?php if (!$enrolled): ?>

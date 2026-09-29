@@ -18,6 +18,7 @@
             <li><a class="text-slate-600 transition hover:text-emerald-700" href="courses.php">Courses</a></li>
             <li><a class="text-slate-600 transition hover:text-emerald-700" href="enrollments.php">Enrollments</a></li>
             <li><a class="text-slate-600 transition hover:text-emerald-700" href="attendance_day.php">Attendance</a></li>
+            <li><a class="text-slate-600 transition hover:text-emerald-700" href="schedule.php">Schedule</a></li>
             <?php else: ?>
             <li><a class="text-slate-600 transition hover:text-emerald-700" href="login.php">Log in</a></li>
             <li><a class="text-slate-600 transition hover:text-emerald-700" href="register.php">Create free account</a></li>
