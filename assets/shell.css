@@ -1598,3 +1598,321 @@
     .lh-side-tip:hover::after {
       opacity: 1
     }
+
+/* ---------- schedule calendar (schedule.php): the month grid + hover card ---------- */
+/* The grid is a real calendar: seven columns, whole weeks only, every day of the
+   month present. A day that holds something shows compact chips on a wide screen
+   and dots on a phone; pointing at it (or focusing it with the keyboard, or tapping
+   it) fills #lh-cal-pop, one shared card the page script positions next to the day.
+   One card instead of one per day means the details can never be clipped by the
+   grid, and every cell keeps only a <template> copy of its own details. */
+.lh-cal {
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(17, 33, 26, .05);
+  outline: 1px solid #e2e8f0;
+  overflow: visible
+}
+
+.lh-cal-weekhead,
+.lh-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr))
+}
+
+.lh-cal-weekhead {
+  border-bottom: 1px solid #f1f5f9;
+  border-radius: 1rem 1rem 0 0;
+  background: #f8fafc
+}
+
+.lh-cal-weekhead span {
+  padding: .5rem .2rem;
+  text-align: center;
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: #94a3b8
+}
+
+.lh-cal-grid {
+  gap: .375rem;
+  padding: .5rem
+}
+
+.lh-cal-day {
+  position: relative;
+  min-height: 6.4rem;
+  padding: .4rem .45rem;
+  border: 1px solid #f1f5f9;
+  border-radius: .75rem;
+  background: #fff;
+  transition: background .15s ease, border-color .15s ease, box-shadow .15s ease
+}
+
+.lh-cal-day:hover,
+.lh-cal-day:focus-visible,
+.lh-cal-day.is-open {
+  border-color: #a7f3d0;
+  background: #f0fdf9;
+  box-shadow: 0 6px 18px -14px rgba(4, 120, 87, .55);
+  outline: none
+}
+
+/* days of the neighbouring months: present, but clearly not the month in view */
+.lh-cal-day.is-out {
+  background: #fcfdfe
+}
+
+.lh-cal-day.is-out .lh-cal-num,
+.lh-cal-day.is-out .lh-cal-chip {
+  color: #cbd5e1
+}
+
+.lh-cal-day.is-today {
+  border-color: #6ee7b7;
+  background: #ecfdf5
+}
+
+.lh-cal-num {
+  display: block;
+  font-size: .78rem;
+  font-weight: 700;
+  color: #475569
+}
+
+.lh-cal-day.is-today .lh-cal-num {
+  color: #047857
+}
+
+.lh-cal-badge {
+  position: absolute;
+  top: .3rem;
+  right: .4rem;
+  display: grid;
+  place-items: center;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 .25rem;
+  border-radius: 999px;
+  background: #047857;
+  color: #fff;
+  font-size: .6rem;
+  font-weight: 800
+}
+
+.lh-cal-chips {
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+  margin-top: .3rem
+}
+
+.lh-cal-chip {
+  display: block;
+  overflow: hidden;
+  padding: .15rem .3rem;
+  border-radius: .4rem;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: .63rem;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis
+}
+
+.lh-cal-chip b {
+  margin-right: .3rem;
+  color: #0f172a;
+  font-weight: 800
+}
+
+.lh-cal-chip[data-kind="exam"],
+.lh-cal-dots i[data-kind="exam"] {
+  background: #ffe4e6;
+  color: #9f1239
+}
+
+.lh-cal-chip[data-kind="activity"],
+.lh-cal-dots i[data-kind="activity"] {
+  background: #fef3c7;
+  color: #92400e
+}
+
+.lh-cal-chip[data-kind="deadline"],
+.lh-cal-dots i[data-kind="deadline"] {
+  background: #e2e8f0;
+  color: #475569
+}
+
+.lh-cal-more {
+  padding-left: .3rem;
+  color: #94a3b8;
+  font-size: .6rem;
+  font-weight: 700
+}
+
+/* phones: chips would be unreadable in a ~46px cell — dots say "there is something
+   here", and a tap opens the card with the whole day in it */
+.lh-cal-dots {
+  display: none;
+  flex-wrap: wrap;
+  gap: .2rem;
+  margin-top: .35rem
+}
+
+.lh-cal-dots i {
+  width: .4rem;
+  height: .4rem;
+  border-radius: 999px;
+  background: #64748b
+}
+
+.lh-cal-dots i[data-kind="exam"] {
+  background: #e11d48
+}
+
+.lh-cal-dots i[data-kind="activity"] {
+  background: #d97706
+}
+
+.lh-cal-dots i[data-kind="deadline"] {
+  background: #94a3b8
+}
+
+/* the shared hover card */
+.lh-cal-pop {
+  position: fixed;
+  z-index: 60;
+  width: min(21rem, calc(100vw - 1.5rem));
+  padding: .7rem .8rem;
+  border: 1px solid #e2e8f0;
+  border-radius: .85rem;
+  background: #fff;
+  box-shadow: 0 18px 40px -22px rgba(15, 23, 42, .45), 0 2px 6px -2px rgba(15, 23, 42, .12);
+  opacity: 0;
+  transform: translateY(-.25rem);
+  transition: opacity .12s ease, transform .12s ease;
+  pointer-events: none
+}
+
+.lh-cal-pop.is-shown {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto
+}
+
+.lh-cal-pop-title {
+  color: #047857;
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .05em;
+  text-transform: uppercase
+}
+
+.lh-cal-pop-list {
+  display: flex;
+  flex-direction: column;
+  gap: .45rem;
+  margin-top: .5rem
+}
+
+.lh-cal-pop-list li {
+  display: grid;
+  gap: .1rem;
+  padding-left: .5rem;
+  border-left: 3px solid #10b981
+}
+
+.lh-cal-pop-list li.is-past {
+  border-left-color: #cbd5e1;
+  opacity: .55
+}
+
+.lh-cal-t {
+  color: #0f172a;
+  font-size: .68rem;
+  font-weight: 800
+}
+
+.lh-cal-n {
+  color: #1e293b;
+  font-size: .8rem;
+  font-weight: 600
+}
+
+.lh-cal-m {
+  color: #64748b;
+  font-size: .7rem
+}
+
+.lh-cal-x {
+  color: #94a3b8;
+  font-size: .7rem;
+  font-style: italic
+}
+
+.lh-cal-live {
+  justify-self: start;
+  margin-top: .15rem;
+  padding: .1rem .4rem;
+  border-radius: .4rem;
+  background: #047857;
+  color: #fff;
+  font-size: .63rem;
+  font-weight: 800
+}
+
+.lh-cal-day-link {
+  display: inline-block;
+  margin-top: .55rem;
+  color: #047857;
+  font-size: .7rem;
+  font-weight: 700
+}
+
+.lh-cal-day-link:hover {
+  text-decoration: underline
+}
+
+@media (max-width: 640px) {
+  .lh-cal-day {
+    min-height: 3.4rem;
+    padding: .3rem
+  }
+
+  .lh-cal-chips {
+    display: none
+  }
+
+  .lh-cal-dots {
+    display: flex
+  }
+
+  .lh-cal-weekhead span {
+    font-size: .55rem
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .lh-cal-day,
+  .lh-cal-pop {
+    transition: none
+  }
+}
+
+@media print {
+  .lh-cal-pop {
+    display: none !important
+  }
+
+  .lh-cal-day {
+    min-height: 0
+  }
+
+  .lh-cal-dots {
+    display: none
+  }
+}

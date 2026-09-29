@@ -2683,6 +2683,51 @@ function schedule_week(array $rows, int $weekStartTs = 0): array
     return $days;
 }
 
+/**
+ * One calendar month as weeks of seven days (Monday first), each day carrying its
+ * own items — the same day shape schedule_week() returns, plus 'in_month' so the
+ * grid can grey the days that belong to the neighbouring months. Whole weeks are
+ * always returned: the grid starts on the Monday on or before the 1st and ends on
+ * the Sunday on or after the last day, which is what makes it read as a calendar
+ * rather than as a list.
+ *
+ * $anchorTs is any timestamp inside the month to build (0 = the current month).
+ */
+function schedule_month(array $rows, int $anchorTs = 0): array
+{
+    $anchor = $anchorTs > 0 ? $anchorTs : time();
+    $month = date('Y-m', $anchor);
+    $today = date('Y-m-d');
+    $names = schedule_weekdays();
+    $start = (int) strtotime('monday this week', (int) strtotime(date('Y-m-01', $anchor) . ' 12:00:00'));
+    $end = (int) strtotime('sunday this week', (int) strtotime(date('Y-m-t', $anchor) . ' 12:00:00'));
+
+    $weeks = [];
+    $week = [];
+    for ($ts = $start; $ts <= $end; $ts = (int) strtotime('+1 day', $ts)) {
+        $date = date('Y-m-d', $ts);
+        $wd = (int) date('w', $ts);
+        $week[] = [
+            'date' => $date,
+            'ts' => $ts,
+            'weekday' => $wd,
+            'label' => $names[$wd],
+            'short' => date('D', $ts),
+            'day' => (int) date('j', $ts),
+            'month' => date('M', $ts),
+            'is_today' => $date === $today,
+            'in_month' => date('Y-m', $ts) === $month,
+            'items' => schedule_items_on($rows, $date),
+        ];
+        if (count($week) === 7) {
+            $weeks[] = $week;
+            $week = [];
+        }
+    }
+    if ($week) $weeks[] = $week;   /* defensive: never drop a trailing partial week */
+    return $weeks;
+}
+
 /** Today's slots — weekly rules landing on today, plus entries dated today. */
 function schedule_today(array $rows): array
 {

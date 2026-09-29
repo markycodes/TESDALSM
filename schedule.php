@@ -46,12 +46,25 @@ if (!$myCourses) {
     exit;
 }
 
-/* ---- week selection: ?w=YYYY-MM-DD anywhere inside the week (defaults to this one) ---- */
-$weekParam = trim((string) ($_GET['w'] ?? ''));
-$weekDate = (preg_match('~^\d{4}-\d{2}-\d{2}$~', $weekParam) && strtotime($weekParam) !== false) ? $weekParam : date('Y-m-d');
-$weekStart = (int) strtotime('monday this week', (int) strtotime($weekDate . ' 12:00:00'));
+/* ---- the view (a month calendar by default, the week list as the second view) and
+        the date it is anchored on: ?view=month|week plus ?d=YYYY-MM-DD, any date
+        inside the month or week to show. ?w= from the first release still works. ---- */
+$view = ((string) ($_GET['view'] ?? '') === 'week') ? 'week' : 'month';
+$anchorParam = trim((string) ($_GET['d'] ?? $_GET['w'] ?? ''));
+$anchorTs = (preg_match('~^\d{4}-\d{2}-\d{2}$~', $anchorParam) && strtotime($anchorParam) !== false)
+  ? (int) strtotime($anchorParam . ' 12:00:00')
+  : (int) strtotime(date('Y-m-d') . ' 12:00:00');
+$anchorDate = date('Y-m-d', $anchorTs);
+$monthAnchor = (int) strtotime(date('Y-m-01', $anchorTs) . ' 12:00:00');
+$stepSize = $view === 'month' ? 'month' : 'week';
+$stepFrom = $view === 'month' ? $monthAnchor : $anchorTs;
+$prevDate = date('Y-m-d', (int) strtotime('-1 ' . $stepSize, $stepFrom));
+$nextDate = date('Y-m-d', (int) strtotime('+1 ' . $stepSize, $stepFrom));
+$weekStart = (int) strtotime('monday this week', $anchorTs);
 $weekEnd = (int) strtotime('+6 day', $weekStart);
 $isThisWeek = ($weekStart === (int) strtotime('monday this week'));
+$isCurrentMonth = (date('Y-m', $anchorTs) === date('Y-m'));
+$isToday = ($anchorDate === date('Y-m-d'));
 
 /* ---- course filter — it can only ever narrow what this user may see ---- */
 $scopeIds = array_map(fn ($c) => (int) $c['id'], $myCourses);
@@ -62,11 +75,19 @@ if ($selCourse > 0 && in_array($selCourse, $scopeIds, true)) {
     $selCourse = 0;
 }
 
-/* The query string that keeps the chosen week + filter while links and redirects move around. */
-$keep = [];
-if (!$isThisWeek) $keep['w'] = date('Y-m-d', $weekStart);
-if ($selCourse > 0) $keep['course'] = (string) $selCourse;
-$qs = $keep ? '?' . http_build_query($keep) : '';
+/* Every link on this page keeps the current view, the anchor date and the course
+   filter; whatever is already the default is dropped, so the URLs stay short. */
+$url = function (array $over = []) use ($view, $anchorDate, $selCourse): string {
+    $q = ['view' => $view, 'd' => $anchorDate];
+    if ($selCourse > 0) $q['course'] = (string) $selCourse;
+    foreach ($over as $k => $v) {
+        if ($v === null || $v === '') unset($q[$k]); else $q[$k] = (string) $v;
+    }
+    if (($q['view'] ?? '') === 'month') unset($q['view']);   /* month is the default view */
+    if (($q['d'] ?? '') === date('Y-m-d')) unset($q['d']);   /* today is the default date */
+    return 'schedule.php' . ($q ? '?' . http_build_query($q) : '');
+};
+$qs = substr($url(), strlen('schedule.php'));   /* '?view=…&d=…' or '' — used on redirects */
 
 $rows = schedule_rows_for_courses($scopeIds);
 $formErrors = [];
@@ -144,9 +165,10 @@ if ($isTeacher && $_SERVER['REQUEST_METHOD'] !== 'POST') {
     }
 }
 
-$week = schedule_week($rows, $weekStart);
 $kinds = schedule_kinds();
 $weekdayNames = schedule_weekdays();
+$week = schedule_week($rows, $anchorTs);     /* the week view: seven day cards */
+$month = schedule_month($rows, $anchorTs);   /* the calendar view: weeks of days */
 $weeklyCount = 0;
 $onceCount = 0;
 foreach ($rows as $r) {
@@ -156,6 +178,19 @@ $dayCount = 0;
 foreach ($week as $d) {
     if ($d['items']) $dayCount++;
 }
+/* Counts for the toolbar label. The grid also paints the days of the neighbouring
+   months, so only this month's own days are counted here. */
+$monthDayCount = 0;
+$monthSlotCount = 0;
+foreach ($month as $mw) {
+    foreach ($mw as $md) {
+        if (!$md['in_month']) continue;
+        if ($md['items']) $monthDayCount++;
+        $monthSlotCount += count($md['items']);
+    }
+}
+$monthLabel = date('F Y', $monthAnchor);
+$weekLabel = date('M j', $weekStart) . ' – ' . date('M j, Y', $weekEnd);
 $courseFilter = [];
 foreach ($myCourses as $c) $courseFilter[(int) $c['id']] = (string) $c['title'];
 
@@ -180,44 +215,121 @@ require __DIR__ . '/header.php';
     <?php endif; ?>
   </div>
 
-  <!-- Week navigation + course filter -->
+  <!-- View switch · navigation · course filter -->
   <div
     class="reveal mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
     <div class="flex items-center gap-1.5">
-      <a href="schedule.php?<?= e(http_build_query(array_merge($keep, ['w' => date('Y-m-d', (int) strtotime('-7 day', $weekStart))]))) ?>"
-        data-tip="Previous week" aria-label="Previous week"
-        class="lh-tip grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100">‹</a>
-      <div class="min-w-[10.5rem] text-center">
-        <p class="text-sm font-bold text-slate-800"><?= e(date('M j', $weekStart)) ?> – <?= e(date('M j, Y', $weekEnd)) ?></p>
-        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-          <?= $dayCount ?> class day<?= $dayCount === 1 ? '' : 's' ?><?= $isThisWeek ? ' · this week' : '' ?></p>
+      <a href="<?= e($url(['d' => $prevDate])) ?>" data-tip="Previous <?= $view === 'month' ? 'month' : 'week' ?>"
+        aria-label="Previous <?= $view === 'month' ? 'month' : 'week' ?>"
+        class="lh-tip grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100">&lsaquo;</a>
+      <div class="min-w-[11rem] text-center">
+        <p class="text-sm font-bold text-slate-800"><?= e($view === 'month' ? $monthLabel : $weekLabel) ?></p>
+        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400"><?php if ($view === 'month'): ?><?= $monthDayCount ?> day<?= $monthDayCount === 1 ? '' : 's' ?> · <?= $monthSlotCount ?>
+            slot<?= $monthSlotCount === 1 ? '' : 's' ?><?= $isCurrentMonth ? ' · this month' : '' ?><?php else: ?><?= $dayCount ?>
+            class day<?= $dayCount === 1 ? '' : 's' ?><?= $isThisWeek ? ' · this week' : '' ?><?php endif; ?></p>
       </div>
-      <a href="schedule.php?<?= e(http_build_query(array_merge($keep, ['w' => date('Y-m-d', (int) strtotime('+7 day', $weekStart))]))) ?>"
-        data-tip="Next week" aria-label="Next week"
-        class="lh-tip grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100">›</a>
-      <?php if (!$isThisWeek): ?>
-        <a href="schedule.php<?= $selCourse > 0 ? '?course=' . $selCourse : '' ?>"
+      <a href="<?= e($url(['d' => $nextDate])) ?>" data-tip="Next <?= $view === 'month' ? 'month' : 'week' ?>"
+        aria-label="Next <?= $view === 'month' ? 'month' : 'week' ?>"
+        class="lh-tip grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100">&rsaquo;</a>
+      <?php if (!$isToday): ?>
+        <a href="<?= e($url(['d' => null])) ?>"
           class="ml-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100">Today</a>
       <?php endif; ?>
     </div>
-    <?php if (count($courseFilter) > 1): ?>
-      <form method="get" action="schedule.php" class="flex items-center gap-2">
-        <?php if (!$isThisWeek): ?><input type="hidden" name="w" value="<?= e(date('Y-m-d', $weekStart)) ?>"><?php endif; ?>
-        <label for="course" class="text-xs font-semibold uppercase tracking-wide text-slate-400">Course</label>
-        <select id="course" name="course" data-auto-submit
-          class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500">
-          <option value="">All (<?= count($courseFilter) ?>)</option>
-          <?php foreach ($courseFilter as $cid => $ctitle): ?>
-            <option value="<?= $cid ?>" <?= $cid === $selCourse ? 'selected' : '' ?>><?= e($ctitle) ?></option>
-          <?php endforeach; ?>
-        </select>
-        <noscript><button
-            class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Show</button></noscript>
-      </form>
-    <?php endif; ?>
+    <div class="flex flex-wrap items-center gap-2">
+      <div class="flex rounded-lg border border-slate-200 p-0.5" role="group" aria-label="Change view">
+        <a href="<?= e($url(['view' => 'month'])) ?>"
+          class="rounded-md px-2.5 py-1.5 text-xs font-semibold <?= $view === 'month' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100' ?>"
+          <?= $view === 'month' ? 'aria-current="page"' : '' ?>>🗓️ Month</a>
+        <a href="<?= e($url(['view' => 'week'])) ?>"
+          class="rounded-md px-2.5 py-1.5 text-xs font-semibold <?= $view === 'week' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100' ?>"
+          <?= $view === 'week' ? 'aria-current="page"' : '' ?>>☰ Week</a>
+      </div>
+      <?php if (count($courseFilter) > 1): ?>
+        <form method="get" action="schedule.php" class="flex items-center gap-2">
+          <?php if ($view === 'week'): ?><input type="hidden" name="view" value="week"><?php endif; ?>
+          <?php if (!$isToday): ?><input type="hidden" name="d" value="<?= e($anchorDate) ?>"><?php endif; ?>
+          <label for="course" class="text-xs font-semibold uppercase tracking-wide text-slate-400">Course</label>
+          <select id="course" name="course" data-auto-submit
+            class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500">
+            <option value="">All (<?= count($courseFilter) ?>)</option>
+            <?php foreach ($courseFilter as $cid => $ctitle): ?>
+              <option value="<?= $cid ?>" <?= $cid === $selCourse ? 'selected' : '' ?>><?= e($ctitle) ?></option>
+            <?php endforeach; ?>
+          </select>
+          <noscript><button
+              class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Show</button></noscript>
+        </form>
+      <?php endif; ?>
+    </div>
   </div>
 
-  <!-- The week: Monday → Sunday, each day its own card -->
+
+  <?php if ($view === 'month'): ?>
+    <!-- Month calendar. Hover a day (or focus it, or tap it on a phone) and its own
+         details appear in the shared card below the grid. Every cell keeps only a
+         <template> copy of those details, so a page full of days costs one card. -->
+    <div id="cal" class="lh-cal reveal mt-4 scroll-mt-24" data-cal>
+      <div class="lh-cal-weekhead">
+        <?php foreach ($weekdayNames as $wdName): ?><span><?= e($wdName) ?></span><?php endforeach; ?>
+      </div>
+      <div class="lh-cal-grid">
+        <?php foreach ($month as $weekRow): ?>
+          <?php foreach ($weekRow as $day):
+            $dayItems = $day['items'];
+            $dayTotal = count($dayItems); ?>
+            <div class="lh-cal-day<?= $day['in_month'] ? '' : ' is-out' ?><?= $day['is_today'] ? ' is-today' : '' ?>"
+              tabindex="0" data-cal-day="<?= e($day['date']) ?>"
+              aria-label="<?= e($day['label'] . ', ' . $day['month'] . ' ' . $day['day'] . ($dayTotal ? ' — ' . $dayTotal . ' slot' . ($dayTotal === 1 ? '' : 's') : ' — nothing scheduled')) ?>">
+              <span class="lh-cal-num"><?= (int) $day['day'] ?></span>
+              <?php if ($dayTotal > 1): ?><span class="lh-cal-badge"><?= $dayTotal ?></span><?php endif; ?>
+              <span class="lh-cal-chips">
+                <?php foreach (array_slice($dayItems, 0, 2) as $it):
+                  $k = $kinds[$it['kind']] ?? $kinds['class']; ?>
+                  <span class="lh-cal-chip" data-kind="<?= e((string) $it['kind']) ?>"><b><?= e(schedule_clock($it['start_time'])) ?></b><?= e($it['title'] !== '' ? $it['title'] : $k['label']) ?></span>
+                <?php endforeach; ?>
+                <?php if ($dayTotal > 2): ?><span class="lh-cal-more">+<?= $dayTotal - 2 ?> more</span><?php endif; ?>
+              </span>
+              <span class="lh-cal-dots">
+                <?php foreach (array_slice($dayItems, 0, 4) as $it): ?><i
+                    data-kind="<?= e((string) $it['kind']) ?>"></i><?php endforeach; ?>
+              </span>
+              <?php if ($dayTotal): ?>
+                <template class="lh-cal-data">
+                  <p class="lh-cal-pop-title"><?= e($day['label']) ?>, <?= e($day['month']) ?>
+                    <?= (int) $day['day'] ?><?= $day['is_today'] ? ' · today' : '' ?></p>
+                  <ul class="lh-cal-pop-list">
+                    <?php foreach ($dayItems as $it):
+                      $k = $kinds[$it['kind']] ?? $kinds['class'];
+                      $isLive = $day['is_today'] && empty($it['past']); ?>
+                      <li<?= !empty($it['past']) ? ' class="is-past"' : '' ?>>
+                        <span class="lh-cal-t"><?= e(schedule_time_label($it)) ?></span>
+                        <span class="lh-cal-n"><?= $k['icon'] ?>
+                          <?= e($it['title'] !== '' ? $it['title'] : $k['label']) ?></span>
+                        <span
+                          class="lh-cal-m"><?= e((string) $it['course_title']) ?><?= trim((string) $it['place']) !== '' ? ' · 📍 ' . e((string) $it['place']) : '' ?></span>
+                        <?php if (trim((string) $it['notes']) !== ''): ?><span
+                            class="lh-cal-x"><?= e((string) $it['notes']) ?></span><?php endif; ?>
+                        <?php if ($isLive): ?><a class="lh-cal-live"
+                            href="live_join.php?course=<?= (int) $it['course_id'] ?>">▶
+                            <?= $isTeacher ? 'Class link' : 'Join live class' ?></a><?php endif; ?>
+                      </li>
+                    <?php endforeach; ?>
+                  </ul>
+                  <a class="lh-cal-day-link"
+                    href="<?= e($url(['view' => 'week', 'd' => $day['date']])) ?>#cal">Open this day →</a>
+                </template>
+              <?php endif; ?>
+            </div>
+          <?php endforeach; ?>
+        <?php endforeach; ?>
+      </div>
+    </div>
+    <div id="lh-cal-pop" class="lh-cal-pop" role="tooltip" hidden></div>
+    <p class="mt-2 text-center text-xs text-slate-400">Point at a day — or focus it with the keyboard — to see
+      everything on it.</p>
+  <?php else: ?>
+    <!-- The week: Monday → Sunday, each day its own card -->
   <div class="mt-4 space-y-3">
     <?php foreach ($week as $day): ?>
       <section
@@ -260,7 +372,7 @@ require __DIR__ . '/header.php';
                           <?= $isTeacher ? 'Class link' : 'Join live class' ?></a>
                       <?php endif; ?>
                       <?php if ($isTeacher): ?>
-                        <a href="schedule.php?<?= e(http_build_query(array_merge($keep, ['edit' => (string) $it['id']]))) ?>#slot-form"
+                        <a href="<?= e($url(['edit' => (string) $it['id']])) ?>#slot-form"
                           class="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-100">Edit</a>
                         <form method="post" action="schedule.php" data-confirm="Remove this slot from the schedule? Students are not told about removals.">
                           <?= csrf_field() ?>
@@ -281,7 +393,8 @@ require __DIR__ . '/header.php';
         </div>
       </section>
     <?php endforeach; ?>
-  </div>
+    </div>
+  <?php endif; ?>
 
   <?php if ($isTeacher): ?>
     <!-- Add / edit a slot -->
@@ -444,7 +557,7 @@ require __DIR__ . '/header.php';
                     <?= $r['place'] !== '' ? e((string) $r['place']) : '—' ?></td>
                   <td class="px-4 py-3">
                     <div class="flex items-center justify-end gap-1.5">
-                      <a href="schedule.php?<?= e(http_build_query(array_merge($keep, ['edit' => (string) $r['id']]))) ?>#slot-form"
+                      <a href="<?= e($url(['edit' => (string) $r['id']])) ?>#slot-form"
                         class="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100">Edit</a>
                       <form method="post" action="schedule.php"
                         data-confirm="Delete this slot? Students are not told about removals.">
@@ -495,6 +608,87 @@ require __DIR__ . '/header.php';
     }
     mode.addEventListener('change', sync);
     sync();
+  })();
+
+  /* Month calendar: pointing at a day (or focusing it, or tapping it on a phone)
+     fills one shared card with that day's details and places it next to the cell,
+     kept inside the viewport. The card is a single element re-parented to <body>
+     before it is shown — inside the grid it would be clipped by the day cells, and
+     a transformed ancestor would otherwise become the containing block for a fixed
+     element (the same reason app.js re-parents modals). Each day carries only a
+     <template> copy of its own details. */
+  (function () {
+    var grid = document.querySelector('[data-cal]');
+    var pop = document.getElementById('lh-cal-pop');
+    if (!grid || !pop) return;
+    var openDay = null, hideTimer = null;
+
+    function place(day) {
+      var r = day.getBoundingClientRect(), pad = 10;
+      var w = pop.offsetWidth, h = pop.offsetHeight;
+      var left = Math.max(pad, Math.min(r.left + r.width / 2 - w / 2, window.innerWidth - w - pad));
+      var below = r.bottom + 8;
+      var top = (below + h + pad <= window.innerHeight) ? below : (r.top - h - 8);
+      /* a day near the bottom edge of a short window: flip up, and if it still does
+         not fit, sit on the edge rather than spill out of the viewport */
+      top = Math.max(pad, Math.min(top, window.innerHeight - h - pad));
+      pop.style.left = Math.round(left) + 'px';
+      pop.style.top = Math.round(top) + 'px';
+    }
+
+    function show(day) {
+      if (openDay === day) return;
+      var tpl = day.querySelector('template.lh-cal-data');
+      if (!tpl) return;                       /* a day with nothing on it has no card */
+      if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+      if (openDay) openDay.classList.remove('is-open');
+      openDay = day;
+      day.classList.add('is-open');
+      if (pop.parentElement !== document.body) document.body.appendChild(pop);
+      pop.innerHTML = '';
+      pop.appendChild(tpl.content.cloneNode(true));
+      pop.hidden = false;
+      place(day);
+      pop.classList.add('is-shown');
+    }
+
+    function hide(now) {
+      if (!openDay) return;
+      if (hideTimer) clearTimeout(hideTimer);
+      var run = function () {
+        if (openDay) openDay.classList.remove('is-open');
+        openDay = null;
+        pop.classList.remove('is-shown');
+        hideTimer = setTimeout(function () { if (!openDay) pop.hidden = true; }, 160);
+      };
+      /* the short delay on a mouse-out lets the pointer travel into the card */
+      if (now === true) run(); else hideTimer = setTimeout(run, 110);
+    }
+
+    grid.querySelectorAll('[data-cal-day]').forEach(function (day) {
+      day.addEventListener('mouseenter', function () { show(day); });
+      day.addEventListener('mouseleave', function () { hide(false); });
+      day.addEventListener('focus', function () { show(day); });
+      day.addEventListener('blur', function () { hide(true); });
+      day.addEventListener('click', function (e) {
+        if (e.target.closest('a')) return;                 /* the card's own link is navigating */
+        if (openDay !== day) { day.focus(); show(day); }    /* touch: tap the day to open it */
+      });
+      day.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { hide(true); day.blur(); }
+      });
+    });
+
+    pop.addEventListener('mouseenter', function () { if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; } });
+    pop.addEventListener('mouseleave', function () { hide(false); });
+    document.addEventListener('click', function (e) {
+      if (!openDay) return;
+      if (e.target.closest('[data-cal-day]') || e.target.closest('#lh-cal-pop')) return;
+      hide(true);                                          /* tapping anywhere else closes it */
+    });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hide(true); });
+    window.addEventListener('resize', function () { if (openDay) place(openDay); });
+    document.addEventListener('scroll', function () { if (openDay) place(openDay); }, { passive: true, capture: true });
   })();
 </script>
 
