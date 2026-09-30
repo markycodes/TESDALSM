@@ -8,6 +8,7 @@ if (current_user()) { header('Location: ' . lh_enc_url($nextPath)); exit; }
 
 $errors = [];
 $name = ''; $email = ''; $role = 'student'; $code = '';
+$agree = false;   /* the consent checkbox — wording lives in consent_field(), lib.php */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $name  = trim((string) ($_POST['name'] ?? ''));
@@ -16,6 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password2 = (string) ($_POST['password2'] ?? '');
     $role = ($_POST['role'] ?? '') === 'teacher' ? 'teacher' : 'student';
     $code = strtoupper(trim((string) ($_POST['code'] ?? '')));
+    $agree = !empty($_POST['agree']);
 
     /* Human check FIRST: while it fails, nothing below runs — so a robot cannot
        probe invitation codes or create accounts. `human` answers the question
@@ -33,6 +35,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($password2 !== $password) {
         $errors[] = 'The passwords do not match — please retype them.';
     }
+    /* Agreement is checked here, on the server, because a browser can be told to
+       ignore the `required` attribute on the checkbox. */
+    $consentErr = consent_check($_POST);
+    if ($consentErr !== null) $errors[] = $consentErr;
+
     if ($role === 'student' && !$errors) {
         if (strlen($code) < 4) {
             $errors[] = 'Students need an invitation code — ask your teacher for one.';
@@ -57,6 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$errors) {
         reg_human_consume();   /* the pass is spent only when an account is really made */
         $newUserId = create_user($name, $email, password_hash($password, PASSWORD_DEFAULT), $role);
+        consent_record($newUserId);   /* which policy version this account accepted, and when */
         if ($role === 'student') {
             $courseId = redeem_enroll_code($code, $newUserId);
             if ($courseId === null) {
@@ -165,6 +173,7 @@ require __DIR__ . '/header.php';
           <p class="mt-1 text-xs text-slate-400">A tiny sum, so we know you are a person and not a spam robot.</p>
         <?php endif; ?>
       </div>
+      <?= consent_field($agree) ?>
       <button class="w-full rounded-xl bg-indigo-600 py-2.5 font-semibold text-white shadow-sm hover:bg-indigo-700">Create account</button>
     </form>
     <p class="mt-6 text-center text-sm text-slate-500">Already have an account? <a href="login.php<?= $nextPath !== 'dashboard.php' ? '?next=' . rawurlencode($nextPath) : '' ?>" class="font-semibold text-indigo-600 hover:underline">Log in</a></p>

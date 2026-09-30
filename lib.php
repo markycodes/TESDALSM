@@ -6,6 +6,24 @@
 declare(strict_types=1);
 
 if (session_status() === PHP_SESSION_NONE) {
+    /* This is the ONLY cookie LearnHub sets — the login session (see
+       cookie_policy.php for the full list of cookies and browser storage).
+       The attributes are pinned here so the policy can state them exactly:
+         HttpOnly  scripts cannot read it (a stolen XSS payload stays useless)
+         SameSite  Lax — a cross-site POST never carries the session
+         Secure    switched on by itself whenever the request arrives over HTTPS
+       Nothing here is for advertising, analytics or profiling. */
+    $lh_https = (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off')
+        || strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https'
+        || (int) ($_SERVER['SERVER_PORT'] ?? 0) === 443;
+    session_set_cookie_params([
+        'lifetime' => 0,          /* until the browser closes */
+        'path'     => '/',
+        'domain'   => '',
+        'secure'   => $lh_https,
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
     session_start();
 }
 
@@ -5222,6 +5240,87 @@ function user_meta_ensure(): void
     db()->exec('CREATE TABLE IF NOT EXISTS user_meta (user_id INT UNSIGNED NOT NULL, k VARCHAR(40) NOT NULL, v VARCHAR(255) NOT NULL DEFAULT "", PRIMARY KEY (user_id, k)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
     $done = true;
 }
+
+/* ---------------- the public policy pages & recorded consent ---------------
+ * privacy_policy.php, terms_conditions.php and cookie_policy.php are ordinary
+ * pages, and every form that collects something links to them from ONE place,
+ * so a re-worded policy never goes out of sync with the checkbox that points
+ * at it:
+ *   legal_url()       where a policy lives — the only copy of those file names
+ *   legal_links()     the three links, styled like the rest of the app
+ *   consent_field()   the "I have read and accept…" box (register.php)
+ *   consent_notice()  the one-line version (login.php, reset_password.php)
+ *   consent_check()   server-side proof the box really was ticked
+ *   consent_record()  what was accepted, and when, per account
+ * Bump LEGAL_VERSION whenever a policy changes materially: every account then
+ * keeps the version it actually agreed to (user_meta: consent_at /
+ * consent_version), which is what a data-protection review asks to see.
+ * ------------------------------------------------------------------------- */
+const LEGAL_VERSION = '2026-09-30';           /* the "Last updated" date on all three */
+
+/** key => [file, label] — the single source of the three policy URLs. */
+const LEGAL_PAGES = [
+    'privacy' => ['file' => 'privacy_policy.php',   'label' => 'Privacy Policy'],
+    'terms'   => ['file' => 'terms_conditions.php', 'label' => 'Terms & Conditions'],
+    'cookies' => ['file' => 'cookie_policy.php',    'label' => 'Cookie Policy'],
+];
+
+/** Address of one policy page ('' when the key is unknown). */
+function legal_url(string $key): string
+{
+    return LEGAL_PAGES[$key]['file'] ?? '';
+}
+
+/** The three policy links as inline anchors, for forms, footers and notices. */
+function legal_links(string $sep = ' · '): string
+{
+    $out = [];
+    foreach (LEGAL_PAGES as $p) {
+        $out[] = '<a class="font-semibold text-indigo-600 hover:underline" href="' . e($p['file']) . '">'
+            . e($p['label']) . '</a>';
+    }
+    return implode(e($sep), $out);
+}
+
+/** The visible consent checkbox. An unticked box never reaches PHP at all. */
+function consent_field(bool $checked = false): string
+{
+    return '<div class="rounded-xl border border-slate-200 bg-slate-50 p-3">'
+        . '<label class="flex cursor-pointer items-start gap-3 text-sm leading-6 text-slate-600">'
+        . '<input type="checkbox" name="agree" value="1" required' . ($checked ? ' checked' : '')
+        . ' class="mt-0.5 h-4 w-4 shrink-0 accent-indigo-600">'
+        . '<span>I have read and accept the ' . legal_links() . ' — and I confirm I am 18 or older, '
+        . 'or that a parent or guardian agrees on my behalf.</span>'
+        . '</label>'
+        . '<p class="mt-2 text-xs leading-5 text-slate-400">Your name and e-mail are used to run your account, '
+        . 'course and certificate — nothing more. The <a class="font-semibold text-slate-500 hover:underline" href="'
+        . e(legal_url('privacy')) . '">Privacy Policy</a> lists exactly what is stored and for how long, and the '
+        . '<a class="font-semibold text-slate-500 hover:underline" href="' . e(legal_url('cookies')) . '">Cookie Policy</a> '
+        . 'explains the one necessary cookie we set.</p>'
+        . '</div>';
+}
+
+/** One line of the same agreement, for forms that collect nothing new. */
+function consent_notice(string $extra = '', string $align = 'text-center'): string
+{
+    return '<p class="mt-4 ' . e($align) . ' text-xs leading-5 text-slate-400">By continuing you agree to our '
+        . legal_links() . '.' . ($extra !== '' ? ' ' . e($extra) : '') . '</p>';
+}
+
+/** Ticked the box? Returns the message to show, or null when it was ticked. */
+function consent_check(array $post): ?string
+{
+    return !empty($post['agree']) ? null
+        : 'Please tick the box to accept the Terms & Conditions and the Privacy Policy.';
+}
+
+/** Remember what this account accepted, and when (keys must fit user_meta.k). */
+function consent_record(int $uid): void
+{
+    user_meta_set($uid, 'consent_at', date('Y-m-d H:i:s'));
+    user_meta_set($uid, 'consent_version', LEGAL_VERSION);
+}
+
 
 ensure_storage();
 /* URLs: decrypt ids coming in (old plain links keep working), then start the

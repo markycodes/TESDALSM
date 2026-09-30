@@ -80,6 +80,7 @@ require __DIR__ . '/header.php';
             class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
         </div>
         <button class="w-full rounded-xl bg-indigo-600 py-2.5 font-semibold text-white shadow-sm hover:bg-indigo-700">Save new password</button>
+        <?= consent_notice('Your new password is stored only as a one-way hash — nobody can read it.') ?>
       </form>
     <?php else: ?>
       <h1 class="text-2xl font-bold text-slate-900">Reset your password</h1>
@@ -100,6 +101,7 @@ require __DIR__ . '/header.php';
         </div>
         <?= turnstile_field() ?>
         <button class="w-full rounded-xl bg-indigo-600 py-2.5 font-semibold text-white shadow-sm hover:bg-indigo-700">Send reset link</button>
+        <?= consent_notice('Your e-mail address is used only to send this reset link — nothing else.') ?>
       </form>
     <?php endif; ?>
     <p class="mt-6 text-center text-sm text-slate-500">Remembered it? <a href="login.php" class="font-semibold text-indigo-600 hover:underline">Back to log in</a></p>
