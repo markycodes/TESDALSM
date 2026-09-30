@@ -12,15 +12,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $email = trim((string) ($_POST['email'] ?? ''));
     $password = (string) ($_POST['password'] ?? '');
-    $found = find_user_by_email($email);
-    if ($found && password_verify($password, (string) ($found['password'] ?? ''))) {
-        session_regenerate_id(true);
-        $_SESSION['user_id'] = (int) $found['id'];
-        set_flash('success', 'Welcome back, ' . $found['name'] . '!');
-        header('Location: ' . lh_enc_url($nextPath));
-        exit;
+
+    /* Cloudflare Turnstile FIRST — while the check fails, no account is looked
+       up and no password is compared. With no keys configured this returns null
+       and the flow below runs exactly as it always did; a submit with the widget
+       stripped out of the page fails right here, its token arriving empty. */
+    $tsError = turnstile_verify((string) ($_POST['cf-turnstile-response'] ?? ''),
+        (string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+    if ($tsError !== null) {
+        $error = $tsError;
+    } else {
+        $found = find_user_by_email($email);
+        if ($found && password_verify($password, (string) ($found['password'] ?? ''))) {
+            session_regenerate_id(true);
+            $_SESSION['user_id'] = (int) $found['id'];
+            set_flash('success', 'Welcome back, ' . $found['name'] . '!');
+            header('Location: ' . lh_enc_url($nextPath));
+            exit;
+        }
+        $error = 'Wrong email or password.';
     }
-    $error = 'Wrong email or password.';
 }
 $page_title = 'Log in';
 require __DIR__ . '/header.php';
@@ -48,6 +59,7 @@ require __DIR__ . '/header.php';
         <input id="password" name="password" type="password" required placeholder="••••••••"
                class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
       </div>
+      <?= turnstile_field() ?>
       <button class="w-full rounded-xl bg-indigo-600 py-2.5 font-semibold text-white shadow-sm hover:bg-indigo-700">Log in</button>
     </form>
     <p class="mt-6 text-center text-sm text-slate-500">No account? <a href="register.php<?= $nextPath !== 'dashboard.php' ? '?next=' . rawurlencode($nextPath) : '' ?>" class="font-semibold text-indigo-600 hover:underline">Create one free</a></p>

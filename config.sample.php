@@ -88,7 +88,8 @@ define('DB_PASS_LOCAL', '');            define('DB_PASS_PROD', 'your-mysql-passw
  *   https://dash.cloudflare.com/?to=/:account/turnstile
  * and add every hostname the form runs on (your live domain, plus localhost if
  * you test on this machine): a token is only accepted from a registered
- * hostname. Then paste the two keys here or in Settings → Registration.
+ * hostname. The same two keys also guard the log-in and password-reset forms.
+ * Then paste the two keys here or in Settings → Registration.
  */
 // define('TURNSTILE_SITE_KEY',   '0x4AAAAAAA...');   // public, rendered in the form
 // define('TURNSTILE_SECRET_KEY', '0x4AAAAAAA...');   // private, used server-side

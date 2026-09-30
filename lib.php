@@ -1560,6 +1560,22 @@ function turnstile_verify(string $token, string $ip = ''): ?string
     return 'The human check did not pass — please tick the box and try again.';
 }
 
+/** The Cloudflare widget for a form: the official script, the box, and one line
+ *  of explanation — wrapped so the form treats it as a single field. Drop it in
+ *  just above the submit button. Returns '' while Turnstile is not configured,
+ *  so the form renders exactly as it always did. Only the PUBLIC site key is
+ *  printed here; the secret never leaves this server. */
+function turnstile_field(): string
+{
+    if (!turnstile_ready()) return '';
+    return '<div>'
+        . '<label class="block text-sm font-medium text-slate-700">Quick human check</label>'
+        . '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>'
+        . '<div class="cf-turnstile mt-1" data-sitekey="' . e(turnstile_cfg()['site']) . '" data-theme="light"></div>'
+        . '<p class="mt-1 text-xs text-slate-400">Protected by Cloudflare Turnstile — it usually checks you silently, with no puzzle to solve.</p>'
+        . '</div>';
+}
+
 /* ---------------- registration: human check ---------------- */
 
 const REG_HUMAN_TTL = 1800;         /* a question stays answerable for 30 minutes */

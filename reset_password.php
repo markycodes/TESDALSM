@@ -17,12 +17,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string) ($_POST['action'] ?? '');
 
     if ($action === 'request') {
-        $email = trim((string) ($_POST['email'] ?? ''));
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $errors[] = 'Please enter a valid e-mail address.';
+        /* Cloudflare Turnstile FIRST — while the check fails, no reset e-mail is
+           queued. With no keys configured this returns null and the request runs
+           exactly as it always did (see the turnstile_*() block in lib.php). */
+        $tsError = turnstile_verify((string) ($_POST['cf-turnstile-response'] ?? ''),
+            (string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+        if ($tsError !== null) {
+            $errors[] = $tsError;
         } else {
-            password_reset_request($email);   /* false = unknown address; same message either way */
-            $done = true;
+            $email = trim((string) ($_POST['email'] ?? ''));
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $errors[] = 'Please enter a valid e-mail address.';
+            } else {
+                password_reset_request($email);   /* false = unknown address; same message either way */
+                $done = true;
+            }
         }
     } elseif ($action === 'apply') {
         $new = (string) ($_POST['password'] ?? '');
@@ -89,6 +98,7 @@ require __DIR__ . '/header.php';
           <input id="email" name="email" type="email" required value="<?= e((string) ($_POST['email'] ?? '')) ?>" placeholder="you@example.com"
             class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
         </div>
+        <?= turnstile_field() ?>
         <button class="w-full rounded-xl bg-indigo-600 py-2.5 font-semibold text-white shadow-sm hover:bg-indigo-700">Send reset link</button>
       </form>
     <?php endif; ?>

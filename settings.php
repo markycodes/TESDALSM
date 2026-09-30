@@ -71,11 +71,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         setting_set('turnstile_site_key', trim((string) ($_POST['turnstile_site_key'] ?? '')));
         $tsSecretPosted = trim((string) ($_POST['turnstile_secret_key'] ?? ''));
         if ($tsSecretPosted !== '') setting_set('turnstile_secret_key', $tsSecretPosted);   /* blank keeps the saved secret */
-        set_flash('success', 'Turnstile settings saved — registration now uses Cloudflare.');
+        set_flash('success', 'Turnstile settings saved — sign-up, log-in and the password-reset request now use Cloudflare.');
     } elseif ($action === 'clear_turnstile') {
         setting_set('turnstile_site_key', '');
         setting_set('turnstile_secret_key', '');
-        set_flash('success', 'Turnstile keys removed — registration falls back to the built-in question.');
+        set_flash('success', 'Turnstile keys removed — registration falls back to the built-in question; log-in and the reset request run without a check.');
     } elseif ($action === 'save_theme') {
         /* appearance — see ui_theme*() / ui_density*() / ui_layout*() in lib.php */
         $theme = strtolower(trim((string) ($_POST['ui_theme'] ?? '')));
@@ -332,12 +332,11 @@ require __DIR__ . '/header.php';
   <form method="post" class="reveal lh-plain rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
     <?= csrf_field() ?>
     <input type="hidden" name="action" value="save_turnstile">
-    <h2 class="text-base font-bold text-slate-900">🛡️ Registration human check (Cloudflare Turnstile)</h2>
+    <h2 class="text-base font-bold text-slate-900">🛡️ Registration &amp; log-in human check (Cloudflare Turnstile)</h2>
     <p class="mt-1 text-sm text-slate-600">
-      Registration currently uses <b><?= $tsReady ? 'Cloudflare Turnstile' : 'the built-in question' ?></b>.
       <?= $tsReady
-        ? 'Visitors are checked silently — only suspicious ones see a checkbox.'
-        : 'Add the two keys below to switch to Cloudflare. Until then the form asks a small sum instead.' ?>
+        ? 'Sign-up, log-in and the password-reset request are all checked by <b>Cloudflare Turnstile</b> — visitors are checked silently, and only suspicious ones see a checkbox.'
+        : 'Registration currently uses <b>the built-in question</b>, while log-in and the password-reset request run unguarded. Add the two keys below to guard all three with Cloudflare; until then, the form asks a small sum instead.' ?>
     </p>
 
     <div class="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800">

@@ -153,10 +153,7 @@ require __DIR__ . '/header.php';
       </div>
       <div>
         <?php if (!empty($human['turnstile'])): ?>
-          <label class="block text-sm font-medium text-slate-700">Quick human check</label>
-          <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-          <div class="cf-turnstile mt-1" data-sitekey="<?= e((string) $human['site']) ?>" data-theme="light"></div>
-          <p class="mt-1 text-xs text-slate-400">Protected by Cloudflare Turnstile — it usually checks you silently, with no puzzle to solve.</p>
+          <?= turnstile_field() ?>
         <?php elseif (!empty($human['pass'])): ?>
           <label class="block text-sm font-medium text-slate-700">Quick human check</label>
           <p class="mt-1 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">✓ Verified — just finish the form below.</p>
