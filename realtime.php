@@ -68,6 +68,8 @@ if ($v === 'dash' && $isTeacher) {
         'attention' => $attention,
         'activity_svg' => activity_chart_svg($ts['visits'], $ts['completions'], $ts['labels']),
         'students_svg' => zigzag_svg($ts['enrollments'], '#4f46e5', 'rgba(79,70,229,0.16)', $ts['labels'], 'New enrollments'),
+        /* Tala's cloud: the same words the banner printed, recounted for now */
+        'owl' => owl_news($user),
         'now' => time(),
     ]);
     exit;
@@ -87,6 +89,8 @@ if ($v === 'dash-student' && !$isTeacher) {
             'enrolled' => count($enrolled), 'done' => $totDone, 'avg' => $avg, 'total' => $totLessons,
         ],
         'activity_svg' => activity_chart_svg($ss['visits'], $ss['completions'], $ss['labels']),
+        /* Tala's cloud: the same words the banner printed, recounted for now */
+        'owl' => owl_news($user),
         'now' => time(),
     ]);
     exit;
@@ -135,13 +139,28 @@ if ($v === 'roster') {
     }
     $studentIds = array_values(array_map('intval', array_column($students, 'id')));
 
+    /* ---- whose attendance may be read here ----
+       The teacher of these courses (and the main admin, who owns the site) read
+       every student's record. A student reads their OWN rows and nothing else:
+       how often another student turned up, and when, is not their data — the
+       classmate list above stays (names, shared courses, online dot) because
+       that is what a class is, but the numbers go. */
+    $mayReadAttendance = $isTeacher || ($user['role'] ?? '') === 'admin';
     $attSummary = [];
-    if ($studentIds) {
-        $in2 = implode(',', array_fill(0, count($studentIds), '?'));
+    $totalVisits = 0;
+    if ($scopeIds && $mayReadAttendance) {
         $st = db()->prepare("SELECT user_id, COUNT(*) AS visits, MAX(entered_at) AS last_at
-                             FROM attendance WHERE user_id IN ($in2) AND course_id IN ($in)
+                             FROM attendance WHERE course_id IN ($in)
                              GROUP BY user_id");
-        $st->execute(array_merge(array_values($studentIds), array_values($scopeIds)));
+        $st->execute(array_values($scopeIds));
+        foreach ($st->fetchAll() as $r) {
+            $attSummary[(int) $r['user_id']] = ['visits' => (int) $r['visits'], 'last_at' => (int) $r['last_at']];
+        }
+    } elseif ($scopeIds) {
+        $st = db()->prepare("SELECT user_id, COUNT(*) AS visits, MAX(entered_at) AS last_at
+                             FROM attendance WHERE course_id IN ($in) AND user_id = ?
+                             GROUP BY user_id");
+        $st->execute(array_merge(array_values($scopeIds), [$me]));
         foreach ($st->fetchAll() as $r) {
             $attSummary[(int) $r['user_id']] = ['visits' => (int) $r['visits'], 'last_at' => (int) $r['last_at']];
         }
@@ -155,28 +174,40 @@ if ($v === 'roster') {
     foreach ($students as $u) {
         $sid = (int) $u['id'];
         $coursesFor = $shareCourses[$sid] ?? [];
-        $sum = $attSummary[$sid] ?? ['visits' => 0, 'last_at' => 0];
-        $studentsOut[] = [
+        $row = [
             /* the address travels masked too, so the live payload can never leak it */
             'id' => $sid, 'name' => (string) $u['name'], 'email' => mask_email((string) ($u['email'] ?? '')),
             'online' => isset($online[$sid]),
             'courses' => array_slice(array_map('strval', $coursesFor), 0, 3),
             'more_courses' => max(0, count($coursesFor) - 3),
-            'visits' => (int) $sum['visits'], 'last_at' => (int) $sum['last_at'],
         ];
+        /* The attendance column carries only figures this viewer may read. For a
+           student the keys are absent altogether for everyone but themselves —
+           so there is nothing in the payload for the page to print by accident. */
+        if ($mayReadAttendance || $sid === $me) {
+            $sum = $attSummary[$sid] ?? ['visits' => 0, 'last_at' => 0];
+            $row['visits'] = (int) $sum['visits'];
+            $row['last_at'] = (int) $sum['last_at'];
+        }
+        $studentsOut[] = $row;
     }
 
+    /* The attendance log of one course: everybody's rows for the teacher of that
+       course, the viewer's own rows for a student. The IP address goes no
+       further than the teacher. */
     $attLogArr = [];
     if ($selCourse > 0) {
         $st = db()->prepare("SELECT a.id, a.user_id, a.entered_at, a.left_at, a.ip, u.name
                              FROM attendance a JOIN users u ON u.id = a.user_id
-                             WHERE a.course_id = ? AND u.id <> ? ORDER BY a.entered_at DESC LIMIT 200");
-        $st->execute([$selCourse, $me]);
+                             WHERE a.course_id = ?" . ($mayReadAttendance ? '' : ' AND a.user_id = ?') .
+                             ' ORDER BY a.entered_at DESC LIMIT 200');
+        $st->execute($mayReadAttendance ? [$selCourse] : [$selCourse, $me]);
         foreach ($st->fetchAll() as $r) {
             $attLogArr[] = [
                 'id' => (int) $r['id'],
                 'name' => (string) $r['name'], 'entered_at' => (int) $r['entered_at'],
-                'left_at' => $r['left_at'] ? (int) $r['left_at'] : null, 'ip' => (string) ($r['ip'] ?? ''),
+                'left_at' => $r['left_at'] ? (int) $r['left_at'] : null,
+                'ip' => $mayReadAttendance ? (string) ($r['ip'] ?? '') : '',
                 'online' => isset($online[(int) $r['user_id']]),
             ];
         }
@@ -187,6 +218,8 @@ if ($v === 'roster') {
         'summary' => ['classmates' => count($students), 'online' => $onlineNow, 'visits' => $totalVisits],
         'students' => $studentsOut,
         'attLog' => $attLogArr, 'attCourse' => $selCourse,
+        /* so the redrawn table leaves the IP column out for a student */
+        'ownOnly' => !$mayReadAttendance,
         'now' => time(),
     ]);
     exit;
@@ -219,6 +252,11 @@ if ($v === 'day') {
     if (!$scopeCourses) $scopeCourses = $myCourses;
     $scopeIds = array_values(array_map('intval', array_column($scopeCourses, 'id')));
 
+    /* A student reads this page for their OWN visits; the teacher of the courses
+       in scope (and the main admin) see the whole day. $mayReadAttendance also
+       keeps the IP addresses out of the payload — attendance_day.php draws the
+       same rule, and the page drops the column when 'ownOnly' comes back set. */
+    $mayReadAttendance = $isTeacher || ($user['role'] ?? '') === 'admin';
     $records = [];
     if ($scopeIds) {
         $in = implode(',', array_fill(0, count($scopeIds), '?'));
@@ -227,9 +265,10 @@ if ($v === 'day') {
                              FROM attendance a
                              JOIN users u ON u.id = a.user_id
                              JOIN courses c ON c.id = a.course_id
-                             WHERE a.entered_at >= ? AND a.entered_at < ? AND a.course_id IN ($in)
-                             ORDER BY a.entered_at DESC");
-        $st->execute(array_merge([$dayStart, $dayStart + 86400], $scopeIds));
+                             WHERE a.entered_at >= ? AND a.entered_at < ? AND a.course_id IN ($in)"
+                             . ($mayReadAttendance ? '' : ' AND a.user_id = ?') .
+                             ' ORDER BY a.entered_at DESC');
+        $st->execute(array_merge([$dayStart, $dayStart + 86400], $scopeIds, $mayReadAttendance ? [] : [$me]));
         $records = $st->fetchAll();
     }
     $recIds = array_values(array_unique(array_map('intval', array_column($records, 'user_id'))));
@@ -249,13 +288,26 @@ if ($v === 'day') {
             'id' => (int) $r['id'], 'user_id' => $uid, 'name' => (string) $r['name'],
             'course_title' => (string) $r['course_title'], 'course_category' => (string) ($r['course_category'] ?? ''),
             'entered_at' => (int) $r['entered_at'], 'left_at' => $r['left_at'] ? (int) $r['left_at'] : null,
-            'open' => $open, 'duration' => $dur, 'online' => isset($online[$uid]), 'ip' => (string) ($r['ip'] ?? ''),
+            'open' => $open, 'duration' => $dur, 'online' => isset($online[$uid]),
+            /* the address belongs to the teacher of the course, and nobody else */
+            'ip' => $mayReadAttendance ? (string) ($r['ip'] ?? '') : '',
         ];
     }
     echo json_encode([
         'ok' => true, 'isToday' => $isToday,
-        'stats' => ['total' => count($rows), 'students' => count($studentsSeen), 'now' => $nowCount, 'time' => $totalTime],
-        'records' => $rows, 'now' => $now,
+        /* the second figure is the teacher's headcount of students; for a student
+           the page labels that chip 'Courses visited', so this sends the count
+           that matches the label they see */
+        'stats' => [
+            'total' => count($rows),
+            'students' => $mayReadAttendance ? count($studentsSeen) : count(array_unique(array_column($rows, 'course_title'))),
+            'now' => $nowCount, 'time' => $totalTime,
+        ],
+        'records' => $rows,
+        /* tells the page whose day this is: it relabels nothing (PHP already did)
+           and leaves the IP column out of the rows it redraws */
+        'ownOnly' => !$mayReadAttendance,
+        'now' => $now,
     ]);
     exit;
 }
@@ -288,13 +340,28 @@ if ($v === 'courses') {
     $enr = [];
     $st = db()->query('SELECT course_id cid, COUNT(*) n FROM enrollments GROUP BY course_id');
     foreach ($st->fetchAll() as $r) $enr[(int) $r['cid']] = (int) $r['n'];
+    /* a student may watch the numbers move only on a course they are in */
+    $mine = [];
+    if (!$isTeacher) {
+        $st = db()->prepare('SELECT course_id FROM enrollments WHERE user_id = ?');
+        $st->execute([$me]);
+        foreach ($st->fetchAll() as $r) $mine[(int) $r['course_id']] = true;
+    }
     $out = [];
     foreach (load_courses() as $c) {
         $cid = (int) $c['id'];
         /* lesson counts are private to the owning teacher: other teachers get 0
            (their cards render "lessons private" without the live hook anyway) */
         $private = $isTeacher && (int) $c['teacher_id'] !== $me;
-        $out[] = ['id' => $cid, 'lessons' => $private ? 0 : ($lessons[$cid] ?? 0), 'students' => $enr[$cid] ?? 0];
+        /* for a student, a course they are not in is private in the same way —
+           how many people are in a class they never joined is not theirs to
+           watch, and courses.php renders the card without the live hook */
+        $unknown = !$isTeacher && !isset($mine[$cid]);
+        $out[] = [
+            'id' => $cid,
+            'lessons' => ($private || $unknown) ? 0 : ($lessons[$cid] ?? 0),
+            'students' => $unknown ? 0 : ($enr[$cid] ?? 0),
+        ];
     }
     echo json_encode(['ok' => true, 'courses' => $out]);
     exit;

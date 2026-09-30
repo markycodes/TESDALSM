@@ -37,6 +37,13 @@ foreach (['owl-rightwing.png', 'owl-rightwing.webp', 'owl-rightwing.jpg', 'owl-r
   }
 }
 
+/* What the owl says out of her cloud as she waves: she introduces herself, then
+   the part of the day it is and the first word of the name the heading above
+   already uses, then one line on what is happening in this account right now.
+   owl_news() in lib.php is also what the live refresh (realtime.php) reads, so
+   the cloud and the numbers under it can never disagree. */
+$lh_owl_words = owl_news($user);
+
 $ago = function (int $ts): string {
   $d = max(0, time() - $ts);
   if ($d < 60)
@@ -147,11 +154,34 @@ require __DIR__ . '/header.php';
           <?= $isTeacher ? 'Here is what is happening in your courses today.' : 'Ready to continue learning?' ?></p>
       </div>
       <?php if ($isTeacher || $lh_owl): ?>
-        <!-- The right end of the banner: the owl, then the call to action. -->
+        <!-- The right end of the banner: the owl's greeting, the owl, then the
+             call to action. -->
         <div class="lh-hero-side flex items-center gap-4">
           <?php if ($lh_owl): ?>
-            <!-- Two layers on one canvas, so the wing needs no offset — and the
-                 wing is the half that moves. -->
+            <!-- The cloud Tala speaks from, then the owl she belongs to: two
+                 layers on one canvas, so the wing needs no offset — and the wing
+                 is the half that moves. Two lines in the cloud: who she is, and
+                 the ONE thing she is saying right now. What she has to say about
+                 this account is a queue of one-line thoughts — owl_news() returns
+                 'thoughts', and 'news' is simply the first of them so the cloud is
+                 not empty before the script runs. The whole list is handed over as
+                 JSON below and lhOwlCloud in assets/app.js wipes and retypes the
+                 next every 20 seconds, so two facts never arrive glued together
+                 with a "·" and a new thought never lands mid-word. -->
+            <span class="lh-hero-hi">
+              <span class="lh-hero-hi-name"><?= e($lh_owl_words['hi']) ?></span>
+              <span class="lh-hero-hi-say" data-live-owl-say><?= e($lh_owl_words['say']) ?></span>
+              <span class="lh-hero-hi-news" data-live-owl-news><?= e($lh_owl_words['news']) ?></span>
+            </span>
+            <!-- Everything she has queued, for the rotation. JSON_HEX_TAG keeps a
+                 thought containing "</" from closing this tag early. -->
+            <script type="application/json" data-live-owl-thoughts><?= json_encode(
+              array_values($lh_owl_words['thoughts'] ?? []),
+              JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP
+            ) ?></script>
+            <!-- Letters are hidden from assistive tech while she is mid-word, so each
+                 finished sentence is written here, whole, instead. -->
+            <span class="lh-owl-aria" aria-live="polite" data-live-owl-aria></span>
             <span class="lh-hero-owl" aria-hidden="true">
               <img class="lh-hero-owl-body" src="<?= e($lh_owl) ?>?v=<?= $lh_owl_v ?>" alt="" width="500"
                 height="500">

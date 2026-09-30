@@ -4471,6 +4471,208 @@ function student_daily_series(int $userId, int $days = 14): array
     return ['labels' => $labels, 'completions' => $completions, 'visits' => $bucket($st->fetchAll(PDO::FETCH_COLUMN))];
 }
 
+/* ---------------- the owl that speaks in the dashboard banner ---------------- */
+
+/** The owl's name. She introduces herself by it in the banner cloud, and this is
+ *  the only place it is written: the banner, the live refresh and the docs all
+ *  read it from here, so renaming her is one word. */
+const OWL_NAME = 'Tala';
+
+/** How many of her thoughts may be queued at the cloud. The banner shows one at
+ *  a time and assets/app.js moves to the next every OWL_ROTATE_MS (20 s), so
+ *  this is how many different things she can say in a single visit before the
+ *  list wraps: 6 thoughts is two minutes of company. */
+const OWL_THOUGHTS = 6;
+
+/**
+ * What the owl says out of her cloud, for the person looking at the dashboard:
+ *   'name'     — who she is,
+ *   'hi'       — she introduces herself,
+ *   'say'      — the greeting for the part of the day, by their first name,
+ *   'thoughts' — the things worth saying right now, ONE per line, the ones it is
+ *                worth ACTING on first: a message waiting, a class coming up,
+ *                notifications unread, lessons left — then what is happening
+ *                (who is online, visits so far, who is falling behind, the
+ *                plain tallies of what has been built).
+ *   'news'     — the first of them, the one PHP prints so the cloud is not empty
+ *                for a visitor whose script has not run yet.
+ *
+ * A thought is one line about one thing, and is NEVER two figures joined with a
+ * "·". The cloud is a queue now rather than a sentence: one thought is on screen
+ * and the next replaces it every 20 seconds (OWL_ROTATE_MS in assets/app.js), so
+ * anything joined here would be two announcements wearing one hat — you would
+ * spend the rotation re-reading the second half of a line you already heard.
+ * The old line read "0 visits today · 3 students enrolled"; those are now two
+ * thoughts, each in its own turn, and the zero one says so in English.
+ *
+ * Both the banner (dashboard.php) and the live refresh (realtime.php) call this,
+ * so the cloud and the numbers below it can never tell two different stories.
+ * Every figure in it is the viewer's own and nothing here reaches across an
+ * account: a teacher's numbers come from queries filtered on courses.teacher_id
+ * (their courses, and only the students enrolled in them), and a student's from
+ * queries filtered on the student's own id. A main admin owns the whole site, so
+ * their cloud is a roll-call of it — site totals with nobody named — rather than a
+ * student's enrolment list.
+ */
+function owl_news(array $user): array
+{
+    $me = (int) ($user['id'] ?? 0);
+    $role = (string) ($user['role'] ?? '');
+    /* exactly the rule the banner itself is built on (see $isTeacher in
+       dashboard.php): a teacher reads their own courses, everyone else reads
+       their own enrolments — an admin lands on the enrolment side there, so the
+       owl speaks the same side here and the two never contradict each other. */
+    $isTeacher = $role === 'teacher';
+
+    /* the first word of the name the heading above already uses — a whole name
+       would not fit the cloud */
+    $first = trim((string) ($user['name'] ?? ''));
+    if ($first !== '') $first = explode(' ', $first)[0];
+    if ($first === '') $first = $isTeacher ? 'Trainer' : 'Student';
+
+    $hour = (int) date('G');
+    $part = $hour < 12 ? 'Good morning' : ($hour < 18 ? 'Good afternoon' : 'Good evening');
+
+    /** One scalar, scoped by the ids handed to it — every query below carries
+     *  either the teacher id or the viewer's own id, never neither. */
+    $count = function (string $sql, array $args): int {
+        $st = db()->prepare($sql);
+        $st->execute($args);
+        return (int) $st->fetchColumn();
+    };
+    /** "3 visits" / "1 visit" — the owl writes plain English, not "1 visits". */
+    $tally = function (int $n, string $word): string {
+        return $n . ' ' . $word . ($n === 1 ? '' : 's');
+    };
+
+    $out = ['name' => OWL_NAME, 'hi' => 'I’m ' . OWL_NAME . ' 🦉', 'say' => $part . ', ' . $first . '!', 'news' => '', 'thoughts' => []];
+
+    /** A name or a course title shortened to what still fits one line of the cloud. */
+    $short = function (string $s, int $n): string {
+        $s = trim($s);
+        $len = function_exists('mb_strlen') ? mb_strlen($s) : strlen($s);
+        return $len > $n ? rtrim(cut($s, $n - 1)) . '…' : $s;
+    };
+    /** One class, phrased as the single fact it is: '📅 Math 101 tomorrow at 9:00 AM'.
+     *  Only 'Today'/'Tomorrow' are lower-cased — 'Wed, Sep 3' must keep its case. */
+    $owl_slot = function (array $slot): string {
+        $label = trim((string) ($slot['title'] ?? ''));
+        if ($label === '') $label = trim((string) ($slot['course_title'] ?? ''));
+        if ($label === '') $label = 'class';
+        $when = trim((string) ($slot['when'] ?? ''));
+        if ($when === 'Today' || $when === 'Tomorrow') $when = strtolower($when);
+        $clock = schedule_clock($slot['start_time'] ?? '');
+        return '📅 ' . $label . ($when !== '' ? ' ' . $when : '') . ($clock !== '' ? ' at ' . $clock : '');
+    };
+    /** Close the answer out of the lines collected. The first of them is also the
+     *  one PHP prints, so the cloud is never empty before the script has run. */
+    $fill = function (array $lines) use (&$out): array {
+        $lines = array_values(array_filter(array_map(
+            fn ($s) => trim((string) $s), $lines), fn ($s) => $s !== ''));
+        $out['thoughts'] = array_slice($lines ?: ['All quiet over here 🌿'], 0, OWL_THOUGHTS);
+        $out['news'] = $out['thoughts'][0];
+        return $out;
+    };
+
+    /* A main admin owns the whole site, so their cloud is a roll-call of it rather
+       than a student's enrolment list — being told to ask a teacher for an
+       invitation code is nonsense for the person who runs the place. Aggregates
+       only: an admin reading a count is not the same as an admin reading a name,
+       so nothing here names anybody. */
+    if ($role === 'admin') {
+        $lines = [];
+        $inbox = unread_message_total($me);
+        if ($inbox > 0) $lines[] = '✉️ ' . $tally($inbox, 'message') . ' waiting for you';
+        $bell = unread_notification_count($me);
+        if ($bell > 0) $lines[] = '🔔 ' . $tally($bell, 'notification') . ' you haven’t read';
+        $online = $count("SELECT COUNT(DISTINCT p.user_id) FROM presence p JOIN users u ON u.id = p.user_id
+                          WHERE u.role <> 'admin' AND p.last_seen >= ?", [time() - PRESENCE_TIMEOUT]);
+        $lines[] = $online > 0
+            ? '🟢 ' . $tally($online, 'person') . ' online right now'
+            : '🌙 Nobody is online right now';
+        $lines[] = '🏫 ' . $tally($count('SELECT COUNT(*) FROM courses', []), 'course') . ' on the site';
+        $lines[] = '👥 ' . $tally($count("SELECT COUNT(*) FROM users WHERE role = 'student'", []), 'student') . ' enrolled across them';
+        $lines[] = '👩‍🏫 ' . $tally($count("SELECT COUNT(*) FROM users WHERE role = 'teacher'", []), 'teacher') . ' running them';
+        return $fill($lines);
+    }
+
+    if ($isTeacher) {
+        $tc = teacher_counts($me);
+        if ($tc['courses'] === 0) return $fill(['No course yet — add your first one 📦']);
+        if ($tc['students'] === 0) return $fill(['No student yet — share an invitation code 🎟']);
+
+        /* first the things that can go stale on you — a message unread, a bell
+           unread, a class that is coming up — then what is happening right now */
+        $lines = [];
+        $inbox = unread_message_total($me);
+        if ($inbox > 0) $lines[] = '✉️ ' . $tally($inbox, 'message') . ' waiting for you';
+        $bell = unread_notification_count($me);
+        if ($bell > 0) $lines[] = '🔔 ' . $tally($bell, 'notification') . ' you haven’t read';
+        $next = schedule_next_up(schedules_for_teacher($me), 1);
+        if ($next) $lines[] = $owl_slot($next[0]);
+
+        $online = count(teacher_online_students($me, 99));
+        $lines[] = $online > 0
+            ? '🟢 ' . $tally($online, 'student') . ' online right now'
+            : '🌙 Nobody is online right now';
+        $lines[] = $tc['visits_today'] > 0
+            ? '📈 ' . $tally($tc['visits_today'], 'visit') . ' in your courses today'
+            : '📈 No visit to your courses yet today';
+        $watch = teacher_attention_students($me, 1);
+        if ($watch) {
+            $lines[] = '👀 ' . $short((string) $watch[0]['name'], 16) . ' is only '
+                . (int) $watch[0]['pct'] . '% through ' . $short((string) $watch[0]['course'], 24);
+        }
+        $lines[] = '👥 ' . $tally($tc['students'], 'student') . ' enrolled with you';
+        $lines[] = $tc['completions'] > 0
+            ? '✅ ' . $tally($tc['completions'], 'lesson') . ' finished by your students'
+            : ($tc['lessons'] > 0
+                ? '📚 ' . $tally($tc['lessons'], 'lesson') . ' published, none finished yet'
+                : '📚 No lesson yet — upload the first one');
+        return $fill($lines);
+    }
+
+    /* A student: their own enrolments, the lessons of those courses, their own
+       completions and their own visits — every query bound to their id, and the
+       slots of schedules_for_student() are only ever those of enrolled courses. */
+    $coursesN = $count('SELECT COUNT(*) FROM enrollments WHERE user_id = ?', [$me]);
+    if ($coursesN === 0) return $fill(['Ask your teacher for an invitation code 🎒']);
+
+    /* the same order a teacher's cloud is built in: what needs doing first, then
+       how it is going, then the plain figures */
+    $lines = [];
+    $inbox = unread_message_total($me);
+    if ($inbox > 0) $lines[] = '✉️ ' . $tally($inbox, 'message') . ' waiting for you';
+    $bell = unread_notification_count($me);
+    if ($bell > 0) $lines[] = '🔔 ' . $tally($bell, 'notification') . ' you haven’t read';
+    $next = schedule_next_up(schedules_for_student($me), 1);
+    if ($next) $lines[] = $owl_slot($next[0]);
+
+    $lessonsN = $count('SELECT COUNT(DISTINCT m.id) FROM materials m
+                        JOIN enrollments e ON e.course_id = m.course_id
+                        WHERE e.user_id = ?', [$me]);
+    $doneN = $count('SELECT COUNT(*) FROM progress p
+                     JOIN materials m ON m.id = p.material_id
+                     JOIN enrollments e ON e.course_id = m.course_id AND e.user_id = p.user_id
+                     WHERE p.user_id = ?', [$me]);
+    if ($lessonsN > 0) {
+        $left = max(0, $lessonsN - $doneN);
+        $lines[] = $left > 0
+            ? '✍️ ' . $tally($left, 'lesson') . ' left to do'
+            : '🎉 Every lesson finished — well done';
+        /* the share of the way through only says something the line above did not */
+        if ($doneN > 0 && $left > 0) {
+            $lines[] = '🎯 ' . (int) round($doneN * 100 / $lessonsN) . '% of your lessons done';
+        }
+    }
+    $mine = $count('SELECT COUNT(*) FROM attendance WHERE user_id = ? AND entered_at >= ?', [$me, (int) strtotime('today')]);
+    $lines[] = $mine > 0
+        ? '🕒 ' . $tally($mine, 'visit') . ' in your courses today'
+        : '🕒 No visit to a course yet today';
+    $lines[] = '📚 ' . $tally($coursesN, 'course') . ' enrolled';
+    return $fill($lines);
+}
+
 /* ---------------- private student <-> teacher messaging ---------------- */
 
 /** Return the existing conversation between a student and a teacher, or create it. */

@@ -1377,6 +1377,231 @@ if (dayFilter) {
     }, 460);
   }
 
+  /* ---- Tala's cloud: one thought at a time, typed out ----
+     owl_news() in lib.php owns the WORDS and hands over a LIST of one-line
+     thoughts; this owns the DELIVERY. Each line of her cloud is a channel that
+     carries a single sentence: what she was saying is wiped away, a breath
+     passes, then the new sentence is typed out behind a blinking caret. So two
+     updates that land close together are never glued into one run-on line — the
+     second waits its turn, and while she is busy with the same line the waiting
+     text is simply replaced by the newest one.
+     The news line also ROTATES: every OWL_ROTATE_MS she moves on to the next
+     thought of the list, so the cloud keeps saying something true about what is
+     happening — a message unread, a class coming up, who is online, what is left
+     to do — instead of sitting there with one frozen tally. Two owners, one
+     rhythm: the 10-second poll refills the LIST, this timer alone decides WHEN
+     she moves on, so a poll never cuts into a thought you are halfway through
+     reading, and the next tick simply picks up the newer words.
+     Two details keep the owl from dancing around the banner while she talks: the
+     cloud reserves the size of the FINISHED sentence — and keeps the widest it
+     has ever reserved, so a shorter thought cannot pull her sideways — and the
+     text is held left-aligned while typing so letters land where they will stay
+     instead of being shoved back to the middle on every keystroke.
+     Under prefers-reduced-motion nothing is typed, nothing is held back and
+     nothing rotates: a line silently rewriting itself twice a minute is exactly
+     the movement that setting asks for, and assistive tech would announce it. */
+  var OWL_ROTATE_MS = 20000;
+
+  function lhOwlCloud() {
+    var lines = {
+      say: document.querySelector('[data-live-owl-say]'),
+      news: document.querySelector('[data-live-owl-news]')
+    };
+    if (!lines.say && !lines.news) return null;
+    var cloud = (lines.news || lines.say).closest('.lh-hero-hi');
+    /* What PHP printed, read NOW — before anything has typed over it. The poll's
+       first tick lands about 500 ms after load and speak() runs at 700 ms, so
+       whoever goes second would otherwise read the other's half-written line and
+       push that fragment as a message in its own right: the greeting was once left
+       sitting at "Good morn" for the rest of the visit. These two strings — not
+       the DOM — are what speak() says. */
+    var printed = { say: lines.say ? lines.say.textContent : '', news: lines.news ? lines.news.textContent : '' };
+    var aria = document.querySelector('[data-live-owl-aria]');
+    var claimed = {}, queue = [], busy = false, active = null;
+    /* her queue of thoughts, which one is on screen, and the widest the cloud has
+       ever had to be — see reserve() and rotate() */
+    var thoughts = [], thoughtAt = 0, rotating = false, cloudMax = 0;
+
+    /* PHP printed both lines for visitors without JS. Rather than let them sit
+       there and then be backspaced in front of you, the words are held out of
+       sight until it is that line's turn to be said. */
+    if (!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+      if (lines.say) lines.say.classList.add('lh-owl-hush');
+      if (lines.news) lines.news.classList.add('lh-owl-hush');
+    }
+
+    function quiet() {
+      return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    }
+
+    /* the bubble keeps the finished sentence's size while it is being typed — and
+       never lets that size shrink again: her thoughts are different lengths, and a
+       shorter one must not slide the owl sideways mid-conversation */
+    function reserve(el, text) {
+      var was = el.textContent;
+      el.style.minHeight = '';
+      if (cloud) cloud.style.minWidth = '';
+      el.textContent = text;
+      var h = el.offsetHeight, w = cloud ? cloud.offsetWidth : 0;
+      if (h > 0) el.style.minHeight = h + 'px';
+      if (cloud) {
+        if (w > cloudMax) cloudMax = w;
+        cloud.style.minWidth = cloudMax + 'px';
+      }
+      el.textContent = was;
+    }
+
+    function push(key, text) {
+      var el = lines[key];
+      text = String(text === null || text === undefined ? '' : text).replace(/^\s+|\s+$/g, '');
+      if (!el || !text || claimed[key] === text) return;   /* the same news twice is not news */
+      /* A FRAGMENT is not news either. erase() and type() both write prefixes of
+         the line they are working on, so anything shorter that matches the front
+         of what this line has already claimed is the DOM caught mid-word — the
+         snapshot trap described above, closed for good. */
+      if (claimed[key] && text.length < claimed[key].length && claimed[key].indexOf(text) === 0) return;
+      claimed[key] = text;
+      for (var i = 0; i < queue.length; i++) {
+        if (queue[i].key === key) { queue[i].text = text; return; }   /* newest wins */
+      }
+      queue.push({ key: key, text: text });
+      pump();
+    }
+
+    function pump() {
+      if (busy) return;
+      var job = queue.shift();
+      if (!job) return;
+      var el = lines[job.key];
+      busy = true;                                /* she is saying this one now */
+      var mine = { el: el, text: job.text, done: false };
+      active = mine;
+      mine.finish = function () {
+        if (mine.done) return;                    /* one ending per message */
+        mine.done = true;
+        active = null;
+        el.classList.remove('lh-owl-typing');
+        busy = false;
+        pump();
+      };
+      /* assistive tech is handed each whole sentence in one go; the letters
+         themselves go aria-hidden so a screen reader does not read 40 updates */
+      if (aria) aria.textContent = job.text;
+      if (quiet()) {
+        el.removeAttribute('aria-hidden');
+        el.textContent = job.text;
+        mine.finish();
+        return;
+      }
+      el.setAttribute('aria-hidden', 'true');
+      el.classList.remove('lh-owl-hush');
+      el.classList.remove('lh-owl-beat');
+      void el.offsetWidth;                /* restarting an animation: off, a frame, on */
+      el.classList.add('lh-owl-beat');    /* one small nod marks the start of a message */
+      reserve(el, job.text);
+      el.classList.add('lh-owl-typing');
+      erase(mine, function () { type(mine, job.text, mine.finish); });
+    }
+
+    /* backspacing the line she just said, then a breath before the next one */
+    function erase(mine, then) {
+      var text = mine.el.textContent, n = text.length;
+      if (!n) { setTimeout(then, 150); return; }
+      (function step() {
+        if (mine.done) return;              /* ended elsewhere — stop writing */
+        n = Math.max(0, n - (n > 16 ? 2 : 1));
+        mine.el.textContent = text.slice(0, n);
+        if (n > 0) setTimeout(step, 16);
+        else setTimeout(then, 190);
+      })();
+    }
+
+    /* the typing itself: quick enough to read at a glance, slow enough to notice,
+       with a small rest after punctuation so a two-part update reads as two */
+    function type(mine, text, then) {
+      if (mine.done) return;
+      var speed = Math.max(13, Math.min(38, Math.round(1400 / Math.max(1, text.length))));
+      var i = 0;
+      (function step() {
+        if (mine.done) return;              /* ended elsewhere — stop writing */
+        i++;
+        mine.el.textContent = text.slice(0, i);
+        if (i >= text.length) { setTimeout(then, 260); return; }
+        var ch = text.charAt(i - 1);
+        setTimeout(step, speed + (',.·!?;:'.indexOf(ch) > -1 ? 120 : (ch === ' ' ? 9 : 0)));
+      })();
+    }
+
+    /* a background tab slows timers to a crawl, which would leave her stranded
+       mid-word; coming back finishes the sentence in one go rather than typing on */
+    document.addEventListener('visibilitychange', function () {
+      if (!active || document.visibilityState !== 'visible') return;
+      active.el.textContent = active.text;
+      active.finish();
+    });
+
+    /** Refill the queue of one-line thoughts — owl_news()['thoughts'], from the
+     *  banner's JSON or from the poll. Only the LIST changes here: the timer below
+     *  alone decides when she moves on to the next one, so a refresh can never
+     *  rewrite the thought you are halfway through reading. */
+    function think(list) {
+      if (!list || !list.length) return;
+      var clean = [];
+      for (var i = 0; i < list.length; i++) {
+        var t = String(list[i] === null || list[i] === undefined ? '' : list[i]).replace(/^\s+|\s+$/g, '');
+        if (t) clean.push(t);
+      }
+      if (!clean.length) return;
+      thoughts = clean;
+      if (thoughtAt >= thoughts.length) thoughtAt = 0;
+      start();
+    }
+
+    /* the rhythm: this thought, then the next, wrapped round so she keeps company
+       rather than running dry. A hidden tab is not an audience — it spends none. */
+    function rotate() {
+      if (document.visibilityState === 'hidden') return;
+      if (thoughts.length < 2) return;
+      thoughtAt = (thoughtAt + 1) % thoughts.length;
+      push('news', thoughts[thoughtAt]);
+    }
+
+    function start() {
+      if (rotating || quiet()) return;
+      rotating = true;
+      setInterval(rotate, OWL_ROTATE_MS);
+    }
+
+    /* PHP printed the whole queue for visitors without JS; read it back so the
+       rotation works from page load and not only once the first poll comes in */
+    var seed = document.querySelector('[data-live-owl-thoughts]');
+    if (seed) {
+      try { think(JSON.parse(seed.textContent || '[]')); } catch (e) { /* no rotation, no harm */ }
+    }
+
+    /* the sizes reserved above were measured in the viewport they belonged to */
+    window.addEventListener('resize', function () {
+      cloudMax = 0;
+      if (cloud) cloud.style.minWidth = '';
+      for (var k in lines) { if (lines[k]) lines[k].style.minHeight = ''; }
+    });
+
+    return {
+      push: push,
+      think: think,
+      /* PHP already printed both lines for visitors without JS; say those words
+         once — greeting first, then the first of her thoughts — and keep the list
+         turning from here on. The words come from `printed`, captured at load, and
+         never from the live DOM: by now the poll may already be typing, and a
+         half-written line is not a thing to say. */
+      speak: function () {
+        push('say', printed.say);
+        push('news', printed.news);
+        start();
+      }
+    };
+  }
+
   /* ---------------- dashboard graph hover tooltips ---------------- */
   /* The graphs are plain inline SVGs whose per-day invisible strips carry the
      day label and values as data attributes (embedded by lib.php). Listeners
@@ -1429,6 +1654,10 @@ if (dayFilter) {
   /* ---------------- dashboard (teacher + student) ---------------- */
   if (scope === 'teacher-dash' || scope === 'student-dash') {
     var dashUrl = scope === 'teacher-dash' ? 'realtime.php?v=dash' : 'realtime.php?v=dash-student';
+    /* Tala arrives, then speaks: the delay lets the cloud's entrance finish
+       before the first sentence is typed out. */
+    var owl = lhOwlCloud();
+    if (owl) setTimeout(function () { owl.speak(); }, 700);
     livePoll(dashUrl, 10000, function (d) {
       var counts = d.counts || {};
       document.querySelectorAll('[data-live-stat]').forEach(function (el) {
@@ -1439,6 +1668,16 @@ if (dayFilter) {
       if (d.visits) { var vb = document.querySelector('[data-live-visits-count]'); if (vb) vb.textContent = d.visits.length; }
       if (d.activity_svg) { var ac = document.querySelector('[data-live-svg="activity"]'); if (ac) ac.innerHTML = d.activity_svg; }
       if (d.students_svg) { var sg = document.querySelector('[data-live-svg="students"]'); if (sg) sg.innerHTML = d.students_svg; }
+      /* ---- Tala's cloud ----
+         owl_news() owns the words, lhOwlCloud owns the delivery, so the cloud and
+         the tiles underneath it can never disagree. A refresh REPLENISHES her
+         queue of one-line thoughts; it never picks which one is on screen — that
+         is the 20-second rotation's job, so the poll cannot rewrite a sentence
+         you are halfway through. (A payload with only 'news' still works.) */
+      if (d.owl && owl) {
+        if (d.owl.say) owl.push('say', d.owl.say);
+        owl.think(d.owl.thoughts && d.owl.thoughts.length ? d.owl.thoughts : (d.owl.news ? [d.owl.news] : []));
+      }
       if (scope !== 'teacher-dash') return;
 
       /* live students */
@@ -1501,8 +1740,12 @@ if (dayFilter) {
           badge.textContent = u.online ? '● Online' : '◌ Offline';
           badge.className = 'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ' + (u.online ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500');
         }
+        /* The attendance column: the roster scope in realtime.php simply omits the
+           figures for anyone the viewer may not read them for (a student's
+           classmates), so there is nothing here to write and nothing invented —
+           the cell PHP printed for that row stays as it is. */
         var visits = tr.querySelector('[data-visits]');
-        if (visits) {
+        if (visits && typeof u.visits === 'number') {
           var html = '<span class="font-semibold text-slate-800">' + u.visits + '</span> visits';
           if (u.last_at) html += '<span class="block text-xs text-slate-400">last ' + lmsAgo(u.last_at) + '</span>';
           visits.innerHTML = html;
@@ -1512,15 +1755,18 @@ if (dayFilter) {
       });
       var logBody = document.getElementById('att-log-body');
       if (logBody && d.attCourse) {
-        /* attendance log */
+        /* attendance log — ownOnly comes back set when this viewer is a student
+           looking at their own record, and then the table has no IP column at
+           all, because the addresses were never sent (see realtime.php) */
+        var showIp = !d.ownOnly;
         var cnt = document.getElementById('att-log-count');
         if (cnt) cnt.textContent = d.attLog.length;
         logBody.innerHTML = d.attLog.length
           ? d.attLog.map(function (a) {
             var left = a.left_at ? lmsClock(a.left_at) : (a.online ? '<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">🟢 Online</span>' : '<span class="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">⏳ In course</span>');
-            return '<tr><td class="px-4 py-3 font-semibold text-slate-900">' + lmsEsc(a.name) + '</td><td class="px-4 py-3 text-slate-600">' + new Date(a.entered_at * 1000).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) + '</td><td class="px-4 py-3 text-slate-600">' + left + '</td><td class="px-4 py-3 text-slate-600">' + (a.left_at ? lmsDur(a.left_at - a.entered_at) : '<span data-open-seconds="' + Math.max(0, Math.floor(Date.now() / 1000) - a.entered_at) + '" data-mark="d' + a.id + '" class="font-semibold text-emerald-700"></span>') + '</td><td class="hidden px-4 py-3 text-slate-400 md:table-cell">' + lmsEsc(a.ip) + '</td></tr>';
+            return '<tr><td class="px-4 py-3 font-semibold text-slate-900">' + lmsEsc(a.name) + '</td><td class="px-4 py-3 text-slate-600">' + new Date(a.entered_at * 1000).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) + '</td><td class="px-4 py-3 text-slate-600">' + left + '</td><td class="px-4 py-3 text-slate-600">' + (a.left_at ? lmsDur(a.left_at - a.entered_at) : '<span data-open-seconds="' + Math.max(0, Math.floor(Date.now() / 1000) - a.entered_at) + '" data-mark="d' + a.id + '" class="font-semibold text-emerald-700"></span>') + '</td>' + (showIp ? '<td class="hidden px-4 py-3 text-slate-400 md:table-cell">' + lmsEsc(a.ip) + '</td>' : '') + '</tr>';
           }).join('')
-          : '<tr><td class="px-4 py-6 text-center text-sm text-slate-400" colspan="5">No attendance recorded for this course yet.</td></tr>';
+          : '<tr><td class="px-4 py-6 text-center text-sm text-slate-400" colspan="' + (showIp ? 5 : 4) + '">No attendance recorded for this course yet.</td></tr>';
         runOpenTickers(logBody);   /* freshly-rendered open rows need their per-second ticker restarted */
       }
     });
@@ -1542,6 +1788,11 @@ if (dayFilter) {
         sec.innerHTML = '<div class="mt-4 rounded-2xl border-2 border-dashed border-slate-300 p-10 text-center text-slate-500"><p class="text-4xl">🗓</p><p class="mt-3 font-medium">No attendance recorded for this day.</p></div>';
         return;
       }
+      /* The IP column of the redrawn table exists only where PHP drew it in the
+         first place (data-show-ip on the section) and only while the payload
+         carries addresses at all — for a student, neither is true, and a column
+         of blanks would be worse than no column. */
+      var showIp = !d.ownOnly && liveBox.getAttribute('data-show-ip') !== '0';
       var rows = d.records.map(function (r) {
         return '<tr>' +
           '<td class="px-4 py-3 font-semibold text-slate-900">' + lmsClock(r.entered_at) + '</td>' +
@@ -1549,9 +1800,9 @@ if (dayFilter) {
           '<td class="px-4 py-3"><span class="inline-block rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">' + lmsEsc(r.course_title) + '</span><span class="block text-xs text-slate-400">' + lmsEsc(r.course_category) + '</span></td>' +
           '<td class="px-4 py-3">' + (r.open ? (r.online ? '<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700"><span class="relative flex h-2 w-2"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span></span> Online</span>' : '<span class="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">⏳ In course</span>') : '<span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">⏹ Left ' + lmsClock(r.left_at) + '</span>') + '</td>' +
           '<td class="px-4 py-3 text-slate-600">' + (r.open ? '<span data-open-seconds="' + Math.max(0, Math.floor(Date.now() / 1000) - r.entered_at) + '" data-mark="d' + r.id + '" class="font-semibold text-emerald-700"></span>' : lmsDur(r.duration)) + '</td>' +
-          '<td class="hidden px-4 py-3 text-slate-400 md:table-cell">' + lmsEsc(r.ip) + '</td></tr>';
+          (showIp ? '<td class="hidden px-4 py-3 text-slate-400 md:table-cell">' + lmsEsc(r.ip) + '</td>' : '') + '</tr>';
       }).join('');
-      sec.innerHTML = '<div class="mt-4 overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-slate-200"><table class="w-full text-left text-sm"><thead class="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-4 py-3 font-semibold">Entered</th><th class="px-4 py-3 font-semibold">Student</th><th class="px-4 py-3 font-semibold">Course</th><th class="px-4 py-3 font-semibold">Status</th><th class="px-4 py-3 font-semibold">Time spent</th><th class="hidden px-4 py-3 font-semibold md:table-cell">IP address</th></tr></thead><tbody class="divide-y divide-slate-100">' + rows + '</tbody></table></div>';
+      sec.innerHTML = '<div class="mt-4 overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-slate-200"><table class="w-full text-left text-sm"><thead class="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-4 py-3 font-semibold">Entered</th><th class="px-4 py-3 font-semibold">Student</th><th class="px-4 py-3 font-semibold">Course</th><th class="px-4 py-3 font-semibold">Status</th><th class="px-4 py-3 font-semibold">Time spent</th>' + (showIp ? '<th class="hidden px-4 py-3 font-semibold md:table-cell">IP address</th>' : '') + '</tr></thead><tbody class="divide-y divide-slate-100">' + rows + '</tbody></table></div>';
       runOpenTickers(sec);
     });
     return;

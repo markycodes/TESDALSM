@@ -75,7 +75,14 @@ if ($selCategory !== '' && in_array($selCategory, $allCategories, true)) {
   $courseOptions = array_values(array_filter($myCourses, fn($c) => trim((string) ($c['category'] ?? '')) === $selCategory));
 }
 
-/* ---- records for the selected day ---- */
+/* ---- records for the selected day ----
+   Who may see whom: the teacher of the courses in scope (and the main admin)
+   read every visit of the day; a student reads their own visits and nothing
+   else. The IP address of a classmate is therefore never printed for a student,
+   and neither is a classmate's row. The same rule is applied to the live
+   refresh in realtime.php (v=day), which reports 'ownOnly' so the redrawn table
+   leaves the IP column out too. */
+$mayReadAttendance = $isTeacher || (($user['role'] ?? '') === 'admin');
 $records = [];
 if ($scopeIds) {
   $in = implode(',', array_fill(0, count($scopeIds), '?'));
@@ -85,9 +92,10 @@ if ($scopeIds) {
             FROM attendance a
             JOIN users u ON u.id = a.user_id
             JOIN courses c ON c.id = a.course_id
-            WHERE a.entered_at >= ? AND a.entered_at < ? AND a.course_id IN ($in)
-            ORDER BY a.entered_at DESC";
-  $params = array_merge([$dayStart, $dayEnd], $scopeIds);
+            WHERE a.entered_at >= ? AND a.entered_at < ? AND a.course_id IN ($in)"
+    . ($mayReadAttendance ? '' : ' AND a.user_id = ?') .
+    ' ORDER BY a.entered_at DESC';
+  $params = array_merge([$dayStart, $dayEnd], $scopeIds, $mayReadAttendance ? [] : [$me]);
   $stmt = db()->prepare($sql);
   $stmt->execute($params);
   $records = $stmt->fetchAll();
@@ -128,6 +136,11 @@ require __DIR__ . '/header.php';
       <?php if ($isToday): ?><span
           class="ml-1 inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700"><span
             class="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500"></span>live</span><?php endif; ?>
+      <?php if (!$mayReadAttendance): ?>
+        <!-- say whose visits these are: a list with no classmates in it is a
+             rule, not a bug, and the page should own up to it -->
+        <span class="ml-1 font-semibold text-slate-700">· your own visits only</span>
+      <?php endif; ?>
     </p>
   </div>
   <a href="enrollments.php"
@@ -172,11 +185,20 @@ require __DIR__ . '/header.php';
 
 <!-- Stats -->
 <div class="mt-6 grid gap-4 sm:grid-cols-4">
-  <?php $stats = [
+  <?php
+  /* For a student these four figures are their OWN day, so the labels say whose
+     they are: 'Students' above a 1 would otherwise read as though the class had
+     vanished, when it only means nobody but you is listed here. */
+  $stats = $mayReadAttendance ? [
     ['📥', 'Visits', (string) count($records)],
     ['🧑‍🎓', 'Students', (string) $uniqueStudents],
     ['🟢', 'In course now', (string) ($isToday ? $openCount : 0)],
     ['⏱', 'Total time', $fmtDur($totalSeconds)],
+  ] : [
+    ['📥', 'Your visits', (string) count($records)],
+    ['📚', 'Courses visited', (string) count(array_unique(array_column($records, 'course_title')))],
+    ['🟢', 'You in course', (string) ($isToday ? $openCount : 0)],
+    ['⏱', 'Your total time', $fmtDur($totalSeconds)],
   ];
   foreach ($stats as $i => $s): ?>
     <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
@@ -187,8 +209,11 @@ require __DIR__ . '/header.php';
     </div>
   <?php endforeach; ?>
 </div>
-<!-- Records (live: stats + table refresh every 12 s via realtime.php?v=day) -->
-<section class="mt-8" data-live-scope="day">
+<!-- Records (live: stats + table refresh every 12 s via realtime.php?v=day).
+     data-show-ip tells the live redraw whether the IP column exists in this
+     table at all: for a student it does not — an address is a teacher's tool,
+     and your own is not worth a column of your own. -->
+<section class="mt-8" data-live-scope="day" data-show-ip="<?= $mayReadAttendance ? '1' : '0' ?>">
   <div class="flex items-center justify-between">
     <h2 class="text-lg font-bold text-slate-900">Recorded visits (<span
         data-day-stat="total"><?= count($records) ?></span>)</h2>
@@ -211,7 +236,9 @@ require __DIR__ . '/header.php';
             <th class="px-4 py-3 font-semibold">Course</th>
             <th class="px-4 py-3 font-semibold">Status</th>
             <th class="px-4 py-3 font-semibold">Time spent</th>
-            <th class="hidden px-4 py-3 font-semibold md:table-cell">IP address</th>
+            <?php if ($mayReadAttendance): ?>
+              <th class="hidden px-4 py-3 font-semibold md:table-cell">IP address</th>
+            <?php endif; ?>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
@@ -257,7 +284,9 @@ require __DIR__ . '/header.php';
                   <?= $fmtDur($dur) ?>
                 <?php endif; ?>
               </td>
-              <td class="hidden px-4 py-3 text-slate-400 md:table-cell"><?= e((string) ($r['ip'] ?? '')) ?></td>
+              <?php if ($mayReadAttendance): ?>
+                <td class="hidden px-4 py-3 text-slate-400 md:table-cell"><?= e((string) ($r['ip'] ?? '')) ?></td>
+              <?php endif; ?>
             </tr>
           <?php endforeach; ?>
         </tbody>

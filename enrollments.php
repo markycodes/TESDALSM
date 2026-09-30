@@ -85,14 +85,27 @@ if ($scopeIds) {
     }
 }
 
+/* ---- whose attendance may be read on this page ----
+   A teacher (and the main admin, who owns the site) read every record of the
+   courses they teach. A student reads their OWN records only: the classmate list
+   above stays, because knowing who is in your class is what a class is, but how
+   often a classmate turned up, when they last came, and the machine they came
+   from are theirs, not yours. realtime.php (v=roster) applies the same rule to
+   the live refresh, so a figure never appears and then disappears. */
+$mayReadAttendance = $isTeacher || (($user['role'] ?? '') === 'admin');
+
 /* ---- attendance summaries across the scope ---- */
 $attSummary = [];
 $totalVisits = 0;
 $studentIds = array_map(fn ($u) => (int) $u['id'], $students);
 if ($scopeIds) {
     $in = implode(',', array_fill(0, count($scopeIds), '?'));
-    $stmt = db()->prepare("SELECT user_id, COUNT(*) AS visits, MAX(entered_at) AS last_at FROM attendance WHERE course_id IN ($in) GROUP BY user_id");
-    $stmt->execute(array_values($scopeIds));
+    $sql = "SELECT user_id, COUNT(*) AS visits, MAX(entered_at) AS last_at
+            FROM attendance WHERE course_id IN ($in)"
+        . ($mayReadAttendance ? '' : ' AND user_id = ?') .
+        ' GROUP BY user_id';
+    $stmt = db()->prepare($sql);
+    $stmt->execute(array_values(array_merge($scopeIds, $mayReadAttendance ? [] : [$me])));
     foreach ($stmt->fetchAll() as $a) {
         $attSummary[(int) $a['user_id']] = ['visits' => (int) $a['visits'], 'last_at' => (int) $a['last_at']];
         $totalVisits += (int) $a['visits'];
@@ -105,10 +118,14 @@ $onlineNow = count(array_filter($studentIds, fn ($id) => isset($online[$id])));
 $attLog = [];
 $logShow = '';
 if ($selCourse > 0) {
+    /* the log of one course: the teacher's whole record, a student's own rows —
+       never a classmate's entry, and never a classmate's address */
     $stmt = db()->prepare('SELECT a.id, a.user_id, a.entered_at, a.left_at, a.ip, u.name
                            FROM attendance a JOIN users u ON u.id = a.user_id
-                           WHERE a.course_id = ? ORDER BY a.id DESC LIMIT 200');
-    $stmt->execute([$selCourse]);
+                           WHERE a.course_id = ?'
+        . ($mayReadAttendance ? '' : ' AND a.user_id = ?') .
+        ' ORDER BY a.id DESC LIMIT 200');
+    $stmt->execute($mayReadAttendance ? [$selCourse] : [$selCourse, $me]);
     $attLog = $stmt->fetchAll();
     $logShow = (string) ($scopeCourses[0]['title'] ?? 'this course');
 }
@@ -153,7 +170,10 @@ require __DIR__ . '/header.php';
   <?php $stats = [
       ['🧑‍🎓', 'Classmates', (string) count($students), 'classmates'],
       ['🟢', 'Online now', (string) $onlineNow, 'online'],
-      ['📅', 'Course visits', (string) $totalVisits, 'visits'],
+      /* the third figure is the class's total for a teacher and the viewer's own
+         for a student — the query above returns only their rows, so the label has
+         to say whose visits these are */
+      ['📅', $mayReadAttendance ? 'Course visits' : 'Your visits', (string) $totalVisits, 'visits'],
   ]; foreach ($stats as $s): ?>
   <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
     <p class="text-2xl"><?= $s[0] ?></p>
@@ -186,7 +206,7 @@ require __DIR__ . '/header.php';
           <th class="hidden px-4 py-3 font-semibold md:table-cell">Email</th>
           <th class="hidden px-4 py-3 font-semibold lg:table-cell">Course(s)</th>
           <th class="px-4 py-3 font-semibold">Status</th>
-          <th class="px-4 py-3 font-semibold">Attendance</th>
+          <th class="px-4 py-3 font-semibold"><?= $mayReadAttendance ? 'Attendance' : 'Your attendance' ?></th>
         </tr>
       </thead>
       <tbody class="divide-y divide-slate-100">
@@ -216,9 +236,16 @@ require __DIR__ . '/header.php';
             </span>
           </td>
           <td class="px-4 py-3 text-slate-600" data-visits>
-            <span class="font-semibold text-slate-800"><?= (int) $sum['visits'] ?></span> visits
-            <?php if ((int) $sum['last_at'] > 0): ?>
-              <span class="block text-xs text-slate-400">last <?= time_ago((int) $sum['last_at']) ?></span>
+            <?php if ($mayReadAttendance || $sid === $me): ?>
+              <span class="font-semibold text-slate-800"><?= (int) $sum['visits'] ?></span> visits
+              <?php if ((int) $sum['last_at'] > 0): ?>
+                <span class="block text-xs text-slate-400">last <?= time_ago((int) $sum['last_at']) ?></span>
+              <?php endif; ?>
+            <?php else: ?>
+              <!-- nothing to print: this row belongs to somebody else, and the
+                   figure was never queried. 'private' rather than a blank, so a
+                   dash is not read as 'they never showed up' -->
+              <span class="text-xs text-slate-400">private</span>
             <?php endif; ?>
           </td>
         </tr>
@@ -230,8 +257,8 @@ require __DIR__ . '/header.php';
 </section>
 <?php if ($selCourse > 0): ?>
 <section class="mt-10">
-  <h2 class="text-lg font-bold text-slate-900">📋 Attendance — <?= e($logShow) ?></h2>
-  <p class="mt-1 text-sm text-slate-500">Every recorded entry into the course (<span id="att-log-count"><?= count($attLog) ?></span> recorded).</p>
+  <h2 class="text-lg font-bold text-slate-900">📋 <?= $mayReadAttendance ? 'Attendance' : 'Your attendance' ?> — <?= e($logShow) ?></h2>
+  <p class="mt-1 text-sm text-slate-500"><?= $mayReadAttendance ? 'Every recorded entry into the course' : 'Your own entries into the course — when a classmate came is theirs to know' ?> (<span id="att-log-count"><?= count($attLog) ?></span> recorded).</p>
   <?php if (!$attLog): ?>
     <p class="mt-4 rounded-2xl border-2 border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">No attendance recorded for this course yet.</p>
   <?php else: ?>
@@ -243,7 +270,9 @@ require __DIR__ . '/header.php';
           <th class="px-4 py-3 font-semibold">Entered</th>
           <th class="px-4 py-3 font-semibold">Status</th>
           <th class="px-4 py-3 font-semibold">Time spent</th>
-          <th class="hidden px-4 py-3 font-semibold md:table-cell">IP address</th>
+          <?php if ($mayReadAttendance): ?>
+            <th class="hidden px-4 py-3 font-semibold md:table-cell">IP address</th>
+          <?php endif; ?>
         </tr>
       </thead>
       <tbody class="divide-y divide-slate-100" id="att-log-body">
@@ -254,7 +283,9 @@ require __DIR__ . '/header.php';
           <td class="px-4 py-3 text-slate-600"><?= date('M j, Y g:i A', (int) $a['entered_at']) ?></td>
           <td class="px-4 py-3 text-slate-600"><?php if ($left): ?><?= date('g:i A', $left) ?><?php elseif (isset($online[(int) $a['user_id']])): ?><span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">🟢 Online</span><?php else: ?><span class="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">⏳ In course</span><?php endif; ?></td>
           <td class="px-4 py-3 text-slate-600"><?php if ($left): ?><?= duration_between((int) $a['entered_at'], $left) ?><?php else: ?><span data-open-seconds="<?= max(0, time() - (int) $a['entered_at']) ?>" data-mark="d<?= (int) $a['id'] ?>" class="font-semibold text-emerald-700"><?= duration_between((int) $a['entered_at'], null) ?></span><?php endif; ?></td>
-          <td class="hidden px-4 py-3 text-slate-400 md:table-cell"><?= e((string) ($a['ip'] ?? '')) ?></td>
+          <?php if ($mayReadAttendance): ?>
+            <td class="hidden px-4 py-3 text-slate-400 md:table-cell"><?= e((string) ($a['ip'] ?? '')) ?></td>
+          <?php endif; ?>
         </tr>
       <?php endforeach; ?>
       </tbody>

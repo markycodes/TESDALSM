@@ -13,6 +13,18 @@ foreach ($courses as $c) {
 }
 sort($categories);
 
+/* A card's counters (lessons · students) either carry the live hook or are printed
+   plain, and the card itself decides which — see $mayWatchCounts below.
+   realtime.php (v=courses) reports figures only for a teacher's own courses and
+   for the courses a student is enrolled in; everywhere else it now answers 0, so
+   a card outside this account's reach must not hold a hook, or its number would
+   be written out from under the page. The catalogue still shows the aggregate it
+   has always shown — how big a class is is not anybody's secret — it simply stops
+   moving for people who are not in that class. */
+$live_count = fn (bool $live, string $key, int $cid, int $n): string => $live
+    ? '<span data-live-c-' . $key . '="' . $cid . '">' . $n . '</span>'
+    : '<span>' . $n . '</span>';
+
 $page_title = 'All courses';
 require __DIR__ . '/header.php';
 ?>
@@ -44,6 +56,10 @@ require __DIR__ . '/header.php';
     $owner = ($user['role'] ?? '') === 'teacher' && (int) ($c['teacher_id'] ?? 0) === (int) $user['id'];
     $canLessons = can_view_lessons($c, $user);
     $enrolled = is_enrolled($c, (string) $user['id']);
+    /* may this account watch the counters of this course move? only from inside
+       it: a teacher in their own course, a student in a course they joined —
+       the same line realtime.php draws when it decides what to send */
+    $mayWatchCounts = $enrolled || ($owner ?? false) || (($user['role'] ?? '') === 'teacher');
     $certReady = false;
     if ($enrolled && ($user['role'] ?? '') === 'student') {
       $cardPct = course_progress_pct((int) $user['id'], (int) $c['id']);
@@ -61,8 +77,8 @@ require __DIR__ . '/header.php';
     <h3 class="mt-2 text-lg font-bold text-slate-900"><?= e((string) $c['title']) ?></h3>
     <p class="mt-1 line-clamp-2 flex-1 text-sm text-slate-500"><?= e((string) ($c['description'] ?? '')) ?></p>
     <p class="mt-3 text-xs text-slate-500">👩‍🏫 <?= e((string) ($c['teacher_name'] ?? '')) ?> ·
-      <?php if ($canLessons): ?>📦 <span data-live-c-lessons="<?= (int) $c['id'] ?>"><?= count($c['materials'] ?? []) ?></span> lessons ·
-      <?php else: ?>🔒 lessons private · <?php endif; ?>👥 <span data-live-c-students="<?= (int) $c['id'] ?>"><?= count($c['enrolled'] ?? []) ?></span></p>
+      <?php if ($canLessons): ?>📦 <?= $live_count($mayWatchCounts, 'lessons', (int) $c['id'], count($c['materials'] ?? [])) ?> lessons ·
+      <?php else: ?>🔒 lessons private · <?php endif; ?>👥 <?= $live_count($mayWatchCounts, 'students', (int) $c['id'], count($c['enrolled'] ?? [])) ?></p>
     <a href="course.php?id=<?= e((string) $c['id']) ?>"
        class="mt-4 rounded-xl px-4 py-2 text-center text-sm font-semibold <?= $owner || $enrolled ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'border border-indigo-600 text-indigo-600 hover:bg-indigo-50' ?>">
       <?= $owner ? 'Manage' : ($enrolled ? 'Continue' : ((($user['role'] ?? '') === 'student') ? '🔑 Enter invitation code' : 'View course')) ?>
