@@ -13,7 +13,7 @@
    The turn is a CSS animation, so the stack still moves with JS
    disabled; book3d.js only adds drag / keyboard looking and pauses the
    loop when the stack is off screen or the OS wants less motion.
-   Markup lives in index.php, colours and sizes in its inline style vars.
+   Markup lives in learnhub.php, colours and sizes in its inline style vars.
    ===================================================================== */
 
 /* ── camera ─────────────────────────────────────────────────────────── */

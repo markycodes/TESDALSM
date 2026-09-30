@@ -22,27 +22,78 @@
             <?php else: ?>
             <li><a class="text-slate-600 transition hover:text-emerald-700" href="login.php">Log in</a></li>
             <li><a class="text-slate-600 transition hover:text-emerald-700" href="register.php">Create free account</a></li>
-            <li><a class="text-slate-600 transition hover:text-emerald-700" href="index.php">How it works</a></li>
             <?php endif; ?>
           </ul>
         </div>
         <div>
-          <p class="lh-kicker">Account</p>
+          <p class="lh-kicker">Legal</p>
           <ul class="mt-3 space-y-2 text-sm">
-            <?php if ($user): ?>
-            <li><span class="text-slate-600">Signed in as <b><?= e((string) $user['name']) ?></b></span></li>
-            <li><a class="text-slate-600 transition hover:text-rose-600" href="logout.php">Log out</a></li>
-            <?php else: ?>
-            <li><span class="text-slate-600">Demo: <code class="rounded bg-slate-100 px-1.5 py-0.5 text-xs">teacher@demo.com</code> · <code class="rounded bg-slate-100 px-1.5 py-0.5 text-xs">student@demo.com</code></span></li>
-            <li><span class="text-slate-600">Password: <code class="rounded bg-slate-100 px-1.5 py-0.5 text-xs">demo123</code></span></li>
-            <?php endif; ?>
+            <?php /* one loop, one source of truth: LEGAL_PAGES in lib.php */ ?>
+            <?php foreach (LEGAL_PAGES as $lh_legal): ?>
+            <li><a class="text-slate-600 transition hover:text-emerald-700" href="<?= e((string) $lh_legal['file']) ?>"><?= e((string) $lh_legal['label']) ?></a></li>
+            <?php endforeach; ?>
           </ul>
         </div>
       </div>
+      <?php /* The public pages, for every visitor — the SAME list the top bar
+               reads (PUBLIC_PAGES in lib.php), so a re-labelled page is one
+               edit. Signed-in users get them here too, next to the app links
+               listed above. */ ?>
+      <nav class="mt-6 flex flex-wrap items-center justify-center gap-3" aria-label="Public pages">
+        <?php foreach (PUBLIC_PAGES as $lh_pub): ?>
+        <a class="text-sm font-medium text-slate-600 transition hover:text-emerald-700"
+          href="<?= e((string) $lh_pub['file']) ?>"><?= e((string) $lh_pub['label']) ?></a>
+        <?php endforeach; ?>
+      </nav>
+
       <p class="mt-8 border-t border-slate-100 pt-4 text-center text-xs text-slate-400">© <?= date('Y') ?> LearnHub LMS · v.1.0.0</p>
     </div>
   </div>
 </footer>
+
+<?php /* One-line cookie notice. The app sets a single strictly necessary session
+         cookie and nothing else, so this points at the full inventory in
+         cookie_policy.php instead of throwing up a consent wall — and it can be
+         dismissed for good. Dismissing stores one localStorage key
+         (lh-cookie-notice), which that policy lists like every other key. */ ?>
+<div id="lh-cookie-note" role="region" aria-label="Cookie notice" hidden>
+  <p class="text-xs leading-5 text-slate-600">
+    We set <b>one cookie</b> — the login session — and nothing that tracks or profiles you.
+    <a class="font-semibold text-emerald-700 hover:underline" href="<?= e(legal_url('cookies')) ?>">See the Cookie Policy</a>.
+  </p>
+  <button type="button" id="lh-cookie-note-ok"
+    class="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100">Got it</button>
+</div>
+<style>
+  #lh-cookie-note {
+    position: fixed; left: 1rem; bottom: 1rem; z-index: 60;
+    display: flex; align-items: center; gap: .75rem;
+    width: min(30rem, calc(100vw - 2rem));
+    padding: .7rem .85rem;
+    border: 1px solid rgba(15, 23, 42, .08); border-radius: .9rem;
+    background: rgba(255, 255, 255, .97);
+    box-shadow: 0 18px 40px -20px rgba(15, 23, 42, .45);
+  }
+  /* hidden until JS decides this visitor has not dismissed it yet — and out of the
+     way at the end of the page, where the fixed footer bar (with its Legal column)
+     takes over the bottom of the screen */
+  #lh-cookie-note[hidden],
+  body.lh-at-bottom #lh-cookie-note { display: none; }
+</style>
+<script>
+(function () {
+  var note = document.getElementById('lh-cookie-note');
+  if (!note) return;
+  var KEY = 'lh-cookie-notice';
+  try { if (localStorage.getItem(KEY) === '1') return; } catch (e) { /* storage blocked — show it, never remember */ }
+  note.hidden = false;
+  var ok = document.getElementById('lh-cookie-note-ok');
+  if (ok) ok.addEventListener('click', function () {
+    try { localStorage.setItem(KEY, '1'); } catch (e) { /* ignore */ }
+    note.hidden = true;
+  });
+})();
+</script>
 
 <button id="lh-top" class="lh-tip lh-tip-up lh-tip-end grid h-11 w-11 place-items-center rounded-full bg-[linear-gradient(135deg,#047857,#059669,#10b981)] text-white shadow-[0_14px_30px_-12px_rgba(5,150,105,0.8)]" data-tip="Back to top" aria-label="Back to top">
   <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg>

@@ -10,14 +10,15 @@
 </style>
 </head>
 <body>
-<!-- Dev-only harness for the landing page's 3D study stack (assets/book3d.css,
-     assets/book3d.js, markup in index.php). A CSS scene is hard to check by
-     eye in a screenshot, so this loads the real /index page in a same-origin
-     iframe and reports what the browser computed: is there a camera, did the
-     custom properties survive into real face matrices, are the animations
-     running, and does a simulated drag move both the pitch and the turn's
-     clock. Change the iframe's width above to ~390px to exercise the phone
-     branch. Headless version, from the repo root:
+<!-- Dev-only harness for the 3D study stack on the "How it works" page
+     (assets/book3d.css, assets/book3d.js, markup in learnhub.php — that page
+     was index.php until the public site grew a front page). A CSS scene is hard
+     to check by eye in a screenshot, so this loads the real /learnhub page in a
+     same-origin iframe and reports what the browser computed: is there a
+     camera, did the custom properties survive into real face matrices, are the
+     animations running, and does a simulated drag move both the pitch and the
+     turn's clock. Change the iframe's width above to ~390px to exercise the
+     phone branch. Headless version, from the repo root:
 
        chrome --headless=new --user-data-dir=%TEMP%\cr --virtual-time-budget=9000 ^
               --dump-dom http://localhost/LMS/assets/book3d-fixture.html
@@ -26,7 +27,7 @@
 <h1>3D study stack — computed-style harness</h1>
 <p>Waiting for the page below to settle…</p>
 <div id="out">pending</div>
-<iframe id="f" src="../index"></iframe>
+<iframe id="f" src="../learnhub"></iframe>
 <script>
 var f = document.getElementById('f');
 f.onload = function () {

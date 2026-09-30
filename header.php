@@ -25,6 +25,12 @@ if ($user) {
   <?php if (!empty($attendance_course)): ?>
     <meta name="attendance-course" content="<?= (int) $attendance_course ?>"><?php endif; ?>
   <title><?= e($page_title) ?> · LearnHub LMS</title>
+  <?php /* The colour scheme is applied here, from the same localStorage key
+         assets/dark.js writes, BEFORE the first stylesheet is fetched: a visitor
+         who chose dark must never be shown the light page and then handed the
+         dark one. Silent about a browser that refuses storage — no key read, no
+         class, the light page as it always was. */ ?>
+  <script>try { if (localStorage.getItem('lh-scheme') === 'dark') document.documentElement.classList.add('dark'); } catch (e) { }</script>
   <link rel="stylesheet" href="assets/tailwind.min.css">
   <link rel="icon" href="logo/logo.png" type="image/png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -50,6 +56,12 @@ if ($user) {
   <?php if ($lh_layout_css !== ''): ?>
     <link rel="stylesheet" href="<?= e($lh_layout_css) ?>">
   <?php endif; ?>
+  <?php /* The dark scheme, last on purpose: its rules are prefixed html.dark and
+         still have to survive a theme, a density and a layout sheet that all
+         promote themselves with !important. Its script does nothing but animate
+         the class toggle, so it is deferred and cannot hold up the paint. */ ?>
+  <link rel="stylesheet" href="assets/dark.css?v=<?= (int) @filemtime(__DIR__ . '/assets/dark.css') ?>">
+  <script src="assets/dark.js?v=<?= (int) @filemtime(__DIR__ . '/assets/dark.js') ?>" defer></script>
   <?php lh_skeleton_css(); ?>
 </head>
 
@@ -82,7 +94,7 @@ if ($user) {
                 stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
                 <path
                   d="M12 6.5c-1.6-1.3-3.7-1.75-5.5-1.75H3.75v14h2.75c1.8 0 3.9.45 5.5 1.75 1.6-1.3 3.7-1.75 5.5-1.75h2.75v-14H17.5c-1.8 0-3.9.45-5.5 1.75zM12 6.5v14" />
-              </svg></span><span class="lh-side-label">My Courses</span></a>
+              </svg></span><span class="lh-side-label">Courses</span></a>
           <a href="enrollments.php" class="lh-side-link <?= $nav_active === 'enrollments' ? 'active' : '' ?>"
             data-tip="Enrollments"><span class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
@@ -199,7 +211,7 @@ if ($user) {
             </svg>
           </button>
         <?php endif; ?>
-        <a href="<?= $user ? 'dashboard.php' : 'index.php' ?>" class="lh-topword  items-center gap-2 lg:flex">
+        <a href="<?= $user ? 'dashboard.php' : public_url('home') ?>" class="lh-topword  items-center gap-2 lg:flex">
           <img src="logo/2ndlogo.png" alt="LearnHub LMS" class="h-14 w-14 object-contain" />
         </a>
 
@@ -257,6 +269,29 @@ if ($user) {
               </svg></span>
             <span id="lh-chat-badge" class="lh-badge hidden">0</span>
           </a>
+          <?php /* Light or dark, for this browser only: one class on <html> and
+                   one localStorage key, nothing sent to the server — the room you
+                   are reading in is not a property of your account, and a staff
+                   computer is often shared by two people who like different ones.
+                   Which half of the icon shows is decided by dark.css from that
+                   same class (so the button can never disagree with the page it
+                   sits on), what the button promises is kept in step by dark.js,
+                   and the change itself arrives as a circle opening from this
+                   corner of the bar. */ ?>
+          <button type="button" data-lh-scheme data-tip="Dark mode" aria-pressed="false"
+            aria-label="Dark mode"
+            class="lh-ico lh-tip grid h-9 w-9 place-items-center rounded-lg text-slate-600">
+            <svg class="lh-scheme-moon h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+            </svg>
+            <svg class="lh-scheme-sun h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4" />
+              <path
+                d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+            </svg>
+          </button>
           <span class="hidden text-right sm:flex sm:flex-col sm:items-start leading-tight">
             <span class="text-sm font-semibold leading-4 text-slate-800"><?= e((string) $user['name']) ?></span>
             <span
@@ -274,6 +309,32 @@ if ($user) {
             </svg>
           </a>
         <?php else: ?>
+          <?php /* The public pages, for a visitor who is not signed in — the SAME
+                   list the footer reads and the wordmark above links into
+                   (PUBLIC_PAGES in lib.php). Signed-in users already have the
+                   sidebar, and reach these pages from the footer. */ ?>
+          <nav class="hidden items-center sm:flex" aria-label="Public pages">
+            <?php foreach (PUBLIC_PAGES as $lh_pub): ?>
+              <a href="<?= e((string) $lh_pub['file']) ?>"
+                class="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"><?= e((string) $lh_pub['label']) ?></a>
+            <?php endforeach; ?>
+          </nav>
+          <?php /* the same switch the signed-in bar carries, for a visitor
+                 reading the public pages — see the note above that button */ ?>
+          <button type="button" data-lh-scheme data-tip="Dark mode" aria-pressed="false"
+            aria-label="Dark mode"
+            class="lh-ico lh-tip grid h-9 w-9 place-items-center rounded-lg text-slate-600">
+            <svg class="lh-scheme-moon h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+            </svg>
+            <svg class="lh-scheme-sun h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4" />
+              <path
+                d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+            </svg>
+          </button>
           <a href="login.php" class="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100">Log
             in</a>
           <a href="register.php"

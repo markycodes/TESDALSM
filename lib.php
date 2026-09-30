@@ -2950,7 +2950,7 @@ function maintenance_enabled(): bool
  * browsing the site. CLI scripts skip the gate entirely. */
 if (PHP_SAPI !== 'cli') {
     $lh_self = strtolower(basename((string) ($_SERVER['SCRIPT_NAME'] ?? '')));
-    if ($lh_self === '' || $lh_self === '/' ) $lh_self = 'index.php';
+    if ($lh_self === '' || $lh_self === '/' ) $lh_self = 'home.php';   /* the front page the folder serves */
     if (!in_array($lh_self, ['admin.php', 'login.php', 'logout.php', 'ping.php'], true)) {
         $lh_me = null;
         try { $lh_me = current_user(); } catch (Throwable $e) { /* DB not ready */ }
@@ -5239,6 +5239,29 @@ function user_meta_ensure(): void
     if ($done) return;
     db()->exec('CREATE TABLE IF NOT EXISTS user_meta (user_id INT UNSIGNED NOT NULL, k VARCHAR(40) NOT NULL, v VARCHAR(255) NOT NULL DEFAULT "", PRIMARY KEY (user_id, k)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
     $done = true;
+}
+
+/* ---------------- the public pages anybody can reach ------------------------
+ * home.php is the front door — the document .htaccess serves for the folder
+ * itself. learnhub.php is the "How it works" tour that used to be index.php
+ * (renamed so that no page and the folder index were fighting over one name),
+ * and about.php / faq.php sit beside them.
+ *
+ * The top bar and the footer both loop THIS list, so renaming or re-labelling
+ * one of these pages is a single edit instead of a hunt through every
+ * navigation — and every row here is reachable while signed out.
+ * ------------------------------------------------------------------------- */
+const PUBLIC_PAGES = [
+    'home'     => ['file' => 'home.php',     'label' => 'Home'],
+    'learnhub' => ['file' => 'learnhub.php', 'label' => 'How it works'],
+    'about'    => ['file' => 'about.php',    'label' => 'About'],
+    'faq'      => ['file' => 'faq.php',      'label' => 'FAQ'],
+];
+
+/** Address of one public page ('' when the key is unknown). */
+function public_url(string $key): string
+{
+    return PUBLIC_PAGES[$key]['file'] ?? '';
 }
 
 /* ---------------- the public policy pages & recorded consent ---------------

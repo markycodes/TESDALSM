@@ -35,6 +35,17 @@
 </FilesMatch>
 
 # ------------------------------------------------------------
+# Directory index — what the folder itself serves.
+# The old landing page was renamed index.php -> learnhub.php (it is now the
+# "How it works" tour beside the new home / about / FAQ pages), so this folder
+# has no index.php left and a bare /LMS/ would otherwise fall back to a
+# directory listing. Every other page is still reached by its own name.
+# DirectoryIndex needs "AllowOverride Indexes" (XAMPP and shared hosts allow
+# it); where a host refuses it, /home works exactly the same.
+# ------------------------------------------------------------
+DirectoryIndex home.php
+
+# ------------------------------------------------------------
 # Clean URLs — hide the .php extension in the browser address bar.
 # 1) /dashboard            -> internally serves dashboard.php
 # 2) /dashboard.php (GET)  -> 301 redirect to /dashboard
@@ -47,6 +58,16 @@
 # ------------------------------------------------------------
 <IfModule mod_rewrite.c>
     RewriteEngine On
+
+    # 0) the address the landing page used to live at: /index and /index.php
+    #    (and /LMS/index, /LMS/index.php) -> the new front page. The file really
+    #    was renamed, so old bookmarks and shared links should land somewhere
+    #    real instead of a 404. Same full-URL trick as rule 2 below, and the
+    #    pattern is anchored to a whole path segment, so a file merely
+    #    containing "index" (assets/index-fixture.html) is never touched.
+    RewriteCond %{THE_REQUEST} \s(/[^\s?]*/)index(?:\.php)?(?=[\s?]) [NC]
+    RewriteCond %{REQUEST_METHOD} =GET
+    RewriteRule ^ http://%{HTTP_HOST}%1home [R=302,L,NE]
 
     # 1) map the extensionless path to the real .php file (internal, no URL change)
     RewriteCond %{REQUEST_FILENAME}.php -f

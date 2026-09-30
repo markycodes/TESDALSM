@@ -1,6 +1,6 @@
 /* =====================================================================
-   book3d.js — drag-to-look for the 3D study stack on the landing page
-   (assets/book3d.css, markup in index.php).
+   book3d.js — drag-to-look for the 3D study stack on the tour page
+   (assets/book3d.css, markup in learnhub.php).
 
    Horizontal drag becomes camera yaw, vertical becomes pitch. Rather
    than reimplement the turn here, we pause the CSS animation and shift
