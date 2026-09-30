@@ -130,20 +130,21 @@ $verifyUrl = app_link('verify_certificate.php?code=' . urlencode((string) $cert[
 
     .inner {
       position: relative;
+      isolation: isolate;
       height: 100%;
       display: flex;
       flex-direction: column;
       align-items: center;
       text-align: center;
-      padding: 10mm 16mm;
+      padding: 6mm 16mm;
     }
 
     .inner img {
-      height: 17mm;
+      height: 13mm;
     }
 
     .kicker {
-      margin-top: 6mm;
+      margin-top: 4mm;
       font: 700 13px Inter, sans-serif;
       letter-spacing: .42em;
       color: #047857;
@@ -152,18 +153,18 @@ $verifyUrl = app_link('verify_certificate.php?code=' . urlencode((string) $cert[
 
     .title {
       margin: 3mm 0 0;
-      font: 600 44px Fraunces, Georgia, serif;
+      font: 600 40px Fraunces, Georgia, serif;
       color: #0f172a;
     }
 
     .presented {
-      margin: 7mm 0 0;
+      margin: 5mm 0 0;
       font: 500 14px Inter, sans-serif;
       color: #64748b;
     }
 
     .name {
-      margin: 5mm 0 0;
+      margin: 4mm 0 0;
       font: 600 46px Fraunces, Georgia, serif;
       color: #065f46;
       border-bottom: 2px solid #d4af37;
@@ -171,7 +172,7 @@ $verifyUrl = app_link('verify_certificate.php?code=' . urlencode((string) $cert[
     }
 
     .for {
-      margin: 6mm 0 0;
+      margin: 4mm 0 0;
       font: 500 14px Inter, sans-serif;
       color: #64748b;
     }
@@ -183,7 +184,7 @@ $verifyUrl = app_link('verify_certificate.php?code=' . urlencode((string) $cert[
     }
 
     .by {
-      margin: 3mm 0 0;
+      margin: 2mm 0 0;
       font: 500 13px Inter, sans-serif;
       color: #64748b;
     }
@@ -231,7 +232,8 @@ $verifyUrl = app_link('verify_certificate.php?code=' . urlencode((string) $cert[
       margin-top: 5mm;
       font: 500 10.5px Inter, sans-serif;
       color: #94a3b8;
-      word-break: break-all;
+      word-break: normal;
+      overflow-wrap: anywhere;
     }
 
     .verify b {
@@ -264,7 +266,7 @@ $verifyUrl = app_link('verify_certificate.php?code=' . urlencode((string) $cert[
       .sheet {
         aspect-ratio: auto;
         height: auto;
-        padding: 24px;
+        padding: 30px;
       }
 
       .title {
@@ -276,17 +278,75 @@ $verifyUrl = app_link('verify_certificate.php?code=' . urlencode((string) $cert[
       }
     }
 
-  .tesda-logo {
-    position: absolute;
-    top: 14mm;
-    left: 18%;
-    height:40rem !important;
-    z-index: -1;
-    opacity: 20%;
-  }
   .fttc-logo {
-    margin-top: -8mm;
-   border-radius: 50%;
+    margin-top: -7mm;
+    border-radius: 50%;
+  }
+
+  /* the TESDA mark, centred behind everything. .inner isolates itself above, or
+     a negative z-index would slip behind the sheet's own paper and never show. */
+  .inner img.tesda-logo {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    height: 55%;
+    width: auto;
+    opacity: .10;
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  /* the agency letterhead, centred at the very top */
+  .head-block {
+    font: 500 9px/1.4 Inter, sans-serif;
+    color: #334155;
+    margin-bottom: 1.5mm;
+  }
+
+  .head-block b {
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .head-block .hb-school {
+    font-size: 10.5px;
+    letter-spacing: .03em;
+  }
+
+  /* the certificate id — top right corner */
+  .cert-id {
+    position: absolute;
+    top: 0;
+    right: 0;
+    text-align: right;
+    font: 500 9.5px Inter, sans-serif;
+    color: #64748b;
+    z-index: 2;
+  }
+
+  .cert-id b {
+    display: block;
+    font: 700 13px Fraunces, Georgia, serif;
+    color: #0f172a;
+    margin-top: 1px;
+  }
+
+  /* the two signatures, flanking the seal */
+  .sig-script {
+    font: italic 600 16px Fraunces, Georgia, serif;
+    color: #1e293b;
+  }
+
+  .sig-line {
+    border-top: 1px solid #64748b;
+    margin-top: 4px;
+  }
+
+  .sig-role {
+    margin-top: 4px;
+    font: 600 11.5px Inter, sans-serif;
+    color: #475569;
   }
   </style>
   <?php lh_skeleton_css(); ?>
@@ -301,8 +361,17 @@ $verifyUrl = app_link('verify_certificate.php?code=' . urlencode((string) $cert[
   <div class="sheet">
     <div class="frame"></div>
     <div class="inner">
-      <img src="logo/fttc.png" alt="LearnHub LMS" class="fttc-logo">
-      <img class="tesda-logo" src="logo/tesda-logo.webp" alt="LearnHub LMS">
+      <div class="cert-id">Certificate ID<b><?= e((string) $cert['code']) ?></b></div>
+      <img src="logo/fttc.png" alt="Felices Technological Training Center" class="fttc-logo">
+      <div class="head-block">
+        Republic of the Philippines<br>
+        <b class="hb-school">FELICES TECHNOLOGICAL TRAINING CENTER, INC.</b><br>
+        <b>TECHNICAL EDUCATION AND SKILLS DEVELOPMENT AUTHORITY</b><br>
+        REGION VIII – EASTERN VISAYAS<br>
+        SAMAR PROVINCIAL OFFICE<br>
+        Catbalogan City<br>
+      </div>
+      <img class="tesda-logo" src="logo/tesda-logo.png" alt="TESDA">
       <div class="kicker">Certificate of Completion</div>
       <h1 class="title">Felices Technological Training Center Inc.</h1>
       <p class="presented">This certificate is proudly presented to</p>
@@ -313,16 +382,20 @@ $verifyUrl = app_link('verify_certificate.php?code=' . urlencode((string) $cert[
         <?= e((string) ($course['teacher_name'] ?? 'the instructor')) ?><?= e(($course['category'] ?? '') !== '' ? ' · ' . $course['category'] : '') ?>
       </p>
       <div class="cols">
-        <div class="col">Date issued<b><?= e($issued) ?></b>
-          <div class="line">Issued <?= e(date('Y', (int) $cert['issued_at'])) ?></div>
+        <div class="col sig">
+          <div class="sig-script">Dr. Sorna C. Richardson</div>
+          <div class="sig-line"></div>
+          <div class="sig-role">School President</div>
         </div>
         <div class="seal">LH</div>
-        <div class="col">Certificate ID<b><?= e((string) $cert['code']) ?></b>
-          <div class="line">Verified at <?= e(preg_replace('#^https?://#', '', $verifyUrl)) ?></div>
+        <div class="col sig">
+          <div class="sig-script">Ptr. James T. Richardson</div>
+          <div class="sig-line"></div>
+          <div class="sig-role">School Vice-President</div>
         </div>
       </div>
-      <p class="verify">Authenticate this certificate at <b><?= e($verifyUrl) ?></b> — anyone can confirm its validity
-        with the Certificate ID.</p>
+      <p class="verify">Issued <b><?= e($issued) ?></b> · Authenticate this certificate at <b><?= e($verifyUrl) ?></b> —
+        anyone can confirm its validity with the Certificate ID printed at the top right.</p>
     </div>
   </div>
 </body>
