@@ -261,6 +261,22 @@ $verifyUrl = app_link('verify_certificate.php?code=' . urlencode((string) $cert[
       }
     }
 
+    @media (max-width: 900px) {
+      .sheet {
+        aspect-ratio: auto;
+        height: auto;
+        padding: 30px;
+      }
+
+      .title {
+        font-size: 30px;
+      }
+
+      .name {
+        font-size: 32px;
+      }
+    }
+
   .fttc-logo {
     margin-top: -7mm;
     border-radius: 50%;
@@ -321,6 +337,13 @@ $verifyUrl = app_link('verify_certificate.php?code=' . urlencode((string) $cert[
     color: #1e293b;
   }
 
+  .inner img.sig-img {
+    display: block;
+    margin: 0 auto;
+    height: 100px;
+    width: auto;
+  }
+
   .sig-line {
     border-top: 1px solid #64748b;
     margin-top: 4px;
@@ -347,14 +370,12 @@ $verifyUrl = app_link('verify_certificate.php?code=' . urlencode((string) $cert[
       <div class="cert-id">Certificate ID<b><?= e((string) $cert['code']) ?></b></div>
       <img src="logo/fttc.png" alt="Felices Technological Training Center" class="fttc-logo">
       <div class="head-block">
-        Republic of the Philippines<br>
         <b class="hb-school">FELICES TECHNOLOGICAL TRAINING CENTER, INC.</b><br>
-        <b>TECHNICAL EDUCATION AND SKILLS DEVELOPMENT AUTHORITY</b><br>
-        REGION VIII – EASTERN VISAYAS<br>
-        SAMAR PROVINCIAL OFFICE<br>
-        Catbalogan City<br>
+        6th St. Brgy 12 Patag, Catbalogan City, Samar, 6700<br>
+        Email address: fttccatbalogan@gmail.com<br>
+        Mobile Number: 09173202508
       </div>
-      <img class="tesda-logo" src="logo/tesda-logo.png" alt="TESDA">
+      <img class="tesda-logo" src="logo/logo.png" alt="TESDA">
       <div class="kicker">Certificate of Completion</div>
       <h1 class="title">Felices Technological Training Center Inc.</h1>
       <p class="presented">This certificate is proudly presented to</p>
@@ -366,7 +387,7 @@ $verifyUrl = app_link('verify_certificate.php?code=' . urlencode((string) $cert[
       </p>
       <div class="cols">
         <div class="col sig">
-          <div class="sig-script">Dr. Sorna C. Richardson</div>
+          <img class="sig-img" src="signature/sorna-richardson.png" alt="Dr. Sorna C. Richardson">
           <div class="sig-line"></div>
           <div class="sig-role">School President</div>
         </div>
