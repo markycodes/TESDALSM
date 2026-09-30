@@ -388,6 +388,7 @@ $verifyUrl = app_link('verify_certificate.php?code=' . urlencode((string) $cert[
       <div class="cols">
         <div class="col sig">
           <img class="sig-img" src="signature/sorna-richardson.png" alt="Dr. Sorna C. Richardson">
+          <div class="sig-script">Dr. Sorna C. Richardson</div>
           <div class="sig-line"></div>
           <div class="sig-role">School President</div>
         </div>
