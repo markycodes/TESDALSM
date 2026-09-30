@@ -367,6 +367,22 @@ html.dark .bg-slate-900 {
   background-color: var(--lh-dark-edge-2) !important
 }
 
+/* the same surfaces at an opacity — mostly sticky table heads and toolbars
+   that scroll content underneath themselves. Their translucency is the point, so
+   they get the dark equivalent at the same weight rather than a solid panel.
+   bg-slate-900/50, /60, /90 and bg-black/70 are deliberately not here: those are
+   scrims behind modals, already the right colour in either scheme. */
+html.dark .bg-slate-50\/60,
+html.dark .bg-slate-50\/70,
+html.dark .bg-slate-50\/80,
+html.dark .bg-white\/90 {
+  background-color: rgba(17, 29, 25, .86) !important
+}
+
+html.dark .border-white\/60 {
+  border-color: var(--lh-dark-edge) !important
+}
+
 html.dark .hover\:bg-white:hover,
 html.dark .hover\:bg-slate-50:hover,
 html.dark .hover\:bg-slate-100:hover,
