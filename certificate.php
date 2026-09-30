@@ -105,7 +105,6 @@ $verifyUrl = app_link('verify_certificate.php?code=' . urlencode((string) $cert[
 
     .sheet {
       width: 297mm;
-      max-width: 100%;
       margin: 0 auto 40px;
       aspect-ratio: 297 / 210;
       background: #fffdf8;
@@ -259,22 +258,6 @@ $verifyUrl = app_link('verify_certificate.php?code=' . urlencode((string) $cert[
         box-shadow: none;
         border-radius: 0;
         width: 100%;
-      }
-    }
-
-    @media (max-width: 900px) {
-      .sheet {
-        aspect-ratio: auto;
-        height: auto;
-        padding: 30px;
-      }
-
-      .title {
-        font-size: 30px;
-      }
-
-      .name {
-        font-size: 32px;
       }
     }
 
