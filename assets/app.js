@@ -1399,8 +1399,13 @@ if (dayFilter) {
      instead of being shoved back to the middle on every keystroke.
      Under prefers-reduced-motion nothing is typed, nothing is held back and
      nothing rotates: a line silently rewriting itself twice a minute is exactly
-     the movement that setting asks for, and assistive tech would announce it. */
+     the movement that setting asks for, and assistive tech would announce it.
+     Between two thoughts she also CLOSES the cloud: at the OWL_ROTATE_MS tick
+     the puff fades away, opens again OWL_AWAY_MS later, and only once it is
+     back does the next line start typing — nothing is ever typed into a cloud
+     you cannot see, so a poll that lands mid-breath waits its turn. */
   var OWL_ROTATE_MS = 20000;
+  var OWL_AWAY_MS = 900;      /* one breath of empty banner between two thoughts */
 
   function lhOwlCloud() {
     var lines = {
@@ -1419,8 +1424,9 @@ if (dayFilter) {
     var aria = document.querySelector('[data-live-owl-aria]');
     var claimed = {}, queue = [], busy = false, active = null;
     /* her queue of thoughts, which one is on screen, and the widest the cloud has
-       ever had to be — see reserve() and rotate() */
-    var thoughts = [], thoughtAt = 0, rotating = false, cloudMax = 0;
+       ever had to be — see reserve() and rotate() — and whether she has taken
+       the cloud away for a breath between two thoughts */
+    var thoughts = [], thoughtAt = 0, rotating = false, cloudMax = 0, away = false;
 
     /* PHP printed both lines for visitors without JS. Rather than let them sit
        there and then be backspaced in front of you, the words are held out of
@@ -1469,7 +1475,7 @@ if (dayFilter) {
     }
 
     function pump() {
-      if (busy) return;
+      if (busy || away) return;              /* a line waits out the breath, never types through it */
       var job = queue.shift();
       if (!job) return;
       var el = lines[job.key];
@@ -1558,12 +1564,31 @@ if (dayFilter) {
     }
 
     /* the rhythm: this thought, then the next, wrapped round so she keeps company
-       rather than running dry. A hidden tab is not an audience — it spends none. */
+       rather than running dry. A hidden tab is not an audience — it spends none.
+       And between the two she CLOSES the cloud (lh-owl-away in assets/hero.css):
+       it fades away at the tick, opens again OWL_AWAY_MS later, and only once it
+       is back does the next thought start typing — nothing is ever written into
+       a cloud you cannot see, and a poll that lands mid-breath waits its turn in
+       the queue until she reopens. */
     function rotate() {
+      if (quiet()) return;
       if (document.visibilityState === 'hidden') return;
       if (thoughts.length < 2) return;
-      thoughtAt = (thoughtAt + 1) % thoughts.length;
-      push('news', thoughts[thoughtAt]);
+      if (!cloud) {                                /* no cloud to close: as you were */
+        thoughtAt = (thoughtAt + 1) % thoughts.length;
+        push('news', thoughts[thoughtAt]);
+        return;
+      }
+      away = true;
+      cloud.classList.add('lh-owl-away');
+      setTimeout(function () {
+        away = false;
+        cloud.classList.remove('lh-owl-away');
+        pump();                                    /* whatever waited out the breath */
+        if (document.visibilityState === 'hidden') return;   /* a hidden tab spends none */
+        thoughtAt = (thoughtAt + 1) % thoughts.length;
+        push('news', thoughts[thoughtAt]);
+      }, OWL_AWAY_MS);
     }
 
     function start() {

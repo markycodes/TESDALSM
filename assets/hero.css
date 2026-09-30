@@ -9,8 +9,11 @@
    Classes used by dashboard.php:
      .lh-hero-side      the group at the right end — the owl, then the call
                         to action, wrapped together so they stay one unit
-     .lh-hero-owl       the stack: body underneath, wing laid over it
+     .lh-hero-owl       the stack: body underneath, eyelids and wing laid over it
      .lh-hero-owl-body  logo/owl-body.png — the owl as drawn
+     .lh-hero-owl-eyes  logo/owl-eyes-close.* — her BLINK: the same owl with her
+                        eyes shut, masked to the body's own silhouette and shown
+                        for a quarter of a second every 10 s
      .lh-hero-owl-wing  logo/owl-rightwing.png — the part that waves
      .lh-hero-hi        the cloud she speaks from, at the owl's head
      .lh-hero-hi-name   who she is ("I'm Tala 🦉") — OWL_NAME in lib.php
@@ -25,6 +28,7 @@
                         the space the finished sentence reserved (lhOwlCloud in
                         assets/app.js)
      .lh-owl-hush       a line whose words are held out of sight until its turn
+     .lh-owl-away       the whole cloud, closed for a breath between two thoughts
      .lh-owl-aria       each finished sentence, whole, for assistive tech
                         (data-live-owl-aria)
    ===================================================================== */
@@ -51,6 +55,7 @@
    placed picture with its top *and* bottom pinned would snap back to its
    intrinsic 500-pixel height instead of following the body's size. */
 .lh-hero-owl-body,
+.lh-hero-owl-eyes,
 .lh-hero-owl-wing {
   display: block;
   width: 100%;
@@ -65,6 +70,27 @@
      the feathers swing from where they join the body and not from the edge of
      the picture. */
   transform-origin: 35.6% 51.2%
+}
+
+/* The blink: the shut-eyes picture is cut from the same square canvas as the
+   body, so it lands on her with no offset of its own. It is a JPEG on white, so
+   it is MASKED to the body's own silhouette — --lh-owl-body, printed by
+   dashboard.php from whichever format logo/owl-body turned out to be (the png
+   here is only the fallback, for the fixture). Outside that silhouette the
+   picture stays out of the way, the white background never touches the banner,
+   and the drop-shadow still follows the owl rather than a rectangle. Invisible
+   until the 10-second blink asks for it, further down. */
+.lh-hero-owl-eyes {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  -webkit-mask-image: var(--lh-owl-body, url(../logo/owl-body.png));
+  mask-image: var(--lh-owl-body, url(../logo/owl-body.png));
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat
 }
 
 /* The greeting, in a cloud at the owl's head. It sits in the row rather than
@@ -164,6 +190,21 @@
   visibility: hidden
 }
 
+/* Between two thoughts she takes the WHOLE cloud away for a breath: closed at
+   the 20-second tick, open again OWL_AWAY_MS later (lhOwlCloud in assets/app.js).
+   "animation: none" is what actually hides it — the entrance animation below
+   holds opacity: 1 with fill-mode both, and an animation outranks any ordinary
+   declaration — and dropping the class lets that entrance play again as the
+   cloud reopens. The transition lives on the class itself, so she fades away
+   slowly and comes straight back into her entrance. */
+.lh-hero-hi.lh-owl-away {
+  animation: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px) scale(.94);
+  transition: opacity .38s ease, transform .38s ease, visibility 0s .38s
+}
+
 .lh-hero-hi-say.lh-owl-typing,
 .lh-hero-hi-news.lh-owl-typing {
   text-align: left;
@@ -258,6 +299,27 @@
   }
 }
 
+/* The blink: shut eyes for a quarter of a second, once every ten seconds — a
+   real blink is quick, and this one is long enough to notice without becoming a
+   metronome. */
+@keyframes lh-owl-blink {
+
+  0%,
+  97% {
+    opacity: 0
+  }
+
+  97.01%,
+  99.5% {
+    opacity: 1
+  }
+
+  99.51%,
+  100% {
+    opacity: 0
+  }
+}
+
 /* …and the cloud she speaks from: it grows out of the puffs (where the owl is)
    as the wing lifts, then STAYS OPEN. It used to close again on the same 3.2 s
    clock as the wave, but the cloud carries the live update as well as the
@@ -296,6 +358,12 @@
     animation: lh-owl-wave 3.2s ease-in-out infinite
   }
 
+  /* …and every ten seconds she blinks: the shut-eyes picture, masked to her own
+     silhouette, appears for a quarter of a second and is gone again. */
+  .lh-hero-owl-eyes {
+    animation: lh-owl-blink 10s ease-in-out infinite
+  }
+
   .lh-hero-hi {
     /* grows out of the puffs, which is where the owl is */
     transform-origin: 100% 100%;
@@ -318,6 +386,16 @@
   .lh-hero-hi-news,
   .lh-owl-typing::after {
     animation: none
+  }
+
+  /* …and the cloud never closes for a reader who asked for stillness: should
+     the preference flip in the middle of a breath, the puff is put straight
+     back where it belongs. */
+  .lh-hero-hi.lh-owl-away {
+    animation: none;
+    opacity: 1;
+    visibility: visible;
+    transform: none
   }
 
   /* …and nothing is typed out or held back: her whole cloud is simply there. */

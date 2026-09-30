@@ -12,16 +12,30 @@ if ($displayName === '') {
   $displayName = $isTeacher ? 'Trainer' : 'Student';
 }
 
-/* The owl that perches at the right end of the Hero banner below is two
-   pictures from logo/ drawn on one and the same 500×500 canvas: the body, and
-   the right wing that goes exactly over it. assets/hero.css turns that wing on
-   its shoulder, so the owl waves. Either may be a .webp/.jpg/.jpeg instead; a
-   wing that is not there leaves an owl that simply holds still, and while no
-   body is there the owl is left out rather than shown broken. */
+/* The owl that perches at the right end of the Hero banner below is three
+   pictures from logo/ drawn on one and the same 500×500 canvas: the body, the
+   shut eyes that go exactly over it (assets/hero.css shows them for a quarter
+   of a second every 10 seconds, so she blinks), and the right wing that goes
+   over both. assets/hero.css turns that wing on its shoulder, so the owl waves.
+   Each may be a .webp/.jpg/.jpeg instead; a wing or a pair of eyelids that is
+   not there leaves an owl that simply holds still with her eyes open, and while
+   no body is there the owl is left out rather than shown broken. */
+/* The mask's url() lives inside --lh-owl-body and is READ by assets/hero.css —
+   and a url() written inside a custom property is resolved against the
+   stylesheet that reads it, not against this page. A bare "logo/..." therefore
+   asked for assets/logo/... (404), a mask that cannot load paints nothing, and
+   her eyelids never appeared: she could not blink. The fixture only worked
+   because its fallback url sits in hero.css itself. A root-relative path has
+   no base to disagree about, so print one of those: wherever this page hangs,
+   the mask finds her. */
+$lh_dir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/'));
+$lh_base = ($lh_dir === '' || $lh_dir === '.' || $lh_dir === '/') ? '' : rtrim($lh_dir, '/');
 $lh_owl = '';
 $lh_owl_wing = '';
+$lh_owl_eyes = '';
 $lh_owl_v = 0;
 $lh_owl_wing_v = 0;
+$lh_owl_eyes_v = 0;
 foreach (['owl-body.png', 'owl-body.webp', 'owl-body.jpg', 'owl-body.jpeg'] as $lh_owl_file) {
   if (is_file(__DIR__ . '/logo/' . $lh_owl_file)) {
     $lh_owl = 'logo/' . $lh_owl_file;
@@ -33,6 +47,13 @@ foreach (['owl-rightwing.png', 'owl-rightwing.webp', 'owl-rightwing.jpg', 'owl-r
   if (is_file(__DIR__ . '/logo/' . $lh_owl_file)) {
     $lh_owl_wing = 'logo/' . $lh_owl_file;
     $lh_owl_wing_v = (int) filemtime(__DIR__ . '/logo/' . $lh_owl_file);
+    break;
+  }
+}
+foreach (['owl-eyes-close.png', 'owl-eyes-close.webp', 'owl-eyes-close.jpg', 'owl-eyes-close.jpeg'] as $lh_owl_file) {
+  if (is_file(__DIR__ . '/logo/' . $lh_owl_file)) {
+    $lh_owl_eyes = 'logo/' . $lh_owl_file;
+    $lh_owl_eyes_v = (int) filemtime(__DIR__ . '/logo/' . $lh_owl_file);
     break;
   }
 }
@@ -182,9 +203,14 @@ require __DIR__ . '/header.php';
             <!-- Letters are hidden from assistive tech while she is mid-word, so each
                  finished sentence is written here, whole, instead. -->
             <span class="lh-owl-aria" aria-live="polite" data-live-owl-aria></span>
-            <span class="lh-hero-owl" aria-hidden="true">
+            <span class="lh-hero-owl" aria-hidden="true"
+              style="--lh-owl-body: url('<?= e($lh_owl === '' ? '' : $lh_base . '/' . $lh_owl) ?>?v=<?= $lh_owl_v ?>')">
               <img class="lh-hero-owl-body" src="<?= e($lh_owl) ?>?v=<?= $lh_owl_v ?>" alt="" width="500"
                 height="500">
+              <?php if ($lh_owl_eyes): ?>
+                <img class="lh-hero-owl-eyes" src="<?= e($lh_owl_eyes) ?>?v=<?= $lh_owl_eyes_v ?>" alt="" width="500"
+                  height="500">
+              <?php endif; ?>
               <?php if ($lh_owl_wing): ?>
                 <img class="lh-hero-owl-wing" src="<?= e($lh_owl_wing) ?>?v=<?= $lh_owl_wing_v ?>" alt="" width="500"
                   height="500">
