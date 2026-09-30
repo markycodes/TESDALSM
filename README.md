@@ -154,6 +154,48 @@ appear automatically (a key with no thumbnail simply falls back to the classic f
 error — the built-in shell still styles every page — and `config.php` can pin a choice for a machine with
 `define('UI_LAYOUT', 'dock');` (`UI_THEME`, `UI_DENSITY` work the same way).
 
+### Dark mode
+
+The sun/moon button at the right end of the top bar switches the whole app between a light and a dark **scheme**.
+It is deliberately the fourth *independent* axis rather than a seventh design, an eighth density or a ninth layout,
+and it is deliberately **not** in Settings:
+
+* **A scheme is about the room, an account is about the person.** Someone marking coursework at 23:00 and the same
+  person at a sunlit desk at 09:00 want different canvases, and a shared staff machine wants both. So the choice is
+  one class on `<html>` plus one `localStorage` key (`lh-scheme`) — no column, no migration, nothing to leak if
+  someone else sits down.
+* **It composes with all three picks.** Any design, density and layout can be dark, which is why it is a sheet of
+  overrides rather than another theme: `assets/dark.css` re-declares the design tokens (`--lh-ink`, `--lh-body`,
+  `--lh-mut`, `--lh-line`, `--lh-paper`, `--lh-deep` …) that the theme sheets already read, then mirrors the
+  surfaces each theme pins with `!important` — the same selector, prefixed `html.dark`, one step above it.
+
+| File | Job |
+|---|---|
+| `assets/dark.css` | The whole scheme: palette, shell chrome, theme mirrors, the ~60 Tailwind utilities the markup actually uses, the reveal's keyframes, and the print reset. Loaded **last** in `header.php`, every rule scoped `html.dark`. |
+| `assets/dark.js` | Applies the change and animates it. Also on every page, deferred. `window.lhScheme.get() / .set('dark') / .toggle(button)` if anything else ever wants to drive it. |
+| the `<script>` in `header.php`'s `<head>` | Reads `lh-scheme` before the first stylesheet paints, so a dark page never arrives light and changes afterwards. |
+
+The change is a **circular reveal opening from the corner the button sits in**. `dark.js` measures the button that
+was pressed and writes `--lh-wipe-x / -y / -r` on `<html>` — the radius is the distance to the farthest pixel, so
+no corner is ever caught mid-change — and `dark.css` clips the incoming page into it:
+
+1. **`document.startViewTransition()`** where the browser has it: the new page is genuinely unrolled over the old
+   one through the widening circle, with the cross-fade the user agent would prefer switched off.
+2. No view transitions → the same circle cut out of one flat sheet of the incoming canvas colour (measured from the
+   page's own background, not hard-coded), with the real page swapped in underneath once it is covered.
+3. `prefers-reduced-motion: reduce` → no animation at all. The page simply changes.
+
+Two things are worth knowing. **Print stays white**: every rule in `dark.css` reads a token, so
+`@media print` hands the light values back in one place and a certificate printed from a dark session is
+unchanged. **Brand colours are not touched** — emerald buttons, their white labels and the indigo form accents
+read as well on a dark canvas as on a light one; a scheme that recoloured the brand would be a theme.
+
+To extend it (a new page with a surface the scheme has not met): reproduce the offending rule with `html.dark` in
+front of it, `!important` if the original used it, and put the colour in a token if it is a surface rather than a
+one-off. The utilities section at the bottom of `dark.css` explains why a variant (`hover:bg-slate-100`) needs its
+own line, why a ring is fixed by setting `--tw-ring-color`, and why a divider needs the utility's own sibling
+selector. `assets/dark-fixture.html` is the page to eyeball it on: one of everything, no database, no login.
+
 ## Adding lessons
 
 Open a course you teach and click **＋ Add lesson**. The modal has one tab per material type:
