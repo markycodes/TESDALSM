@@ -134,6 +134,14 @@ html.dark nav span.rounded-full.bg-indigo-600::after {
   background: var(--lh-dark-panel) !important;
 }
 
+/* A profile picture is a photograph, not a surface: it keeps its own colours in
+   either scheme — nothing here should tint a person's face. It only needs an
+   edge, because the dark bar and the dark card it sits on are the same tone as
+   the shadows at the rim of a photo. */
+html.dark .lh-avatar-img {
+  box-shadow: 0 0 0 1px var(--lh-dark-edge-2) !important;
+}
+
 html.dark .lh-sidebar,
 html.dark body.lh-app .lh-sidebar {
   background: var(--lh-dark-panel) !important;
@@ -322,6 +330,88 @@ html.dark body.lh-app .lh-hero {
   box-shadow: var(--lh-shadow) !important;
   color: var(--lh-body) !important
 }
+
+/* ---------- 4b. the pieces a design paints with its own hand ----------
+   A theme is not only tokens. Several sheets put hexadecimal straight onto a
+   class — material flattens the canvas behind the content to #f5f6f8 and squares
+   the hero sheet away, console squares it to #fff and paints its "plain" wells
+   white, paper rules a cream border under the sidebar head and prints a footer in
+   near-black. Those declarations beat a token change, so each is answered
+   selector-for-selector, and always in the same shape: the theme's own selector
+   with html.dark in front of it. One more class in a rule that is otherwise the
+   same is what wins, so the scheme never has to out-shout a sheet with
+   !important it did not already use — and a design's *structure* (material wants
+   no hero card at all) survives the change of light untouched. */
+
+/* material: the canvas, and the footer bar that slides up off the bottom of the
+   screen and has to be the same colour as the canvas to be invisible in peace */
+html.dark body.lh-app,
+html.dark body.lh-app main.lh-main {
+  background: var(--lh-dark-canvas) !important
+}
+
+html.dark body.lh-app .lh-footer,
+html.dark body.lh-app .lh-footer.lh-footer-inline,
+html.dark body.lh-app .lh-footer-inline {
+  background: var(--lh-dark-canvas) !important;
+  border-top-color: var(--lh-dark-edge) !important;
+  color: var(--lh-body) !important
+}
+
+/* the ruled sheet the hero is printed on: cream and tilted for paper, flat white
+   for console and bright, a faint gradient for emerald — one dark version of it
+   with the ruling kept, because re-inking a texture is a scheme's job and
+   deleting it is not */
+html.dark .lh-hero-paper {
+  background:
+    linear-gradient(rgba(255, 255, 255, .035) 1px, transparent 1px) 0 0 / 100% 30px,
+    linear-gradient(180deg, var(--lh-dark-raise) 0%, var(--lh-dark-panel) 100%) !important;
+  border-color: var(--lh-dark-edge) !important;
+  box-shadow: var(--lh-shadow) !important;
+  color: var(--lh-body) !important
+}
+
+/* material took that sheet away altogether — transparent, no border, no padding.
+   The scheme keeps that decision: a dark card standing where the design drew no
+   card is the scheme designing, which is the one thing this file may not do. */
+html.dark[data-theme="material"] .lh-hero-paper {
+  background: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important
+}
+
+/* material's dark call-to-action is a near-black tile with white ink on it, which
+   stays perfectly readable here — what it loses is the edge, since the canvas it
+   now sits on is nearly as dark as it is. Only a border-colour, so the designs
+   that draw no border keep drawing no border. */
+html.dark .lh-hero-cta,
+html.dark body.lh-app main .lh-hero-cta {
+  border-color: var(--lh-dark-edge-2) !important
+}
+
+/* console's "plain" wells — the flat, hairline-bordered fields it lays tables on */
+html.dark .lh-plain {
+  background: var(--lh-dark-panel) !important;
+  border-color: var(--lh-dark-edge) !important;
+  color: var(--lh-body) !important
+}
+
+/* paper and material both redraw the seam under the wordmark, in cream and in
+   near-white respectively */
+html.dark .lh-sidebar .lh-side-head,
+html.dark .lh-sidebar .lh-side-foot {
+  border-color: var(--lh-dark-edge) !important
+}
+
+/* the small all-caps line above a headline. Grey-on-cream at 11px is the first
+   thing to disappear on a dark canvas, and it is set !important in two designs */
+html.dark .lh-kicker,
+html.dark .lh-hero .lh-kicker,
+html.dark body.lh-app main .lh-kicker {
+  color: var(--lh-mint) !important
+}
+
 
 /* minimal animates the bar to (near) opaque white once the page is scrolled —
    a keyframe ignores specificity entirely, so it has to be redefined wholesale.
@@ -603,7 +693,8 @@ html.lh-reveal::view-transition-new(root) {
 
   html.lh-reveal::view-transition-new(root),
   html.lh-reveal::view-transition-old(root) {
-    animation: none !important
+    animation: none !important;
+    clip-path: none !important
   }
 
   .lh-wipe.is-going {
@@ -700,6 +791,22 @@ html.lh-reveal::view-transition-new(root) {
     background-color: #eef2ff !important
   }
 
+  /* the hand-painted pieces from §4b, back to the paper they were drawn on */
+  html.dark body.lh-app .lh-hero-paper,
+  html.dark .lh-hero-paper,
+  html.dark .lh-plain,
+  html.dark body.lh-app .lh-footer,
+  html.dark body.lh-app .lh-footer.lh-footer-inline {
+    background: #ffffff !important;
+    border-color: #e2e8f0 !important;
+    box-shadow: none !important;
+    color: #0f172a !important
+  }
+
+  html.dark .lh-kicker {
+    color: #047857 !important
+  }
+
   /* never print a wipe or a half-torn view transition */
   .lh-wipe {
     display: none !important
@@ -715,4 +822,49 @@ html.lh-reveal::view-transition-new(root) {
 
 
 
+
+
+/* ---------- profile hover card ---------- */
+/* The card floats over everything, so it is the one surface that has to match
+   the bar it may sit on rather than the page behind it. */
+html.dark .lh-hcard-pop {
+  background: var(--lh-dark-panel);
+  border-color: var(--lh-dark-edge-2)
+}
+
+html.dark [data-hcard]:hover,
+html.dark [data-hcard].is-open,
+html.dark [data-hcard]:focus-visible {
+  background: var(--lh-dark-hover);
+  box-shadow: 0 0 0 4px var(--lh-dark-hover)
+}
+
+html.dark [data-hcard]:focus-visible {
+  box-shadow: 0 0 0 2px var(--lh-dark-panel), 0 0 0 4px rgba(16, 185, 185, .35)
+}
+
+html.dark .lh-hcard-name {
+  color: #f1f5f9
+}
+
+html.dark .lh-hcard-bio {
+  color: #c3d3cb
+}
+
+html.dark .lh-hcard-role {
+  background: rgba(99, 102, 241, .2);
+  color: #a5b4fc
+}
+
+html.dark .lh-hcard-join {
+  color: #8aa296
+}
+
+html.dark .lh-hcard-pic {
+  box-shadow: 0 0 0 1px var(--lh-dark-edge-2)
+}
+
+html.dark .lh-hcard-init {
+  box-shadow: 0 0 0 1px var(--lh-dark-edge)
+}
 

@@ -76,7 +76,7 @@ require __DIR__ . '/header.php';
      Every solid is one row of data below and six faces drawn by CSS from
      the custom properties on it, so adding a prop to the pile is a line
      here and nothing else. Sizes are px because the camera is px too. -->
-<link rel="stylesheet" href="assets/book3d.css?v=<?= (int) @filemtime(__DIR__ . '/assets/book3d.css') ?>">
+<link rel="stylesheet" href="assets/book3d.css?v=<?= (int) @filemtime(lh_path('assets/book3d.css')) ?>">
 <section class="lh3d-wrap reveal py-10 md:py-14">
   <div class="lh3d-scene" id="lh3d-scene" tabindex="0" role="img" aria-describedby="lh3d-hint"
        aria-label="A floating stack of three books with a graduation cap on top, turning slowly">
@@ -117,7 +117,7 @@ require __DIR__ . '/header.php';
   </div>
   <div class="lh3d-shadow" aria-hidden="true"></div>
 </section>
-<script src="assets/book3d.js?v=<?= (int) @filemtime(__DIR__ . '/assets/book3d.js') ?>" defer></script>
+<script src="assets/book3d.js?v=<?= (int) @filemtime(lh_path('assets/book3d.js')) ?>" defer></script>
 
 <section data-live-scope="index" class="reveal mt-4 grid grid-cols-3 overflow-hidden rounded-2xl border border-slate-200 bg-white">
   <div class="lh-band px-4 py-5 text-center">

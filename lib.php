@@ -27,20 +27,45 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-define('LMS_ROOT', __DIR__);
-define('DATA_DIR', LMS_ROOT . '/data');        // legacy JSON storage location (auto-imported once)
-define('UPLOAD_DIR', LMS_ROOT . '/uploads');
+/* ---- Where everything lives -------------------------------------------------
+ * `paths.php` owns that one question: where this site's PHP sits, where
+ * `assets/`, `logo/`, `signature/`, `data/` and `uploads/` are, and how they are
+ * found when the private half of the app has been put ABOVE `public_html` on a
+ * shared host (a Hostinger-style deploy). It also loads config.php — and
+ * config.php may itself live above the document root, so the MySQL password and
+ * the API keys never have to sit inside it.
+ *
+ * Required here, first, because the constants it defines are used by everything
+ * below and by every page: DATA_DIR, UPLOAD_DIR, ASSET_DIR, LOGO_DIR,
+ * SIGNATURE_DIR — plus lh_path(), the function that turns any
+ * repository-relative path into the folder it really lives in.
+ *
+ * With no config at all every one of them is this folder, exactly as before. */
+require_once __DIR__ . '/paths.php';
+
 define('MAX_UPLOAD_BYTES', (PHP_INT_SIZE >= 8 ? 4 : 1) * 1024 * 1024 * 1024); // 4 GB on 64-bit PHP (1 GB fallback on 32-bit) — fits 1080p hour-long videos; php.ini/.htaccess may cap lower
 
 /* ---- MySQL connection settings --------------------------------------------
- * Defaults are the XAMPP ones. For other hosts (InfinityFree, etc.) create a
- * config.php next to this file — copy config.sample.php and fill in the
- * values from your hosting control panel. config.php is git-ignored, so
- * credentials are never committed.
+ * Defaults are the XAMPP ones. For other hosts (InfinityFree, Hostinger, …)
+ * create a config.php — beside this file OR one level above it — copy
+ * config.sample.php and fill in the values from your hosting control panel.
+ * config.php is git-ignored, so credentials are never committed.
  * ------------------------------------------------------------------------- */
-if (is_file(__DIR__ . '/config.php')) {
-    require_once __DIR__ . '/config.php';
-}
+
+/* ---- The clock the whole app keeps ------------------------------------------
+ * Philippine time, everywhere, because that is the country this school teaches
+ * in — not the zone of whichever machine happens to run PHP. Nothing else in
+ * this codebase asks the database for a time (no NOW(), no CURRENT_TIMESTAMP):
+ * every timestamp is written by PHP and read back as wall clock, so setting the
+ * zone once, here, moves greetings, "today", "online now", quiz openings,
+ * certificates and reminders together — and moves them the same way on XAMPP and
+ * on the deployed site, which a php.ini line never does (a stock XAMPP ships
+ * date.timezone=Europe/Berlin, six or seven hours behind Manila: "Good morning"
+ * at two in the afternoon, "Good evening" before lunch).
+ *
+ * Put APP_TIMEZONE in config.php to move the app to another zone. */
+if (!defined('APP_TIMEZONE')) define('APP_TIMEZONE', 'Asia/Manila');
+date_default_timezone_set(APP_TIMEZONE);
 
 /* ---- Environment-aware DB selection ----------------------------------------
  * config.php may carry BOTH a LOCAL (XAMPP) and a PROD (InfinityFree) block.
@@ -359,7 +384,7 @@ function ui_theme(): string
 function ui_theme_file(): string
 {
     $f = 'assets/theme-' . ui_theme() . '.css';
-    return is_file(__DIR__ . '/' . $f) ? $f : '';
+    return is_file(lh_path($f)) ? $f : '';
 }
 
 /** Spacing density of the app shell. 'compact' trims the rhythm so a
@@ -393,7 +418,7 @@ function ui_density_file(): string
 {
     if (ui_density() === 'comfortable') return '';
     $f = 'assets/density-' . ui_density() . '.css';
-    return is_file(__DIR__ . '/' . $f) ? $f : '';
+    return is_file(lh_path($f)) ? $f : '';
 }
 
 /** Same path with a cache-busting stamp, for the <link> tag. */
@@ -401,7 +426,7 @@ function ui_density_url(): string
 {
     $f = ui_density_file();
     if ($f === '') return '';
-    $v = (int) @filemtime(__DIR__ . '/' . $f);
+    $v = (int) @filemtime(lh_path($f));
     return $v > 0 ? $f . '?v=' . $v : $f;
 }
 
@@ -411,7 +436,7 @@ function ui_theme_url(): string
 {
     $f = ui_theme_file();
     if ($f === '') return '';
-    $v = (int) @filemtime(__DIR__ . '/' . $f);
+    $v = (int) @filemtime(lh_path($f));
     return $v > 0 ? $f . '?v=' . $v : $f;
 }
 
@@ -480,7 +505,7 @@ function ui_layout(): string
 function ui_layout_file(): string
 {
     $f = 'assets/layout-' . ui_layout() . '.css';
-    return is_file(__DIR__ . '/' . $f) ? $f : '';
+    return is_file(lh_path($f)) ? $f : '';
 }
 
 /** Same path with a cache-busting stamp, for the <link> tag. */
@@ -488,7 +513,7 @@ function ui_layout_url(): string
 {
     $f = ui_layout_file();
     if ($f === '') return '';
-    $v = (int) @filemtime(__DIR__ . '/' . $f);
+    $v = (int) @filemtime(lh_path($f));
     return $v > 0 ? $f . '?v=' . $v : $f;
 }
 
@@ -612,6 +637,21 @@ const DOC_EXTS    = ['pdf','docx','pptx','xlsx','txt','md','csv','png','jpg','jp
 const VIDEO_EXTS  = ['mp4','webm','ogg','ogv','mov','m4v'];
 const INLINE_EXTS = ['pdf','png','jpg','jpeg','gif','webp','txt','mp4','webm','ogg','ogv','mov','m4v','mp3','wav'];
 
+/* ---- profile pictures (see the profile block in this file) -------------------
+ * The extension list is only a first, friendly gate: what decides whether an
+ * upload is a picture is its CONTENT (getimagesize()), so a renamed .php or a
+ * .svg — which can carry script — never gets through whatever it is called.
+ * SVG is deliberately NOT allowed for that reason. */
+const AVATAR_EXTS = ['jpg','jpeg','png','webp','gif'];
+/** Stored size in px: square-cropped, big enough for the 120 px profile
+ *  preview and every 36–40 px circle in the shell at 2× (retina). */
+const AVATAR_SIDE = 512;
+/** What a browser may POST for a picture. The browser shrinks it first when JS
+ *  is on (≈60 KB), so this is the ceiling for the no-JavaScript route. */
+const AVATAR_MAX_BYTES = 4 * 1024 * 1024;
+/** Longest "about me" line on the profile page (VARCHAR(280) in users). */
+const PROFILE_BIO_MAX = 280;
+
 /* ---------------- database connection ---------------- */
 
 function db_error_page(string $message): void
@@ -704,6 +744,8 @@ function db_ensure_schema(PDO $pdo): void
             email VARCHAR(190) NOT NULL UNIQUE,
             password VARCHAR(255) NOT NULL,
             role ENUM('teacher','student','admin') NOT NULL DEFAULT 'student',
+            bio VARCHAR(280) NOT NULL DEFAULT '',
+            avatar VARCHAR(255) NULL,
             created_at INT UNSIGNED NOT NULL DEFAULT 0
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
         "CREATE TABLE IF NOT EXISTS courses (
@@ -966,7 +1008,8 @@ function db_ensure_schema(PDO $pdo): void
     db_migrate_quiz_results($pdo);
 }
 
-/** One-time-per-request post-schema work: widen the role ENUM on old databases, then guarantee a main admin exists. */
+/** One-time-per-request post-schema work: widen the role ENUM and add the
+ *  profile columns on old databases, then guarantee a main admin exists. */
 function db_schema_post_migrate(PDO $pdo): void
 {
     static $done = false;
@@ -981,7 +1024,25 @@ function db_schema_post_migrate(PDO $pdo): void
             $pdo->exec("ALTER TABLE users MODIFY role ENUM('teacher','student','admin') NOT NULL DEFAULT 'student'");
         }
     } catch (Throwable $e) { /* best-effort; fresh installs already have the new ENUM */ }
+    /* accounts created before the profile page existed have no profile columns —
+       add them the same way, one cheap information_schema lookup per column.
+       `bio` is the public "about me" line, `avatar` the stored picture name
+       inside uploads/avatars/ (never a path, so it can never point outside). */
+    db_ensure_column($pdo, 'users', 'bio', "ALTER TABLE users ADD COLUMN bio VARCHAR(280) NOT NULL DEFAULT '' AFTER role");
+    db_ensure_column($pdo, 'users', 'avatar', 'ALTER TABLE users ADD COLUMN avatar VARCHAR(255) NULL AFTER bio');
     admin_ensure($pdo);
+}
+
+/** Run one ADD COLUMN when that column is genuinely missing (old installs). */
+function db_ensure_column(PDO $pdo, string $table, string $column, string $sql): void
+{
+    try {
+        $st = $pdo->prepare('SELECT COUNT(*) FROM information_schema.COLUMNS
+                             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?');
+        $st->execute([$table, $column]);
+        if ((int) $st->fetchColumn() > 0) return;
+        $pdo->exec($sql);
+    } catch (Throwable $e) { /* best-effort; fresh installs already carry the column */ }
 }
 
 /** Guarantee a main-admin account exists. Credentials are written to data/admin-credentials.txt (web-blocked). */
@@ -1981,6 +2042,442 @@ function handle_uploads(string $field, array $allowedExts): array
     }
     if (!$rows) throw new RuntimeException('Please choose at least one file to upload.');
     return $rows;
+}
+
+/* ---------------- profile (account details + profile picture) ----------------
+ * A picture is a file, and uploads/ is web-blocked — so it can never be linked
+ * straight into an <img src>. avatar.php streams it back to signed-in sessions
+ * instead, exactly like download.php does for lesson files.
+ * Pictures get their own folder under uploads/ so deleting one (or a whole
+ * account) can never touch lesson files, and so the folder is easy to spot,
+ * back up or clean.
+ * The browser is ASKED to square-crop and shrink the picture before uploading
+ * (the script at the bottom of profile.php), which keeps a 12 MB phone photo
+ * from tripping a shared host's per-request cap. Nothing on the server trusts
+ * that: every file is checked by content, cropped, shrunk and re-encoded here
+ * whenever this PHP has GD. Without GD the validated original is stored as is —
+ * the page still works, it just keeps the bigger bytes (see README).
+ * -------------------------------------------------------------------------- */
+
+/** Folder that holds profile pictures — created and web-blocked on first use. */
+function avatar_dir(): string
+{
+    $dir = UPLOAD_DIR . '/avatars';
+    if (!is_dir($dir)) @mkdir($dir, 0777, true);
+    deny_web_access($dir);
+    return $dir;
+}
+
+/** The stored file name of a user's picture, '' when they have none (or the row
+ *  names something that is not a picture extension). */
+function avatar_file_of(array $user): string
+{
+    $stored = basename(trim((string) ($user['avatar'] ?? '')));
+    if ($stored === '' || !in_array(ext_of($stored), AVATAR_EXTS, true)) return '';
+    return $stored;
+}
+
+/** Absolute path to a stored picture, '' when it is missing on disk. */
+function avatar_path_of(string $stored): string
+{
+    if ($stored === '') return '';
+    $path = avatar_dir() . '/' . basename($stored);   // basename(): never leaves the folder
+    return is_file($path) ? $path : '';
+}
+
+/** Address for an <img> tag, '' when this user has no usable picture. */
+function user_avatar_url(array $user): string
+{
+    $path = avatar_path_of(avatar_file_of($user));
+    if ($path === '') return '';
+    /* `u` + `t` on purpose: the id encryptor in this file only rewrites numeric
+       id params (id/c/m/with/course/ids). A numeric ?id= here would be re-tokenised
+       on every single page — a fresh URL each time, so the picture could never be
+       cached and the top bar would re-download it on every click. `t` is the file's
+       mtime, so a new picture is a new URL and the browser drops the old one. */
+    return 'avatar.php?u=u' . (int) ($user['id'] ?? 0) . '&t=' . (int) @filemtime($path);
+}
+
+/** Which account's picture is being asked for (?u=u7 — 0 when unreadable). */
+function profile_request_user_id(): int
+{
+    $raw = trim((string) ($_GET['u'] ?? ''));
+    if ($raw === '') return 0;
+    if ($raw[0] === 'u' || $raw[0] === 'U') $raw = substr($raw, 1);
+    return ($raw !== '' && ctype_digit($raw)) ? (int) $raw : 0;
+}
+
+/* ---- the hover card: somebody else's profile, on their name ----------------
+ * A teacher who already sees a student's name on a roster, an attendance sheet
+ * or a chat list can hover that name and get the small card: the picture, the
+ * name, the about line, when they joined. That is the whole rule — nobody gets a
+ * directory, a search, or a card for a person they never share a course with,
+ * and students get no cards at all. avatar.php, user_peer_avatar_html() and
+ * profile_hover_html() all consult can_view_profile_of(), so the picture a page
+ * prints and the file the browser fetches are decided the same way: a card that
+ * renders is a card whose bytes arrive, and one that is not allowed cannot be
+ * smuggled in by editing the HTML.
+ * -------------------------------------------------------------------------- */
+
+/** Per-request cache of the profile rows the cards need, by reference so a
+ *  whole list can be primed with one query. */
+function &profile_card_cache(): array
+{
+    static $cache = [];
+    return $cache;
+}
+
+/** One account's card row, or null when the id is nobody. Read through the
+ *  per-request cache — see profile_cards_preload() for list pages. */
+function profile_card_data(int $id): ?array
+{
+    $cache = &profile_card_cache();
+    $id = (int) $id;
+    if ($id <= 0) return null;
+    if (array_key_exists($id, $cache)) return $cache[$id];
+    $stmt = db()->prepare('SELECT id, name, role, bio, avatar, created_at FROM users WHERE id = ? LIMIT 1');
+    $stmt->execute([$id]);
+    $row = $stmt->fetch();
+    $cache[$id] = $row ?: null;
+    return $cache[$id];
+}
+
+/** Prime the cache for a list of accounts in a single query, so a roster of 200
+ *  names costs one round trip and not two hundred. Ids with no row are remembered
+ *  as misses, which keeps a deleted account from being asked for twice. */
+function profile_cards_preload(array $ids, ?array $viewer = null): void
+{
+    /* a student's pages never carry cards, so there is nothing to prime — skip
+       the query rather than fetch rows that will never be printed */
+    $me = $viewer ?? current_user();
+    $role = (string) ($me['role'] ?? '');
+    if ($role !== 'teacher' && $role !== 'admin') return;
+    $cache = &profile_card_cache();
+    $todo = [];
+    foreach ($ids as $id) {
+        $id = (int) $id;
+        if ($id > 0 && !array_key_exists($id, $cache)) $todo[] = $id;
+    }
+    if (!$todo) return;
+    $todo = array_values(array_unique($todo));
+    $in = implode(',', array_fill(0, count($todo), '?'));
+    $stmt = db()->prepare("SELECT id, name, role, bio, avatar, created_at FROM users WHERE id IN ($in)");
+    $stmt->execute($todo);
+    foreach ($stmt->fetchAll() as $row) $cache[(int) $row['id']] = $row;
+    foreach ($todo as $id) if (!array_key_exists($id, $cache)) $cache[$id] = null;
+}
+
+/** May this person's profile details be shown?
+ *  - their own, always;
+ *  - anybody's, for an admin (they run the site and already have the user list);
+ *  - a student's, for the teacher of a course that student is enrolled in — the
+ *    same teacher who sees that name on their roster;
+ *  - nothing for a student. This is a courtesy card between a class and its
+ *    teacher, not a people browser.
+ * $viewer is the signed-in account; pass one only where there is no session to
+ * read (a page built for somebody else, or the checks in _profile_check.php). */
+function can_view_profile_of(int $targetId, ?array $viewer = null): bool
+{
+    /* One query per teacher per page load — the accounts enrolled in a course
+       they own — so a 200-student roster costs one lookup, not two hundred. */
+    static $scopes = [];
+    $me = $viewer ?? current_user();
+    $targetId = (int) $targetId;
+    if (!$me || $targetId <= 0) return false;
+    $viewerId = (int) ($me['id'] ?? 0);
+    if ($viewerId === $targetId) return true;            // never gate a person on themselves
+    $role = (string) ($me['role'] ?? '');
+    if ($role === 'admin') return true;
+    if ($role !== 'teacher') return false;
+    if (!isset($scopes[$viewerId])) {
+        $scopes[$viewerId] = [];
+        $stmt = db()->prepare('SELECT DISTINCT e.user_id FROM enrollments e'
+            . ' JOIN courses c ON c.id = e.course_id WHERE c.teacher_id = ?');
+        $stmt->execute([$viewerId]);
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $id) $scopes[$viewerId][(int) $id] = true;
+    }
+    return isset($scopes[$viewerId][$targetId]);
+}
+
+/** The circle for somebody OTHER than the viewer: their picture when this viewer
+ *  is entitled to see it, the coloured initial when they are not. Use this on any
+ *  list of other people; user_avatar_html() stays right for the viewer's own. */
+function user_peer_avatar_html(array $user, string $sizeClass = 'h-9 w-9', ?array $viewer = null): string
+{
+    if (!can_view_profile_of((int) ($user['id'] ?? 0), $viewer)) $user['avatar'] = '';
+    return user_avatar_html($user, $sizeClass);
+}
+
+/**
+ * Wrap the markup that stands for an account (their circle and name, usually) so
+ * that pointing at it — or tabbing to it — floats a small card with that
+ * account's profile: picture, name, role, about line, date joined.
+ *
+ * Nothing is fetched on hover. The words ride along as data attributes and the
+ * script in app.js paints ONE shared floating card and moves it, so a long
+ * roster carries no hidden cards and the page stays as small as it was. With
+ * scripting off the title attribute still carries the name and the about line.
+ *
+ * $inner comes back untouched when this viewer may not see this person's profile,
+ * so a page cannot leak by forgetting to check, and a student's pages never grow
+ * cards at all. $opt understands 'class' (extra classes on the wrapper) and
+ * 'focusable' => false where the wrapper already sits inside a link.
+ */
+/**
+ * The attributes that turn any element into a profile card trigger: the words
+ * the card is made of ride along as data attributes, and the title attribute is
+ * the no-script version of the same card. '' when this viewer may not see this
+ * person's profile — so a page cannot leak by forgetting to check, and a
+ * student's pages never grow cards at all.
+ *
+ * Use this on markup that already exists (a link, a table row); use
+ * profile_hover_html() when there is nothing to decorate.
+ */
+function profile_hover_attrs($user, array $opt = []): string
+{
+    $id = is_array($user) ? (int) ($user['id'] ?? 0) : (int) $user;
+    $viewer = (isset($opt['viewer']) && is_array($opt['viewer'])) ? $opt['viewer'] : current_user();
+    if ($id <= 0 || !can_view_profile_of($id, $viewer)) return '';
+    if (($opt['self'] ?? true) === false && $viewer && (int) ($viewer['id'] ?? 0) === $id) return '';
+    $p = profile_card_data($id);
+    if ($p === null) return '';                           // deleted since the list was built
+
+    $name = trim((string) ($p['name'] ?? ''));
+    if ($name === '') $name = 'Account #' . $id;
+    $bio = trim((string) ($p['bio'] ?? ''));
+    $role = strtolower((string) ($p['role'] ?? 'student'));
+    $roleTxt = $role === 'teacher' ? 'Teacher' : ($role === 'admin' ? 'Administrator' : 'Student');
+    $joined = (int) ($p['created_at'] ?? 0);
+    $pic = user_avatar_url($p);                           // '' when they never uploaded one
+
+    $attr = '';
+    /* an element that is already tabbable (a link, a button) must not be given a
+       second tab stop: pass focusable => false and the card still opens on focus */
+    if (($opt['focusable'] ?? true) !== false) $attr .= ' tabindex="0"';
+    $attr .= ' title="' . e($name . ($bio !== '' ? ' — ' . $bio : '')) . '"';
+    $attr .= ' data-hcard data-hc-name="' . e($name) . '"'
+          . ' data-hc-role="' . e($roleTxt) . '"'
+          . ' data-hc-bio="' . e($bio !== '' ? $bio : 'No about line yet.') . '"'
+          . ' data-hc-joined="' . e($joined > 0 ? 'Joined ' . date('F Y', $joined) : '') . '"'
+          . ' data-hc-pic="' . e($pic) . '"';
+    return $attr;
+}
+
+/**
+ * Wrap the markup that stands for an account (their circle and name, usually) so
+ * that pointing at it — or tabbing to it — floats a small card with that
+ * account's profile: picture, name, role, about line, date joined.
+ *
+ * Nothing is fetched on hover: the words ride along as data attributes and the
+ * script in app.js paints ONE shared floating card and moves it, so a long
+ * roster carries no hidden boxes and the page stays as small as it was. With
+ * scripting off the title attribute still carries the name and the about line.
+ * $inner comes back untouched when the viewer may not see this person.
+ * $opt understands 'block' (the wrapper is a <div>, for markup that owns a line),
+ * 'class' (extra classes), 'focusable' => false (see above), 'self' => false (no
+ * card for the viewer's own row — a list of names is not where you read your own
+ * about line back to yourself) and 'viewer' (whose screen this is, where there is
+ * no session to read).
+ */
+function profile_hover_html(string $inner, $user, array $opt = []): string
+{
+    $attr = profile_hover_attrs($user, $opt);
+    if ($attr === '') return $inner;
+    $block = (bool) ($opt['block'] ?? false);
+    $tag = $block ? 'div' : 'span';
+    $attr = ' class="lh-hcard' . ($block ? ' lh-hcard-block' : '')
+          . (isset($opt['class']) ? ' ' . $opt['class'] : '') . '"' . $attr;
+    return '<' . $tag . $attr . '>' . $inner . '</' . $tag . '>';
+}
+
+/**
+ * The circle an account is represented by: their picture when there is one, the
+ * coloured initial when there is not. The markup mirrors what the shell used to
+ * hand-write, so themes and density sheets keep seeing the shapes they already
+ * style — which is why callers wrap this instead of rebuilding it.
+ * @param string $sizeClass size classes that already exist in the Tailwind build
+ */
+function user_avatar_html(array $user, string $sizeClass = 'h-9 w-9'): string
+{
+    $name = trim((string) ($user['name'] ?? ''));
+    $url  = user_avatar_url($user);
+    if ($url !== '') {
+        $alt = $name === '' ? 'Profile picture' : 'Profile picture of ' . $name;
+        /* the round shape and object-fit come from .lh-avatar-img in shell.css —
+           object-cover is not in the compiled Tailwind build */
+        return '<img src="' . e($url) . '" alt="' . e($alt) . '" loading="lazy" decoding="async"'
+             . ' class="lh-avatar-img ' . $sizeClass . ' rounded-full">';
+    }
+    $initial = strtoupper(cut($name !== '' ? $name : '?', 1));
+    return '<span class="lh-avatar-initial grid ' . $sizeClass . ' place-items-center rounded-full bg-emerald-600 text-sm font-bold text-white"'
+         . ' aria-hidden="true">' . e($initial) . '</span>';
+}
+
+/**
+ * What one uploaded picture becomes: square-cropped, at most AVATAR_SIDE px on a
+ * side, re-encoded when this PHP has GD (which also strips EXIF and anything
+ * tucked behind the pixels), kept as-is when it does not. The extension comes
+ * from the file CONTENT, never from the name the browser sent — so a renamed
+ * script or an SVG is refused on its own merits, not on its label.
+ * @return array{ext:string, bytes:string}
+ * @throws RuntimeException carrying a message that is safe to show the user
+ */
+function prepare_profile_image(string $tmpFile): array
+{
+    if (!is_file($tmpFile)) throw new RuntimeException('The upload never reached the server — please choose the picture again.');
+    $info = @getimagesize($tmpFile);
+    if (!is_array($info) || empty($info[2])) {
+        throw new RuntimeException('That file is not a picture a browser can display — please choose a JPG, PNG, WEBP or GIF.');
+    }
+    $type   = (int) $info[2];
+    $width  = (int) $info[0];
+    $height = (int) $info[1];
+    /* IMAGETYPE_* are core constants, so this gate works without GD too */
+    $extByType = [IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png', IMAGETYPE_GIF => 'gif', IMAGETYPE_WEBP => 'webp'];
+    if (!isset($extByType[$type])) {
+        throw new RuntimeException('Only JPG, PNG, WEBP and GIF pictures can be used as a profile picture.');
+    }
+    if ($width < 64 || $height < 64) {
+        throw new RuntimeException('A profile picture needs to be at least 64 × 64 pixels — this one is ' . $width . ' × ' . $height . '.');
+    }
+    if ($width > 8000 || $height > 8000) {
+        throw new RuntimeException('That picture is far too large (' . $width . ' × ' . $height . ' pixels) — please use one under 8000 pixels on each side.');
+    }
+    $ext   = $extByType[$type];
+    $bytes = (string) @file_get_contents($tmpFile);
+    if ($bytes === '') throw new RuntimeException('The picture could not be read — please try again.');
+    if (!function_exists('imagecreatetruecolor')) {
+        /* no GD on this machine (plain XAMPP builds ship without it): the bytes are
+           proven to be a real, sensibly sized image, so store them untouched */
+        return ['ext' => $ext, 'bytes' => $bytes];
+    }
+    $img = @imagecreatefromstring($bytes);
+    if (!$img) throw new RuntimeException('That picture could not be decoded — please choose a different file.');
+    $side = (int) min($width, $height);                 /* centre square: a portrait
+                                                           head or a logo both survive */
+    $srcX = (int) (($width  - $side) / 2);
+    $srcY = (int) (($height - $side) / 2);
+    $canvas = imagecreatetruecolor(AVATAR_SIDE, AVATAR_SIDE);
+    if ($ext === 'jpg') {
+        imagefill($canvas, 0, 0, imagecolorallocate($canvas, 255, 255, 255));  /* JPEG has no alpha */
+    } else {
+        imagealphablending($canvas, false);
+        imagesavealpha($canvas, true);
+        imagefill($canvas, 0, 0, imagecolorallocatealpha($canvas, 0, 0, 0, 127));
+    }
+    imagecopyresampled($canvas, $img, 0, 0, $srcX, $srcY, AVATAR_SIDE, AVATAR_SIDE, $side, $side);
+    imagedestroy($img);
+    ob_start();
+    $encoded = false;
+    if ($ext === 'png') {
+        $encoded = imagepng($canvas, null, 6);
+    } elseif ($ext === 'gif') {
+        $encoded = imagepng($canvas, null, 6);   /* flatten a gif into png: no animated */
+        $ext = 'png';                             /* frames, no palette surprises       */
+    } elseif (function_exists('imagewebp')) {
+        $encoded = imagewebp($canvas, null, 86);
+    } else {
+        $encoded = imagejpeg($canvas, null, 88);
+        $ext = 'jpg';
+    }
+    $out = (string) ob_get_clean();
+    imagedestroy($canvas);
+    if (!$encoded || $out === '') throw new RuntimeException('This picture could not be processed on this server — please try again.');
+    return ['ext' => $ext, 'bytes' => $out];
+}
+
+/**
+ * Store the picture posted in $_FILES[$field] for one account.
+ * Nothing is deleted here: the caller swaps the row first, then unlinks the old
+ * file, so a failed upload can never leave a user without a picture.
+ * @return array{stored:string, size:int, ext:string}
+ */
+function save_profile_picture(int $userId, string $field = 'avatar'): array
+{
+    $f = $_FILES[$field] ?? null;
+    if (!is_array($f) || (int) ($f['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+        throw new RuntimeException('Please choose a picture first.');
+    }
+    $err = (int) ($f['error'] ?? UPLOAD_ERR_NO_FILE);
+    if ($err !== UPLOAD_ERR_OK) throw new RuntimeException(upload_error_message($err));
+    if ((int) $f['size'] > AVATAR_MAX_BYTES) {
+        throw new RuntimeException('A profile picture must be ' . format_size(AVATAR_MAX_BYTES)
+            . ' or smaller — yours is ' . format_size((int) $f['size'])
+            . '. Turn JavaScript on and the browser will shrink it for you.');
+    }
+    $tmp = (string) ($f['tmp_name'] ?? '');
+    if ($tmp === '' || !is_uploaded_file($tmp)) {
+        throw new RuntimeException('The upload could not be verified — please choose the picture again.');
+    }
+    /* the name is only a hint that lets the form say "that is not a picture"
+       early; prepare_profile_image() is the one that actually decides */
+    $ext = ext_of((string) ($f['name'] ?? ''));
+    if ($ext !== '' && !in_array($ext, AVATAR_EXTS, true)) {
+        throw new RuntimeException('Please choose a JPG, PNG, WEBP or GIF picture.');
+    }
+    $pic = prepare_profile_image($tmp);
+    if (strlen($pic['bytes']) > AVATAR_MAX_BYTES) {
+        throw new RuntimeException('That picture is still larger than ' . format_size(AVATAR_MAX_BYTES) . ' after checking it — please choose a smaller one.');
+    }
+    $stored = 'avatar' . $userId . '_' . date('Ymd_His') . '_' . bin2hex(random_bytes(5)) . '.' . $pic['ext'];
+    if (@file_put_contents(avatar_dir() . '/' . $stored, $pic['bytes']) === false) {
+        throw new RuntimeException('The picture could not be stored — check the permissions of the uploads folder.');
+    }
+    return ['stored' => $stored, 'size' => strlen($pic['bytes']), 'ext' => $pic['ext']];
+}
+
+/** Point an account at a stored picture and hand back the file it replaces. */
+function set_profile_picture(int $userId, string $stored): string
+{
+    $st = db()->prepare('SELECT avatar FROM users WHERE id = ? LIMIT 1');
+    $st->execute([$userId]);
+    $old = avatar_file_of(['avatar' => (string) $st->fetchColumn()]);
+    db()->prepare('UPDATE users SET avatar = ? WHERE id = ?')->execute([$stored, $userId]);
+    return $old;                       /* caller unlinks it once the row is saved */
+}
+
+/** Take an account's picture away (row first, file after — same order as above). */
+function clear_profile_picture(int $userId): string
+{
+    $st = db()->prepare('SELECT avatar FROM users WHERE id = ? LIMIT 1');
+    $st->execute([$userId]);
+    $old = avatar_file_of(['avatar' => (string) $st->fetchColumn()]);
+    db()->prepare('UPDATE users SET avatar = NULL WHERE id = ?')->execute([$userId]);
+    return $old;
+}
+
+/** Remove one stored picture, retrying: on Windows a just-written file can be
+ *  locked for a moment (Defender), and delete_uploaded_file() hit the same wall. */
+function delete_profile_picture_file(string $stored): bool
+{
+    $path = avatar_dir() . '/' . basename($stored);
+    if ($stored === '' || !is_file($path)) return true;
+    for ($i = 0; $i < 5; $i++) {
+        if (@unlink($path)) return true;
+        usleep(300000);
+    }
+    return !is_file($path);
+}
+
+/** Save the editable parts of an account (name, e-mail, about line). */
+function update_profile_details(int $userId, string $name, string $email, string $bio): void
+{
+    db()->prepare('UPDATE users SET name = ?, email = ?, bio = ? WHERE id = ?')
+        ->execute([$name, $email, $bio, $userId]);
+}
+
+/** New password for an account — the caller hashes it and verified the old one. */
+function update_profile_password(int $userId, string $passwordHash): void
+{
+    db()->prepare('UPDATE users SET password = ? WHERE id = ?')->execute([$passwordHash, $userId]);
+}
+
+/** One line of text, safe for a VARCHAR: no newlines or control characters,
+ *  trimmed, and cut to the column length so MySQL never silently truncates. */
+function profile_one_line(string $text, int $limit): string
+{
+    $flat = trim((string) preg_replace('~\\s+~u', ' ', str_replace(["\r", "\n", "\t"], ' ', $text)));
+    return cut($flat, $limit);
 }
 
 /* ---------------- chunked uploads (big lessons on capped hosts) -------------
@@ -3684,6 +4181,19 @@ function touch_presence(int $userId): void
                    ON DUPLICATE KEY UPDATE last_seen = VALUES(last_seen)')
         ->execute([$userId, time()]);
 }
+/** And the exact opposite of touch_presence(): the user is offline RIGHT NOW, even
+ *  though their PHP session lives on (they never logged out). Called by ping.php's
+ *  v=offline beacon — the browser's `offline` event, fired while the link may still
+ *  deliver — it backdates last_seen past PRESENCE_TIMEOUT, so every online list
+ *  flips them off on its very next query and close_stale_attendance() finishes the
+ *  open visit at that same moment. A beacon that never reaches us (a true outage,
+ *  where there is nothing left to deliver it to) changes nothing: the untouched
+ *  last_seen ages out of PRESENCE_TIMEOUT on its own, which remains the fallback. */
+function offline_user(int $userId): void
+{
+    db()->prepare('UPDATE presence SET last_seen = ? WHERE user_id = ?')
+        ->execute([time() - PRESENCE_TIMEOUT - 1, $userId]);
+}
 
 /** Given a list of user ids, return the subset that is currently online. */
 function online_user_ids(array $userIds): array
@@ -4401,12 +4911,12 @@ function teacher_counts(int $teacherId): array
 /** Students enrolled in this teacher's courses who are currently online. */
 function teacher_online_students(int $teacherId, int $limit = 8): array
 {
-    $st = db()->prepare("SELECT u.id, u.name, p.last_seen FROM enrollments e
+    $st = db()->prepare("SELECT u.id, u.name, u.avatar, p.last_seen FROM enrollments e
                          JOIN courses c ON c.id = e.course_id
                          JOIN users u ON u.id = e.user_id
                          JOIN presence p ON p.user_id = u.id
                          WHERE c.teacher_id = ? AND p.last_seen >= ? AND u.role = 'student'
-                         GROUP BY u.id, u.name, p.last_seen ORDER BY p.last_seen DESC LIMIT " . (int) $limit);
+                         GROUP BY u.id, u.name, u.avatar, p.last_seen ORDER BY p.last_seen DESC LIMIT " . (int) $limit);
     $st->execute([$teacherId, time() - PRESENCE_TIMEOUT]);
     return $st->fetchAll();
 }
@@ -4414,7 +4924,7 @@ function teacher_online_students(int $teacherId, int $limit = 8): array
 /** Today's attendance rows for a teacher's courses (newest first). */
 function teacher_today_visits(int $teacherId, int $limit = 8): array
 {
-    $st = db()->prepare('SELECT a.id, a.user_id, a.entered_at, a.left_at, u.name AS student_name, c.title AS course_title
+    $st = db()->prepare('SELECT a.id, a.user_id, a.entered_at, a.left_at, u.name AS student_name, u.avatar, c.title AS course_title
                          FROM attendance a
                          JOIN users u ON u.id = a.user_id
                          JOIN courses c ON c.id = a.course_id
@@ -4428,19 +4938,19 @@ function teacher_today_visits(int $teacherId, int $limit = 8): array
 function teacher_recent_activity(int $teacherId, int $limit = 8): array
 {
     $rows = [];
-    $st = db()->prepare('SELECT e.created_at ts, u.name who, c.title course FROM enrollments e
+    $st = db()->prepare('SELECT e.created_at ts, u.id uid, u.avatar, u.name who, c.title course FROM enrollments e
                          JOIN users u ON u.id = e.user_id JOIN courses c ON c.id = e.course_id
                          WHERE c.teacher_id = ? ORDER BY e.created_at DESC LIMIT ' . (int) $limit);
     $st->execute([$teacherId]);
     foreach ($st->fetchAll() as $r) {
-        $rows[] = ['ts' => (int) $r['ts'], 'kind' => 'enrolled', 'who' => (string) $r['who'], 'course' => (string) $r['course'], 'lesson' => ''];
+        $rows[] = ['ts' => (int) $r['ts'], 'kind' => 'enrolled', 'uid' => (int) $r['uid'], 'avatar' => (string) $r['avatar'], 'who' => (string) $r['who'], 'course' => (string) $r['course'], 'lesson' => ''];
     }
-    $st = db()->prepare('SELECT p.completed_at ts, u.name who, c.title course, m.title lesson FROM progress p
+    $st = db()->prepare('SELECT p.completed_at ts, u.id uid, u.avatar, u.name who, c.title course, m.title lesson FROM progress p
                          JOIN users u ON u.id = p.user_id JOIN materials m ON m.id = p.material_id JOIN courses c ON c.id = m.course_id
                          WHERE c.teacher_id = ? ORDER BY p.completed_at DESC LIMIT ' . (int) $limit);
     $st->execute([$teacherId]);
     foreach ($st->fetchAll() as $r) {
-        $rows[] = ['ts' => (int) $r['ts'], 'kind' => 'completed', 'who' => (string) $r['who'], 'course' => (string) $r['course'], 'lesson' => (string) $r['lesson']];
+        $rows[] = ['ts' => (int) $r['ts'], 'kind' => 'completed', 'uid' => (int) $r['uid'], 'avatar' => (string) $r['avatar'], 'who' => (string) $r['who'], 'course' => (string) $r['course'], 'lesson' => (string) $r['lesson']];
     }
     usort($rows, fn ($x, $y) => $y['ts'] <=> $x['ts']);
     return array_slice($rows, 0, $limit);
@@ -4461,7 +4971,7 @@ function teacher_attention_students(int $teacherId, int $limit = 6): array
     $st->execute([$teacherId]);
     foreach ($st->fetchAll() as $r) $done[(int) $r['cid']][(int) $r['uid']] = (int) $r['n'];
 
-    $st = db()->prepare("SELECT e.course_id cid, u.id uid, u.name, c.title course FROM enrollments e
+    $st = db()->prepare("SELECT e.course_id cid, u.id uid, u.name, u.avatar, c.title course FROM enrollments e
                          JOIN users u ON u.id = e.user_id JOIN courses c ON c.id = e.course_id
                          WHERE c.teacher_id = ? AND u.role = 'student'");
     $st->execute([$teacherId]);
@@ -4475,7 +4985,7 @@ function teacher_attention_students(int $teacherId, int $limit = 6): array
         if ($pct >= 100) continue;
         $key = (int) $r['uid'];
         if (isset($out[$key]) && $out[$key]['pct'] <= $pct) continue;
-        $out[$key] = ['uid' => $key, 'name' => (string) $r['name'], 'course' => (string) $r['course'], 'course_id' => $cid, 'done' => $doneN, 'total' => $total, 'pct' => $pct];
+        $out[$key] = ['uid' => $key, 'name' => (string) $r['name'], 'avatar' => (string) $r['avatar'], 'course' => (string) $r['course'], 'course_id' => $cid, 'done' => $doneN, 'total' => $total, 'pct' => $pct];
     }
     usort($out, fn ($x, $y) => $x['pct'] <=> $y['pct']);
     return array_slice(array_values($out), 0, $limit);
@@ -4564,6 +5074,9 @@ function owl_news(array $user): array
     if ($first !== '') $first = explode(' ', $first)[0];
     if ($first === '') $first = $isTeacher ? 'Trainer' : 'Student';
 
+    /* the part of the day, in Philippine time: lib.php sets the app's clock to
+       Asia/Manila at the top of the file, so date('G') here is the hour on the
+       wall of the classroom, whatever zone the web server itself runs in */
     $hour = (int) date('G');
     $part = $hour < 12 ? 'Good morning' : ($hour < 18 ? 'Good afternoon' : 'Good evening');
 
@@ -4768,6 +5281,10 @@ function conversations_for(int $userId, string $role): array
             'id' => (int) $c['id'],
             'peer_id' => $peerId,
             'peer_name' => (string) ($peer['name'] ?? 'User'),
+            /* the peer row is already in hand, so the circle can show their
+               picture — whether it may be printed is decided at print time by
+               user_peer_avatar_html(), never here */
+            'peer_avatar' => (string) ($peer['avatar'] ?? ''),
             'last_body' => (string) ($lr['body'] ?? ''),
             'last_ts' => (int) ($lr['created_at'] ?? 0),
             'unread' => (int) $unread->fetchColumn(),
@@ -5279,7 +5796,7 @@ function public_url(string $key): string
  * keeps the version it actually agreed to (user_meta: consent_at /
  * consent_version), which is what a data-protection review asks to see.
  * ------------------------------------------------------------------------- */
-const LEGAL_VERSION = '2026-09-30';           /* the "Last updated" date on all three */
+const LEGAL_VERSION = '2026-10-01';           /* the "Last updated" date on all three */
 
 /** key => [file, label] — the single source of the three policy URLs. */
 const LEGAL_PAGES = [

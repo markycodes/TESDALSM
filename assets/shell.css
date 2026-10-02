@@ -201,6 +201,44 @@
       border: 2px solid #fff
     }
 
+    /* ── profile picture, and the initial that stands in for it ─────────────
+       The compiled Tailwind build has no object-cover and no size larger than
+       the circles already in use, so the shape lives here — same reason the
+       roster avatar sizes were moved here long ago. Sizes still arrive from the
+       h-*/w-* classes the caller passes; everything else is decided once. */
+    .lh-avatar-img {
+      display: block;
+      flex: none;
+      border-radius: 9999px;
+      object-fit: cover;
+      background: var(--lh-grad);        /* the brand circle shows while it loads */
+      background-color: #059669
+    }
+
+    /* mirrors the utilities the markup carries, so the circle is never an
+       unstyled letter even on a page that forgot to pass them */
+    .lh-avatar-initial {
+      flex: none;                        /* a long name must never squeeze the circle */
+      color: #fff;
+      background-color: #059669;
+      font-weight: 700;
+      font-size: .875rem
+    }
+
+    /* the big circle on My profile — 120 px in both axes, big type inside */
+    .lh-avatar-hero {
+      width: 120px;
+      height: 120px;
+      border-radius: 9999px
+    }
+
+    .lh-avatar-initial.lh-avatar-hero {
+      display: grid;
+      place-items: center;
+      font-size: 2.75rem;
+      line-height: 1
+    }
+
     /* guest CTA */
     .lh-cta {
       background-image: var(--lh-grad);
@@ -1916,3 +1954,218 @@
     display: none
   }
 }
+
+/* ============================================================
+   PROFILE HOVER CARD — a name that tells you who it belongs to.
+   lib.php (profile_hover_html) wraps the circle-and-name markup of any account
+   the viewer is entitled to see, and puts the words on it as data attributes.
+   app.js then fills ONE card element and moves it — the same arrangement the
+   calendar card above uses, so hovering a 200-row roster costs nothing and a
+   card is never clipped by the table or card it came out of.
+   ============================================================ */
+[data-hcard] {
+  border-radius: .75rem;
+  cursor: help;
+  transition: background .15s ease, box-shadow .15s ease
+}
+
+/* the wrapper profile_hover_html() adds is an inline span, so the highlight
+   hugs the name instead of breaking the line */
+.lh-hcard {
+  display: inline-block
+}
+
+/* where the name stands on its own line (a table cell, a roster row): the card
+   wrapper is a <div>, so the highlighted area is the whole block of content */
+.lh-hcard-block {
+  display: block
+}
+
+/* the trigger itself is not a control, but a name inside one may still be a link */
+[data-hcard] a {
+  cursor: pointer
+}
+
+[data-hcard]:hover,
+[data-hcard].is-open {
+  background: #f0fdf4;
+  box-shadow: 0 0 0 4px #f0fdf4
+}
+
+[data-hcard]:focus-visible {
+  outline: none;
+  background: #f0fdf4;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(5, 150, 105, .35)
+}
+
+.lh-hcard-pop {
+  position: fixed;
+  z-index: 70;
+  display: flex;
+  gap: .7rem;
+  width: min(19rem, calc(100vw - 1.5rem));
+  padding: .8rem .9rem;
+  border: 1px solid #e2e8f0;
+  border-radius: .9rem;
+  background: #fff;
+  box-shadow: 0 18px 40px -22px rgba(15, 23, 42, .45), 0 2px 6px -2px rgba(15, 23, 42, .12);
+  opacity: 0;
+  transform: translateY(-.25rem);
+  transition: opacity .12s ease, transform .12s ease;
+  pointer-events: none
+}
+
+.lh-hcard-pop.is-shown {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto
+}
+
+.lh-hcard-pic {
+  flex: none;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 999px;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px #e2e8f0
+}
+
+/* the same fallback the rest of the shell uses: no picture, first letter */
+.lh-hcard-init {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 999px;
+  background: #047857;
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 800
+}
+
+.lh-hcard-txt {
+  min-width: 0
+}
+
+.lh-hcard-name {
+  display: block;
+  color: #0f172a;
+  font-size: .9rem;
+  font-weight: 800;
+  line-height: 1.25;
+  overflow-wrap: anywhere
+}
+
+.lh-hcard-role {
+  display: inline-block;
+  margin-top: .2rem;
+  padding: .05rem .45rem;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: .6rem;
+  font-weight: 800;
+  letter-spacing: .05em;
+  text-transform: uppercase
+}
+
+/* the about line is words the person chose: never markup, and long words must
+   not push the card out of the viewport */
+.lh-hcard-bio {
+  margin-top: .3rem;
+  color: #475569;
+  font-size: .78rem;
+  line-height: 1.45;
+  white-space: pre-line;
+  overflow-wrap: anywhere
+}
+
+.lh-hcard-join {
+  margin-top: .35rem;
+  color: #94a3b8;
+  font-size: .68rem;
+  font-weight: 600
+}
+
+/* a card that slides in on hover is decoration: it may stop, it may not distract
+   somebody whose system asks for less movement */
+@media (prefers-reduced-motion: reduce) {
+
+  .lh-hcard-pop,
+  [data-hcard] {
+    transition: none
+  }
+}
+
+@media print {
+
+  .lh-hcard-pop {
+    display: none !important
+  }
+}
+
+/* ── the crop window on My profile ──────────────────────────────────────────
+   A picture is framed before it is uploaded, and the framing window has to be
+   drawn here rather than with utility classes: the compiled Tailwind build has
+   no square aspect helper, no touch-action and no wide ring, and a class that is
+   not already in it only starts existing after a rebuild.
+   The window is a circle because a circle is the shape every avatar on this site
+   is cut into (.lh-avatar-img) — frame to the circle and the face is where it
+   will be seen. The stored file is still a square: the corners outside this
+   circle are simply never shown anywhere. */
+.lh-crop-stage {
+  position: relative;
+  width: min(72vw, 288px);
+  aspect-ratio: 1 / 1;
+  margin: 1rem auto 0;
+  overflow: hidden;
+  border-radius: 1rem;
+  background: #e2e8f0;
+  touch-action: none;              /* dragging on a phone pans the picture, not the page */
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: grab
+}
+
+.lh-crop-stage:active {
+  cursor: grabbing
+}
+
+/* the arrows nudge the picture, so the window has to show that it is focused */
+.lh-crop-stage:focus-visible {
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, .5)
+}
+
+/* the picked picture: the page script sets its size and left/top in stage px */
+.lh-crop-img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: block;
+  max-width: none;
+  pointer-events: none             /* the drag belongs to the stage, never the image */
+}
+
+/* one huge ring is what dims the part of the picture the crop throws away */
+.lh-crop-win {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  box-shadow: 0 0 0 300px rgba(15, 23, 42, .45), inset 0 0 0 2px rgba(255, 255, 255, .92);
+  pointer-events: none
+}
+
+/* where a face usually sits — a hint drawn on the glass, nothing more */
+.lh-crop-face {
+  position: absolute;
+  left: 50%;
+  top: 26%;
+  width: 32%;
+  height: 40%;
+  transform: translate(-50%, -50%);
+  border: 1px dashed rgba(255, 255, 255, .75);
+  border-radius: 9999px;
+  pointer-events: none
+}
+

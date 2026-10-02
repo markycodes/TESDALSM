@@ -266,7 +266,7 @@ require __DIR__ . '/header.php';
       itself, the school office is here:</p>
     <p class="mt-3 text-sm leading-6 text-slate-600">
       6th St. Brgy 12 Patag, Catbalogan City, Samar 6700<br>
-      <a class="font-semibold text-emerald-700 hover:underline" href="mailto:fttccatbalogan@gmail.com">fttccatbalogan@gmail.com</a>
+      <a class="font-semibold text-emerald-700 hover:underline" href="mailto:lhlms@learnhubonline.com">lhlms@learnhubonline.com</a>
       · 0917 320 2508
     </p>
   </section>

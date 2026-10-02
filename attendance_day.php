@@ -87,7 +87,7 @@ $records = [];
 if ($scopeIds) {
   $in = implode(',', array_fill(0, count($scopeIds), '?'));
   $sql = "SELECT a.id, a.user_id, a.entered_at, a.left_at, a.ip,
-                   u.name,
+                   u.name, u.avatar,
                    c.title AS course_title, c.category AS course_category
             FROM attendance a
             JOIN users u ON u.id = a.user_id
@@ -114,6 +114,9 @@ foreach ($records as $r) {
   if (empty($r['left_at']) && $isToday)
     $openCount++;
 }
+/* the profile cards on this sheet ride along with it — one query for every
+   distinct student here, and nothing at all when a student is looking */
+profile_cards_preload($recordUserIds);
 $fmtDur = function (int $s): string {          /* mirrors lmsDur() in app.js so the first live tick doesn't reformat the number */
     $h = intdiv($s, 3600);
     $m = intdiv($s % 3600, 60);
@@ -251,14 +254,13 @@ require __DIR__ . '/header.php';
             <tr>
               <td class="px-4 py-3 font-semibold text-slate-900"><?= date('g:i:s A', (int) $r['entered_at']) ?></td>
               <td class="px-4 py-3">
-                <div class="flex items-center gap-2">
-                  <span
-                    class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-indigo-600 text-xs font-bold text-white"><?= e(strtoupper(substr((string) $r['name'], 0, 1))) ?></span>
-                  <div class="min-w-0">
-                    <p class="truncate font-semibold text-slate-900"><?= e((string) $r['name']) ?></p>
-                    <p class="text-xs text-slate-400"><?= $isOnline ? '🟢 online' : 'offline' ?></p>
-                  </div>
-                </div>
+                <?php /* picture in the circle, card on the name — and only for the
+                         teacher who already has this student on a roster */
+                    $who = '<div class="flex items-center gap-2">'
+                         . user_peer_avatar_html(['id' => (int) $r['user_id'], 'name' => (string) $r['name'], 'avatar' => (string) ($r['avatar'] ?? '')], 'h-8 w-8')
+                         . '<div class="min-w-0"><p class="truncate font-semibold text-slate-900">' . e((string) $r['name']) . '</p>'
+                         . '<p class="text-xs text-slate-400">' . ($isOnline ? '🟢 online' : 'offline') . '</p></div></div>'; ?>
+                <?= profile_hover_html($who, (int) $r['user_id'], ['block' => true, 'self' => false]) ?>
               </td>
               <td class="px-4 py-3">
                 <span

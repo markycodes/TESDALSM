@@ -1,0 +1,308 @@
+<!doctype html>
+<!--
+  Scheme harness — dev-only page, safe to delete, nothing in the app loads it.
+
+  Dark mode is a class on <html> and a sheet of overrides, which means the only
+  honest way to check it is to look at every surface family at once — panels,
+  soft wells, buttons, badges, a divided table, form controls, tooltips, the
+  notification list, the calendar, the loading curtain. Clicking through the app
+  to find them one at a time is the alternative; this is the short version, and
+  it works with no database, no login and no session.
+
+    http://localhost/LMS/assets/dark-fixture.html
+
+  What to check, in this order:
+
+  1. The toggle in the strip at the top. The page must open light, and the
+     change must arrive as a circle from that button's corner — never a flash,
+     never a hard cut. Reload: the choice you left is the choice you get, and it
+     must be there before the first paint (the inline script in <head> does that
+     part, the same one header.php carries).
+  2. The <pre> at the bottom. It reports which sheets actually loaded, which
+     route the reveal took (view-transition / sheet / none) and what <html> looks
+     like now. A rule that never fired shows up as the colour it fell back to.
+  3. The theme picker. The whole point of the scheme is that it composes: switch
+     through all six designs with dark ON and nothing may go white-on-white,
+     invisible, or light-grey-while-the-rest-is-dark. Same for density and
+     layout, which live in the app rather than here.
+  4. Ctrl+P with dark ON. The preview must be the white page it always was —
+     that is @media print in dark.css handing the light tokens back.
+
+  Route 2 (the flat sheet) is what a browser without startViewTransition shows;
+  to see it in Chrome, load with ?sheet=1 and the view-transition route is stood
+  down. Route 3 is the OS setting: turn on "reduce motion" and the page should
+  simply change, no animation at all.
+-->
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>scheme harness</title>
+  <script>try { if (localStorage.getItem('lh-scheme') === 'dark') document.documentElement.classList.add('dark'); } catch (e) { }</script>
+  <link rel="stylesheet" href="tailwind.min.css">
+  <link rel="stylesheet" href="shell.css">
+  <!-- no href on this one yet: an empty href is a link to this very page, and the
+       browser would go and fetch the fixture back again as a stylesheet -->
+  <link id="theme-sheet" rel="stylesheet">
+  <link rel="stylesheet" href="curtain.css">
+  <link rel="stylesheet" href="dark.css">
+  <!-- ?sheet=1 stands the view transition down so route 2 — what a browser
+       without startViewTransition shows — can be looked at in one that has it.
+       This has to run before dark.js, which is the only moment it can be set. -->
+  <script>if (new URLSearchParams(location.search).get('sheet')) { try { Document.prototype.startViewTransition = undefined; } catch (e) { } }</script>
+  <script src="dark.js" defer></script>
+  <style>
+    /* only the fixture's own scaffolding — nothing here is part of the app */
+    body { margin: 0; }
+    .fx-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+    .fx-sec { margin: 26px 0 10px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; opacity: .6; }
+    .fx-strip { display: flex; align-items: center; gap: 10px; padding: 10px 18px; border-bottom: 1px solid var(--lh-line, #e2e8f0); background: var(--lh-paper, #fff); }
+    .fx-wrap { max-width: 1100px; margin: 0 auto; padding: 18px; }
+    .fx-report { font: 12px/1.6 ui-monospace, monospace; white-space: pre-wrap; padding: 14px; border-radius: 10px; background: var(--lh-tint, #f8fafc); border: 1px solid var(--lh-line, #e2e8f0); color: var(--lh-body, #334155); }
+  </style>
+</head>
+
+<body class="lh-app">
+
+  <div class="fx-strip">
+    <span class="text-sm font-semibold" style="color:var(--lh-ink,#0f172a)">scheme harness</span>
+    <label class="ml-auto text-xs" style="color:var(--lh-mut,#64748b)">design
+      <select id="theme-pick" class="lh-soft rounded-lg px-2 py-1 text-xs">
+        <option value="">none (shell only)</option>
+        <option value="emerald">emerald</option>
+        <option value="paper">paper</option>
+        <option value="material">material</option>
+        <option value="console">console</option>
+        <option value="bright">bright</option>
+        <option value="minimal">minimal</option>
+      </select>
+    </label>
+    <!-- the button from header.php's top bar, unchanged, so what is tested here
+         is what ships: the icon is chosen by dark.css, the promise by dark.js -->
+    <button type="button" data-lh-scheme data-tip="Dark mode" aria-pressed="false" aria-label="Dark mode"
+      class="lh-ico lh-tip grid h-9 w-9 place-items-center rounded-lg text-slate-600">
+      <svg class="lh-scheme-moon h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+      </svg>
+      <svg class="lh-scheme-sun h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="4" />
+        <path
+          d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+      </svg>
+    </button>
+  </div>
+
+  <main class="lh-main fx-wrap">
+    <div class="text-2xl font-semibold" style="color:var(--lh-ink,#0f172a)">Every surface, both ways</div>
+    <p class="mt-1 text-sm" style="color:var(--lh-mut,#64748b)">One of each family, so a scheme that misses a
+      corner of the design system shows up here before it shows up in front of a student.</p>
+
+    <div class="fx-sec">the pieces each design paints with its own hand</div>
+    <section class="lh-hero relative overflow-hidden rounded-2xl p-5">
+      <div class="lh-hero-paper relative rounded-xl border p-4">
+        <div class="lh-kicker">Enrolment open</div>
+        <h1 class="mt-1 text-lg font-semibold" style="color:var(--lh-ink,#0f172a)">Instructional Design Fundamentals</h1>
+        <p class="mt-1 text-sm" style="color:var(--lh-body,#334155)">The hero band, the ruled sheet sitting on it, the
+          kicker above the title and the dark call-to-action are painted by the design rather than by the shell — which
+          is exactly why a scheme has to answer them one at a time.</p>
+        <a class="lh-hero-cta mt-3 inline-block rounded-lg px-4 py-2 text-sm font-semibold" href="#x">Enrol</a>
+      </div>
+    </section>
+    <div class="fx-grid mt-4">
+      <div class="lh-plain rounded-xl p-4">
+        <div class="text-sm font-semibold" style="color:var(--lh-ink,#0f172a)">A plain well</div>
+        <p class="mt-1 text-xs" style="color:var(--lh-mut,#64748b)">console draws these flat and white, with
+          <code>!important</code> on both.</p>
+      </div>
+      <div class="lh-panel lh-footer p-4 text-sm" style="color:var(--lh-mut,#64748b)">
+        A footer. material also has a pinned variant of this (<code>lh-footer-inline</code>) that it fixes to the
+        bottom of the window in near-black ink on its own grey — that one moves itself off-screen here, so judge it on
+        a real page, where the scheme has the same rule for it as for this one.
+      </div>
+    </div>
+
+    <div class="fx-sec">buttons, chips, badges</div>
+    <div class="flex flex-wrap items-center gap-3">
+      <a class="lh-cta" href="#x">Primary</a>
+      <button class="lh-soft rounded-lg px-3 py-2 text-sm font-medium" type="button">Quiet</button>
+      <span class="lh-pill">In progress</span>
+      <span class="lh-badge">7</span>
+      <span class="lh-badge lh-chip-amber">!</span>
+      <span class="lh-pill"><span class="lh-live-dot"></span> live</span>
+      <span class="lh-ico lh-tip" data-tip="a tooltip" tabindex="0">i</span>
+      <span class="lh-avatar text-sm">MA</span>
+    </div>
+
+    <div class="fx-sec">panels, a divided table, a soft well</div>
+    <div class="fx-grid">
+      <section class="lh-panel p-4">
+        <h2 class="text-sm font-semibold" style="color:var(--lh-ink,#0f172a)">Course progress</h2>
+        <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
+          <div class="h-2 rounded-full bg-emerald-500" style="width:62%"></div>
+        </div>
+        <p class="mt-2 text-xs" style="color:var(--lh-mut,#64748b)">62% · 13 of 21 lessons · updated a minute ago</p>
+      </section>
+      <section class="lh-panel">
+        <div class="border-b border-slate-100 px-4 py-3 text-sm font-semibold" style="color:var(--lh-ink,#0f172a)">
+          Enrolments</div>
+        <table class="w-full text-sm">
+          <tbody class="divide-y divide-slate-100">
+            <tr>
+              <td class="px-4 py-2 text-slate-700">Ana Dela Cruz</td>
+              <td class="px-4 py-2 text-right text-emerald-700">Passed</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2 text-slate-700">Ben Aliwan</td>
+              <td class="px-4 py-2 text-right text-amber-700">Overdue</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-2 text-slate-700">Clede Ocampo</td>
+              <td class="px-4 py-2 text-right text-slate-500">Not started</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="lh-soft rounded-xl p-4">
+        <h2 class="text-sm font-semibold" style="color:var(--lh-ink,#0f172a)">A well inside a panel</h2>
+        <p class="mt-2 text-sm" style="color:var(--lh-body,#334155)">The inset surfaces are the ones a dark scheme
+          forgets first: they are not white, so a rule that only turns white surfaces dark leaves them sitting on the
+          new canvas like a hole.</p>
+        <div class="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">an inset toolbar
+          <code class="rounded bg-white px-1 text-emerald-700">bg-white</code></div>
+      </section>
+    </div>
+
+    <div class="fx-sec">form controls</div>
+    <div class="lh-panel grid gap-3 p-4 sm:grid-cols-2">
+      <label class="text-xs font-medium" style="color:var(--lh-body,#334155)">Full name
+        <input class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm ring-slate-200 focus:ring-2"
+          value="Ana Dela Cruz"></label>
+      <label class="text-xs font-medium" style="color:var(--lh-body,#334155)">Work email
+        <input type="email" placeholder="you@example.org"
+          class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm ring-slate-200 focus:ring-2"></label>
+      <label class="text-xs font-medium" style="color:var(--lh-body,#334155)">Role
+        <select
+          class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm ring-slate-200 focus:ring-2">
+          <option>Instructor</option>
+          <option>Learner</option>
+          <option>Reviewer</option>
+        </select></label>
+      <label class="text-xs font-medium" style="color:var(--lh-body,#334155)">Notes
+        <textarea rows="2" placeholder="Anything the reviewer should know"
+          class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm ring-slate-200 focus:ring-2"></textarea></label>
+      <label class="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked> Send me a
+        copy</label>
+      <label class="flex items-center gap-2 text-sm text-slate-700"><input type="radio" name="fx-r" checked> Mark
+        anonymously</label>
+      <div class="text-xs font-medium text-rose-600">That closing date has already passed.</div>
+    </div>
+
+    <div class="fx-sec">notifications, calendar, alerts</div>
+    <div class="fx-grid">
+      <ul class="lh-panel overflow-hidden">
+        <li class="lh-notif-item lh-notif-unread text-sm">New submission — <b>Week 4 reflection</b></li>
+        <li class="lh-notif-item text-sm">Your certificate is ready</li>
+        <li class="lh-notif-item text-sm">3 enrolments expire on Friday</li>
+      </ul>
+      <div class="lh-panel p-3">
+        <div class="lh-cal-grid">
+          <div class="lh-cal-day">14</div>
+          <div class="lh-cal-day is-today">15</div>
+          <div class="lh-cal-day">16<span class="lh-cal-dots"><i></i><i></i></span></div>
+          <div class="lh-cal-day is-out">17</div>
+        </div>
+        <span class="lh-cal-chip mt-3">Mon 15 · 09:00 · Room 2</span>
+      </div>
+      <div class="space-y-3">
+        <div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Two lessons are still
+          missing a quiz.</div>
+        <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">Saved.</div>
+        <div class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">The upload was too large.
+        </div>
+      </div>
+    </div>
+
+    <div class="fx-sec">the loading curtain, in this scheme</div>
+    <div class="flex flex-wrap items-center gap-3">
+      <button id="fx-cover" class="lh-soft rounded-lg px-3 py-2 text-sm" type="button">Cover this page</button>
+      <button id="fx-uncover" class="lh-soft rounded-lg px-3 py-2 text-sm" type="button">Lift it</button>
+      <span class="text-xs" style="color:var(--lh-mut,#64748b)">curtain.css paints its covers from
+        <code>--lh-curtain</code> / <code>--lh-curtain-hi</code>, which dark.css re-declares — so the loader goes dark
+        with the page instead of flashing a light rectangle over a dark one.</span>
+    </div>
+
+    <footer class="mt-10 border-t border-slate-200 pt-4 text-xs" style="color:var(--lh-mut,#64748b)">
+      A footer, because it is the one surface that lives outside <code>main</code> and is therefore easy to miss.
+    </footer>
+
+    <div class="fx-sec">what this page thinks is happening</div>
+    <pre class="fx-report" id="report">measuring…</pre>
+  </main>
+
+  <script src="curtain.js" defer></script>
+  <script>
+    /* The fixture's own wiring: a design picker, a curtain demo, a report.
+       None of it is the app — the scheme, the toggle and the reveal all come from
+       dark.css and dark.js exactly as header.php loads them. */
+    (function () {
+      const root = document.documentElement;
+      const pick = document.getElementById('theme-pick');
+      const sheet = document.getElementById('theme-sheet');
+      const report = document.getElementById('report');
+      const q = new URLSearchParams(location.search);
+      /* ?sheet=1 already stood startViewTransition down in <head>, so asking the
+         browser is the whole of it — no second opinion needed */
+      let route = (typeof document.startViewTransition === 'function') ? 'view transition' : 'flat sheet';
+
+      function applyTheme(key) {
+        /* no empty href: a link with href="" is a link to this very page, and the
+           browser would go and fetch the fixture again as a stylesheet */
+        if (key) { root.setAttribute('data-theme', key); sheet.setAttribute('href', 'theme-' + key + '.css'); }
+        else { root.removeAttribute('data-theme'); sheet.removeAttribute('href'); }
+        say();
+      }
+      pick.addEventListener('change', () => applyTheme(pick.value));
+      if (q.get('theme')) { pick.value = q.get('theme'); applyTheme(q.get('theme')); }
+
+      document.getElementById('fx-cover').addEventListener('click', () => {
+        try { window.LHCurtain.show(document.querySelector('main')); } catch (e) { }
+      });
+      document.getElementById('fx-uncover').addEventListener('click', () => {
+        try { window.LHCurtain.hide(); } catch (e) { }
+      });
+
+      function hrefs() {
+        return Array.from(document.querySelectorAll('link[rel=stylesheet]'))
+          .map((l) => (l.getAttribute('href') || '(none)').split('?')[0].split('/').pop())
+          .filter((h) => h !== '').join(', ');
+      }
+      function say() {
+        const panel = document.querySelector('.lh-panel');
+        const token = (n) => getComputedStyle(root).getPropertyValue(n).trim();
+        report.textContent = [
+          'scheme           = ' + (window.lhScheme ? window.lhScheme.get() : '(dark.js never loaded)'),
+          'reveal route     = ' + route,
+          'reduced motion   = ' + (window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'yes' : 'no'),
+          'html             = ' + (root.className || '(no class)') + (root.dataset.theme ? ' · data-theme=' + root.dataset.theme : ''),
+          'circle origin    = ' + (root.style.getPropertyValue('--lh-wipe-x') || '(fallback 100%)') + ' ' +
+          (root.style.getPropertyValue('--lh-wipe-y') || '(fallback 0)') + ' · r=' +
+          (root.style.getPropertyValue('--lh-wipe-r') || '(fallback 150%)'),
+          'body canvas      = ' + getComputedStyle(document.body).backgroundColor +
+          '   ← the flat sheet copies exactly this',
+          'panel surface    = ' + (panel ? getComputedStyle(panel).backgroundColor + ' · border ' + getComputedStyle(panel).borderColor : '(none)'),
+          'ink / body / mut = ' + token('--lh-ink') + ' · ' + token('--lh-body') + ' · ' + token('--lh-mut'),
+          'stylesheets      = ' + hrefs(),
+        ].join('\n');
+      }
+      /* the class, the button's label and the geometry are all written by dark.js;
+         read them back after the click has been handled, not during it */
+      document.addEventListener('click', () => setTimeout(say, 0));
+      setTimeout(say, 0);
+      window.addEventListener('load', say);
+    })();
+  </script>
+</body>
+
+</html>

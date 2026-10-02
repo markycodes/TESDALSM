@@ -9,6 +9,10 @@ $page_title = 'Messages';
 
 $convos = conversations_for($userId, $role);
 $contacts = message_contacts_for($userId, $role);
+/* the profile cards on this page ride along with the lists they belong to: one
+   query for everybody named here instead of one per hover, and nothing at all
+   when a student is the one looking (a student sees no cards) */
+profile_cards_preload(array_merge(array_column($convos, 'peer_id'), array_column($contacts, 'id')));
 
 // peer selection: ?with=<peer id> (opens/creates that conversation) else first conversation
 $withId = (int) ($_GET['with'] ?? 0);
@@ -57,7 +61,7 @@ require __DIR__ . '/header.php';
         <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Start a new chat</p>
         <div class="mt-2 flex flex-wrap gap-1.5">
           <?php foreach ($contacts as $ct): ?>
-          <a href="messages.php?with=<?= (int) $ct['id'] ?>" class="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-emerald-50 hover:text-emerald-700"><?= $role === 'student' ? '👩‍🏫' : '👨‍🎓' ?> <?= e((string) $ct['name']) ?></a>
+          <a href="messages.php?with=<?= (int) $ct['id'] ?>" class="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-emerald-50 hover:text-emerald-700"<?= profile_hover_attrs((int) $ct['id'], ['focusable' => false]) ?>><?= $role === 'student' ? '👩‍🏫' : '👨‍🎓' ?> <?= e((string) $ct['name']) ?></a>
           <?php endforeach; ?>
         </div>
       </div>
@@ -69,8 +73,8 @@ require __DIR__ . '/header.php';
         <?php else: foreach ($convos as $c): $isAct = $active && (int) $c['id'] === (int) $active['id']; ?>
         <a href="messages.php?with=<?= (int) $c['peer_id'] ?>"
            class="convo-item flex items-center gap-3 px-4 py-3 transition <?= $isAct ? 'bg-emerald-50/80' : 'hover:bg-slate-50' ?>"
-           data-peer="<?= (int) $c['peer_id'] ?>" data-convo="<?= (int) $c['id'] ?>">
-          <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-600 text-sm font-bold text-white"><?= e(strtoupper(substr((string) $c['peer_name'], 0, 1))) ?></span>
+           data-peer="<?= (int) $c['peer_id'] ?>" data-convo="<?= (int) $c['id'] ?>"<?= profile_hover_attrs((int) $c['peer_id'], ['focusable' => false]) ?>>
+          <?= user_peer_avatar_html(['id' => (int) $c['peer_id'], 'name' => (string) $c['peer_name'], 'avatar' => (string) ($c['peer_avatar'] ?? '')], 'h-10 w-10') ?>
           <span class="min-w-0 flex-1">
             <span class="flex items-center justify-between gap-2">
               <span class="truncate text-sm font-bold text-slate-900"><?= e((string) $c['peer_name']) ?></span>
@@ -89,9 +93,10 @@ require __DIR__ . '/header.php';
       <?php if ($active): ?>
       <div class="flex items-center gap-3 border-b border-slate-100 bg-slate-50/60 px-4 py-3">
         <a href="dashboard.php" class="lh-tip grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 lg:hidden" data-tip="Back" aria-label="Back">←</a>
-        <span class="grid h-10 w-10 place-items-center rounded-full bg-emerald-600 text-sm font-bold text-white"><?= e(strtoupper(substr((string) $active['peer_name'], 0, 1))) ?></span>
+        <?= user_peer_avatar_html(profile_card_data((int) $active['peer_id'])
+            ?? ['id' => 0, 'name' => (string) $active['peer_name']], 'h-10 w-10') ?>
         <div class="min-w-0 flex-1 leading-tight">
-          <p class="truncate text-sm font-bold text-slate-900"><?= e((string) $active['peer_name']) ?></p>
+          <p class="truncate text-sm font-bold text-slate-900"><?= profile_hover_html(e((string) $active['peer_name']), (int) $active['peer_id']) ?></p>
           <p class="text-[11px] uppercase tracking-wide text-emerald-600">Private chat</p>
         </div>
         <span class="hidden rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700 sm:block">🔒 Private</span>

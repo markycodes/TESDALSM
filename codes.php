@@ -98,7 +98,7 @@ require __DIR__ . '/header.php';
           <tr class="border-b border-slate-100">
             <td class="px-2 py-3">
               <span class="font-mono text-sm font-bold text-indigo-700"><?= e((string) $c['code']) ?></span>
-              <button type="button" data-copy="<?= e((string) $c['code']) ?>" class="ml-2 rounded-lg border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-500 hover:bg-slate-50" title="Copy code">copy</button>
+              <button type="button" data-lh-copy="<?= e((string) $c['code']) ?>" data-lh-label="copy" class="ml-2 rounded-lg border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-500 hover:bg-slate-50" title="Copy code">copy</button>
             </td>
             <td class="px-2 py-3 text-slate-700"><?= e((string) $c['course_title']) ?></td>
             <td class="px-2 py-3 text-slate-400"><?= date('M j, g:i a', (int) $c['created_at']) ?></td>
@@ -130,23 +130,11 @@ require __DIR__ . '/header.php';
   </div>
 </div>
 
-<script>
-  document.querySelectorAll('[data-copy]').forEach(function (b) {
-    b.addEventListener('click', function () {
-      var t = b.getAttribute('data-copy');
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(t).then(function () {
-          b.textContent = 'copied!';
-          setTimeout(function () { b.textContent = 'copy'; }, 1400);
-        });
-      } else {
-        var ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select();
-        document.execCommand('copy'); ta.remove(); b.textContent = 'copied!';
-        setTimeout(function () { b.textContent = 'copy'; }, 1400);
-      }
-    });
-  });
-</script>
+<?php /* The copy buttons carry data-lh-copy: assets/app.js's lhWireShare does the
+   copying — Clipboard API, then execCommand, then the code shown to copy by
+   hand — with footer.php's self-healing script behind it when app.js is stale
+   or missing. The local handler that used to live here could only ever say
+   "copied!": when writeText was refused it said nothing at all. */ ?>
 
     <p class="mt-1 text-sm text-slate-500">Choose the course — the code enrolls the student into that course only.</p>
     <form method="post" class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">

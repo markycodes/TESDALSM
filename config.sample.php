@@ -33,12 +33,38 @@ if (count(get_included_files()) === 1) {
  * The file may carry BOTH environments — lib.php auto-detects where it runs:
  *   • XAMPP / localhost / CLI → uses the *_LOCAL block
  *   • any real domain         → uses the *_PROD  block
- * so one file works on your PC AND on InfinityFree (no loopback errors). */
-define('DB_HOST_LOCAL', '127.0.0.1');   define('DB_HOST_PROD', 'sqlXXX.infinityfree.com');
+ * so one file works on your PC AND on the hosting account (no loopback errors).
+ * HOSTINGER: hPanel says "The hostname for all databases is localhost" — use
+ * `localhost` for *_PROD. The srvNNN.hstgr.io host is only for connecting from
+ * ANOTHER computer, and then only with your IP allowed under Remote MySQL. */
+define('DB_HOST_LOCAL', '127.0.0.1');   define('DB_HOST_PROD', 'localhost');
 define('DB_PORT_LOCAL', '3306');        define('DB_PORT_PROD', '3306');
-define('DB_NAME_LOCAL', 'learnhub');    define('DB_NAME_PROD', 'if0_XXXXXXXX_learnhub');
-define('DB_USER_LOCAL', 'root');        define('DB_USER_PROD', 'if0_XXXXXXXX');
+define('DB_NAME_LOCAL', 'learnhub');    define('DB_NAME_PROD', 'your_database_name');
+define('DB_USER_LOCAL', 'root');        define('DB_USER_PROD', 'your_database_user');
 define('DB_PASS_LOCAL', '');            define('DB_PASS_PROD', 'your-mysql-password');
+/* ---- Where the five folders live (folders OUTSIDE public_html) --------------
+ * By default `assets/`, `logo/`, `signature/`, `data/` and `uploads/` sit BESIDE
+ * the PHP, inside public_html. A Hostinger-style deploy moves them to the folder
+ * that holds public_html, so data/ and uploads/ can never be fetched as a URL
+ * (README → "Deploying with the folders outside public_html"). One line does it:
+ *
+ *   config.php inside public_html →  define('LH_STORAGE_DIR', dirname(__DIR__));
+ *   config.php above public_html  →  define('LH_STORAGE_DIR', __DIR__);
+ *   anywhere else                 →  the absolute path to that folder
+ *
+ * Optionally pin ONE of them somewhere else with a full path: LH_ASSET_DIR,
+ * LH_LOGO_DIR, LH_SIGNATURE_DIR, LH_DATA_DIR, LH_UPLOAD_DIR.
+ * Nothing on a page changes: the URLs stay the same, and asset.php (reached by
+ * an internal rule in .htaccess) reads the public three from wherever this says.
+ * paths.php explains the whole layout. With none of these defined, every folder
+ * stays beside the PHP — today's layout, untouched. */
+// define('LH_STORAGE_DIR', dirname(__DIR__));
+
+/* ---- The clock (optional) ---------------------------------------------------
+ * The app keeps Philippine time wherever it runs — the greeting in the owl's
+ * cloud, "today", every timestamp it writes. Uncomment to move the whole app to
+ * another zone (a name PHP accepts, e.g. 'UTC', 'Asia/Singapore'). */
+// define('APP_TIMEZONE', 'Asia/Manila');
 /* ---- E-MAIL delivery (greeting / new-lesson / quiz-result / messages / daily reminders) ----
  * The app sends e-mail automatically:
  *   - a welcome e-mail to the NEWLY REGISTERED STUDENT (every registration)

@@ -52,13 +52,26 @@ $verifyUrl = app_link('verify_certificate.php?code=' . urlencode((string) $cert[
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Certificate · <?= e((string) $course['title']) ?> · LearnHub LMS</title>
+  <title>Certificate - <?= e((string) $user['name']) ?> - <?= e((string) $course['title']) ?></title>
   <link rel="icon" type="image/png" href="logo/logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
+  <!-- The lettering is fetched without holding the document hostage. A stylesheet
+       is a blocking resource: on a network that answers the font host with
+       silence — a filtered school connection, a dead CDN — the certificate would
+       sit unpainted and its button unclickable until the request gave up, which
+       is a second way "I can't download the PDF" shows up. So it is preloaded for
+       speed, named a stylesheet only once it has landed, and until then the plain
+       faces in the stacks below carry the sheet. The noscript copy is for the
+       visitor whose script never runs: they get the fonts the slow way rather
+       than not at all. -->
+  <link rel="preload" as="style"
     href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap"
-    rel="stylesheet">
+    onload="this.rel='stylesheet'">
+  <noscript>
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap">
+  </noscript>
   <style>
     * {
       box-sizing: border-box;
@@ -101,6 +114,22 @@ $verifyUrl = app_link('verify_certificate.php?code=' . urlencode((string) $cert[
       background: #fff;
       color: #334155;
       border: 1px solid #cbd5e1 !important;
+    }
+
+    /* what to leave the print dialog on, said once on the screen and never on
+       paper — the sheet is cut for one landscape page, and a dialog set to
+       portrait or to wide margins is the usual reason a printout disagrees */
+    .print-hint {
+      max-width: 297mm;
+      margin: -26px auto 30px;
+      padding: 0 14px;
+      text-align: center;
+      font: 500 12px/1.6 Inter, sans-serif;
+      color: #64748b;
+    }
+
+    .print-hint b {
+      color: #047857;
     }
 
     .sheet {
@@ -224,7 +253,30 @@ $verifyUrl = app_link('verify_certificate.php?code=' . urlencode((string) $cert[
       display: grid;
       place-items: center;
       font: 700 20px Fraunces, Georgia, serif;
-      box-shadow: 0 0 0 2.5px #fffdf8, 0 0 0 4px #d4af37;
+      position: relative;
+    }
+
+    /* The seal's two rings — a white gap and a gold band — are drawn rather than
+       cast. A box-shadow is painted on screen and quietly left off paper, which
+       is exactly the sort of detail that made the printout disagree with the
+       certificate on the monitor. Borders on two circles sized off the seal are
+       the same picture in both places: 2.5px of white, then 4px of gold. */
+    .seal::before,
+    .seal::after {
+      content: '';
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .seal::before {
+      inset: -2.5px;
+      border: 2.5px solid #fffdf8;
+    }
+
+    .seal::after {
+      inset: -6.5px;
+      border: 4px solid #d4af37;
     }
 
     .verify {
@@ -239,29 +291,67 @@ $verifyUrl = app_link('verify_certificate.php?code=' . urlencode((string) $cert[
       color: #64748b;
     }
 
+    /* Ask for exactly one full landscape sheet with no page margins of its own:
+       the sheet draws its own frame 7mm in from the edge, which is past the band
+       a printer refuses to reach anyway. The plain size after the keyword says
+       the same thing in a way browsers read more literally — one that does not
+       understand it simply keeps the keyword above it. */
     @page {
       size: A4 landscape;
+      size: 297mm 210mm;
       margin: 0;
     }
 
+    /* The cream paper, the emerald frame and the seal are the document, not
+       decoration. Colours have to survive the trip to paper whether or not the
+       print dialog was offered "background graphics" — and the property carries
+       to everything below, so it is said once, here. */
+    html,
+    body {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
     @media print {
+
+      html,
       body {
+        margin: 0;
+        padding: 0;
         background: #fff;
       }
 
-      .toolbar {
+      .toolbar,
+      .print-hint {
         display: none;
       }
 
+      /* The sheet is not given a size on paper — it is given the page. Whatever
+         the dialog settles on (A4 landscape, Letter, margins none or default),
+         the sheet fills exactly one of those and nothing of it can run over onto
+         a second page: the slack between the course line and the signatures is
+         .cols { margin-top: auto }, so that gap is what tightens or stretches.
+         The height is said in vh because on paper a vh is a hundredth of the
+         page box — the sheet can no longer be taller than the sheet of paper. */
       .sheet {
+        width: 100%;
+        height: 100vh;
+        aspect-ratio: auto;
+        min-height: 0;
         margin: 0;
         box-shadow: none;
         border-radius: 0;
-        width: 100%;
+        overflow: hidden;
       }
     }
 
-    @media (max-width: 900px) {
+    /* Screen only, and that is the whole point. A phone draws the sheet as a
+       plain column with smaller type — but in print, a max-width is measured
+       against the PAGE BOX, not the browser window, so a dialog left on portrait
+       paper or on default margins would pick this column up too and print
+       something that is not the certificate at all: no landscape sheet, a 30px
+       title, a 32px name, and ink sized for a handset. */
+    @media screen and (max-width: 900px) {
       .sheet {
         aspect-ratio: auto;
         height: auto;
@@ -331,17 +421,58 @@ $verifyUrl = app_link('verify_certificate.php?code=' . urlencode((string) $cert[
     margin-top: 1px;
   }
 
-  /* the two signatures, flanking the seal */
+  /* the two signatures, flanking the seal. The printed name owns a band of its
+     own; the scanned ink is laid OVER that band, the way a hand signs across a
+     typed name. The ink is position:absolute on purpose: it then costs the column
+     no height at all, so both signature lines and both role captions stay on the
+     same level however different the two scans are. */
+  .sig-mark {
+    position: relative;
+    min-height: 32px;
+    z-index: 1;
+  }
+
   .sig-script {
-    font: italic 600 16px Fraunces, Georgia, serif;
+    position: relative;
+    z-index: 1;
+    font: italic 600 16px/32px Fraunces, Georgia, serif;
     color: #1e293b;
   }
 
-  .inner img.sig-img {
-    display: block;
-    margin: 0 auto;
-    height: 100px;
+  .inner .sig-mark img.sig-img {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    height: 46px;
     width: auto;
+    z-index: 3;                 /* above the name, never below it */
+    pointer-events: none;
+    mix-blend-mode: multiply;   /* where the ink crosses the letters it darkens them */
+  }
+
+  /* The two scans are cropped differently — Richardson senior's ink fills almost
+     all of its canvas, James's floats in a wide transparent margin. These two
+     heights are the boxes that make both read as about the same signature. */
+  .inner .sig-president img.sig-img {
+    height: 100px;
+  }
+
+  .inner .sig-vice-president img.sig-img {
+    height: 150px;
+  }
+
+  /* On paper the ink is laid down as plain opaque pixels. mix-blend-mode is a
+     compositing effect, and a print pipeline is free to drop a compositing group
+     it does not carry over — which is how a signature can be perfectly good on
+     the monitor and simply not there on the sheet. The blend is a nicety anyway:
+     it only darkens the typed letters very slightly where a stroke crosses them,
+     and the ink is dark on light paper either way. Screen keeps the blend, paper
+     does not ask for one. */
+  @media print {
+    .inner .sig-mark img.sig-img {
+      mix-blend-mode: normal;
+    }
   }
 
   .sig-line {
@@ -354,6 +485,25 @@ $verifyUrl = app_link('verify_certificate.php?code=' . urlencode((string) $cert[
     font: 600 11.5px Inter, sans-serif;
     color: #475569;
   }
+
+  /* small screens draw the sheet as a plain column with smaller type, so the ink
+     shrinks with it. This block has to come AFTER the rules above: the selectors
+     are the same weight, and the last one written is the one that wins. Screen
+     only, for the reason spelled out above the other one — paper must keep the
+     landscape measurements it was drawn with. */
+  @media screen and (max-width: 900px) {
+    .inner .sig-mark img.sig-img {
+      height: 34px;
+    }
+
+    .inner .sig-president img.sig-img {
+      height: 34px;
+    }
+
+    .inner .sig-vice-president img.sig-img {
+      height: 64px;
+    }
+  }
   </style>
   <?php lh_skeleton_css(); ?>
 </head>
@@ -361,9 +511,42 @@ $verifyUrl = app_link('verify_certificate.php?code=' . urlencode((string) $cert[
 <body>
   <?php lh_skeleton_body(false, 'certificate'); /* the certificate sheet, no app bar */ ?>
   <div class="toolbar">
-    <button class="btn-print" onclick="window.print()">🖨️ Download / Print PDF</button>
+    <button class="btn-print" onclick="lhPrint()">🖨️ Download / Print PDF</button>
     <a class="btn-back" href="course.php?id=<?= $courseId ?>">← Back to course</a>
   </div>
+  <p class="print-hint">In the window that opens, set <b>Destination: Save as PDF</b> (or your printer), then
+    <b>A4 landscape · Margins: None · Scale: 100%</b> — the sheet is drawn for exactly one page of that shape,
+    and its frame already leaves the strip a printer cannot reach.</p>
+  <script>
+    /* Whether the lettering has finished arriving. Fraunces (the title and the
+       name) comes over the network from fonts.googleapis.com, so it is watched
+       from the moment the page starts rather than from the click: by the time a
+       reader has looked at the sheet and reached for the button it has nearly
+       always landed, and the dialog is built from the same render they are
+       looking at. */
+    var lhFontsIn = !(document.fonts && document.fonts.ready);
+    if (!lhFontsIn) {
+      document.fonts.ready.then(function () { lhFontsIn = true; }, function () { lhFontsIn = true; });
+    }
+
+    /* The dialog has to open INSIDE the click. A print() that waits on a promise
+       hands the browser back its event loop first, and a call that is no longer
+       answering a click is one a browser is free to swallow — which is what "I
+       press Download / Print PDF and nothing happens" usually is. It is also an
+       open-ended wait on a school network: if fonts.googleapis.com is slow or
+       blocked, the fonts never land and neither does the dialog.
+       So: lettering in — print right now, in this click. Still in flight — print
+       a short beat later, because a certificate in the plain fallback face is
+       still a certificate, and the screen is showing that same fallback at that
+       very moment, so paper and screen cannot disagree. Never a longer wait. */
+    function lhPrint() {
+      if (lhFontsIn) {
+        window.print();
+        return;
+      }
+      setTimeout(function () { window.print(); }, 250);
+    }
+  </script>
   <div class="sheet">
     <div class="frame"></div>
     <div class="inner">
@@ -386,15 +569,20 @@ $verifyUrl = app_link('verify_certificate.php?code=' . urlencode((string) $cert[
         <?= e((string) ($course['teacher_name'] ?? 'the instructor')) ?><?= e(($course['category'] ?? '') !== '' ? ' · ' . $course['category'] : '') ?>
       </p>
       <div class="cols">
-        <div class="col sig">
-          <img class="sig-img" src="signature/sorna-richardson.png" alt="Dr. Sorna C. Richardson">
-          <div class="sig-script">Dr. Sorna C. Richardson</div>
+        <div class="col sig sig-president">
+          <div class="sig-mark">
+            <img class="sig-img" src="signature/sorna-richardson.png" alt="Signature of Dr. Sorna C. Richardson">
+            <div class="sig-script">Dr. Sorna C. Richardson</div>
+          </div>
           <div class="sig-line"></div>
           <div class="sig-role">School President</div>
         </div>
         <div class="seal">LH</div>
-        <div class="col sig">
-          <div class="sig-script">Ptr. James T. Richardson</div>
+        <div class="col sig sig-vice-president">
+          <div class="sig-mark">
+            <img class="sig-img" src="signature/james-richardson.png" alt="Signature of Ptr. James T. Richardson">
+            <div class="sig-script">Ptr. James T. Richardson</div>
+          </div>
           <div class="sig-line"></div>
           <div class="sig-role">School Vice-President</div>
         </div>

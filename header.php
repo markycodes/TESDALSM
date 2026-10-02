@@ -35,13 +35,27 @@ if ($user) {
   <link rel="icon" href="logo/logo.png" type="image/png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
+  <?php /* The lettering is fetched without holding the page hostage — the same
+         medicine certificate.php needed. A stylesheet blocks not only the paint
+         but every plain script behind it, and app.js is one of them: on a
+         network that answers the font host with silence (a filtered school
+         connection, a dead CDN) the page would sit unpainted AND its own
+         buttons — the copy buttons, the invite links — un-wired. As a preload
+         it holds nothing up and becomes a stylesheet the moment it lands, and
+         until then the plain faces in shell.css's stacks carry the page. The
+         noscript copy is for the visitor whose script never runs: they get the
+         fonts the slow way rather than not at all. */ ?>
+  <link rel="preload" as="style"
     href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap"
-    rel="stylesheet">
+    onload="this.rel='stylesheet'">
+  <noscript>
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap">
+  </noscript>
   <?php /* The design system lives in assets/shell.css: identical bytes on
            every page, so as a file it is downloaded once and cached instead of
            travelling inside every page and being re-parsed before first paint. */ ?>
-  <link rel="stylesheet" href="assets/shell.css?v=<?= (int) @filemtime(__DIR__ . '/assets/shell.css') ?>">
+  <link rel="stylesheet" href="assets/shell.css?v=<?= (int) @filemtime(lh_path('assets/shell.css')) ?>">
   <?php $lh_theme_css = ui_theme_url(); ?>
   <?php if ($lh_theme_css !== ''): ?>
     <link rel="stylesheet" href="<?= e($lh_theme_css) ?>">
@@ -60,8 +74,8 @@ if ($user) {
          still have to survive a theme, a density and a layout sheet that all
          promote themselves with !important. Its script does nothing but animate
          the class toggle, so it is deferred and cannot hold up the paint. */ ?>
-  <link rel="stylesheet" href="assets/dark.css?v=<?= (int) @filemtime(__DIR__ . '/assets/dark.css') ?>">
-  <script src="assets/dark.js?v=<?= (int) @filemtime(__DIR__ . '/assets/dark.js') ?>" defer></script>
+  <link rel="stylesheet" href="assets/dark.css?v=<?= (int) @filemtime(lh_path('assets/dark.css')) ?>">
+  <script src="assets/dark.js?v=<?= (int) @filemtime(lh_path('assets/dark.js')) ?>" defer></script>
   <?php lh_skeleton_css(); ?>
 </head>
 
@@ -170,16 +184,30 @@ if ($user) {
         </nav>
       <?php endif; ?>
 
+      <?php /* Every role has one, including the main admin, whose Menu above is
+                deliberately student/teacher-only — this is the account a person
+                lives in, not a place to work. */ ?>
+      <div class="lh-side-sec">Account</div>
+      <nav class="lh-side-nav">
+        <a href="profile.php" class="lh-side-link <?= $nav_active === 'profile' ? 'active' : '' ?>"
+          data-tip="My profile"><span class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="8.25" r="3.25" />
+            <path d="M5 20v-.75A4.25 4.25 0 0 1 9.25 15h5.5A4.25 4.25 0 0 1 19 19.25V20" />
+          </svg></span><span class="lh-side-label">My profile</span></a>
+      </nav>
+
       <div class="lh-side-collapse-wrap"><button id="lh-side-collapse" type="button" class="lh-side-tip"
           data-tip="Close sidebar" aria-label="Close sidebar">«</button></div>
       <div class="lh-side-foot">
-        <span
-          class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-emerald-600 text-sm font-bold text-white"><?= e(strtoupper(substr((string) $user['name'], 0, 1))) ?></span>
-        <span class="min-w-0 flex-1 text-left leading-tight">
-          <span class="block truncate text-sm font-semibold text-slate-800"><?= e((string) $user['name']) ?></span>
-          <span
-            class="block truncate text-[10px] uppercase tracking-wide text-slate-400"><?= ($user['role'] ?? '') === 'admin' ? 'Main Admin' : (($user['role'] ?? '') === 'teacher' ? 'Teacher' : 'Student') ?></span>
-        </span>
+        <a href="profile.php" class="flex min-w-0 items-center gap-2 text-left" title="My profile">
+          <?= user_avatar_html($user) ?>
+          <span class="min-w-0 flex-1 leading-tight">
+            <span class="block truncate text-sm font-semibold text-slate-800"><?= e((string) $user['name']) ?></span>
+            <span
+              class="block truncate text-[10px] uppercase tracking-wide text-slate-400"><?= ($user['role'] ?? '') === 'admin' ? 'Main Admin' : (($user['role'] ?? '') === 'teacher' ? 'Teacher' : 'Student') ?></span>
+          </span>
+        </a>
         <a href="logout.php" class="lh-ico lh-side-tip grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-slate-500"
           data-tip="Log out" aria-label="Log out">
           <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -297,8 +325,9 @@ if ($user) {
             <span
               class="text-[10px] font-semibold uppercase tracking-wide text-slate-400"><?= ($user['role'] ?? '') === 'admin' ? 'Admin' : (($user['role'] ?? '') === 'teacher' ? 'Teacher' : 'Student') ?></span>
           </span>
-          <span
-            class="grid h-9 w-9 place-items-center rounded-full bg-emerald-600 text-sm font-bold text-white"><?= e(strtoupper(substr((string) $user['name'], 0, 1))) ?></span>
+          <a href="profile.php" class="flex items-center" title="My profile" aria-label="My profile">
+            <?= user_avatar_html($user) ?>
+          </a>
           <a href="logout.php" title="Log out" aria-label="Log out"
             class="hidden rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 sm:inline-block">Log
             out</a>

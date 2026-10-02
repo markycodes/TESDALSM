@@ -67,7 +67,7 @@ $students = [];
 $shareCourses = [];
 if ($scopeIds) {
     $in = implode(',', array_fill(0, count($scopeIds), '?'));
-    $sql = "SELECT u.id, u.name, u.email FROM users u JOIN enrollments e ON e.user_id = u.id
+    $sql = "SELECT u.id, u.name, u.email, u.avatar FROM users u JOIN enrollments e ON e.user_id = u.id
             WHERE u.role = 'student' AND e.course_id IN ($in)";
     $params = array_values($scopeIds);
     if (!$isTeacher) { $sql .= ' AND u.id <> ?'; $params[] = $me; }
@@ -75,6 +75,9 @@ if ($scopeIds) {
     $stmt = db()->prepare($sql);
     $stmt->execute($params);
     $students = $stmt->fetchAll();
+    /* the hover cards on this list ride along with it: one query for the whole
+       page instead of one per name, and it does nothing at all for a student */
+    profile_cards_preload(array_column($students, 'id'));
 
     $stmt2 = db()->prepare("SELECT e.user_id, e.course_id, c.title FROM enrollments e JOIN courses c ON c.id = e.course_id WHERE e.course_id IN ($in)");
     $stmt2->execute(array_values($scopeIds));
@@ -217,10 +220,12 @@ require __DIR__ . '/header.php';
         $coursesFor = array_slice($shareCourses[$sid] ?? [], 0, 3); ?>
         <tr data-student="<?= $sid ?>">
           <td class="px-4 py-3">
-            <div class="flex items-center gap-3">
-              <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-indigo-600 text-sm font-bold text-white"><?= e(strtoupper(substr((string) $u['name'], 0, 1))) ?></span>
-              <span class="font-semibold text-slate-900"><?= e((string) $u['name']) ?></span>
-            </div>
+            <?php /* the circle carries their picture, the name carries the card, and
+                     both are decided by who is looking rather than by this list:
+                     user_peer_avatar_html() and profile_hover_html() in lib.php */
+                $who = '<div class="flex items-center gap-3">' . user_peer_avatar_html($u, 'h-9 w-9')
+                     . '<span class="font-semibold text-slate-900">' . e((string) $u['name']) . '</span></div>'; ?>
+            <?= profile_hover_html($who, $u, ['block' => true, 'self' => false]) ?>
           </td>
           <td class="hidden px-4 py-3 text-slate-500 md:table-cell" title="Partially hidden for privacy"><?= e(mask_email((string) $u['email'])) ?></td>
           <td class="hidden px-4 py-3 lg:table-cell">
@@ -279,7 +284,7 @@ require __DIR__ . '/header.php';
       <?php foreach ($attLog as $a):
         $left = $a['left_at'] ? (int) $a['left_at'] : null; ?>
         <tr>
-          <td class="px-4 py-3 font-semibold text-slate-900"><?= e((string) $a['name']) ?></td>
+          <td class="px-4 py-3 font-semibold text-slate-900"><?= profile_hover_html(e((string) $a['name']), (int) $a['user_id'], ['self' => false]) ?></td>
           <td class="px-4 py-3 text-slate-600"><?= date('M j, Y g:i A', (int) $a['entered_at']) ?></td>
           <td class="px-4 py-3 text-slate-600"><?php if ($left): ?><?= date('g:i A', $left) ?><?php elseif (isset($online[(int) $a['user_id']])): ?><span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">🟢 Online</span><?php else: ?><span class="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">⏳ In course</span><?php endif; ?></td>
           <td class="px-4 py-3 text-slate-600"><?php if ($left): ?><?= duration_between((int) $a['entered_at'], $left) ?><?php else: ?><span data-open-seconds="<?= max(0, time() - (int) $a['entered_at']) ?>" data-mark="d<?= (int) $a['id'] ?>" class="font-semibold text-emerald-700"><?= duration_between((int) $a['entered_at'], null) ?></span><?php endif; ?></td>

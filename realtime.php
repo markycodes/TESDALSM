@@ -42,20 +42,55 @@ $isTeacher = ($user['role'] ?? '') === 'teacher';
 if ($v === 'dash' && $isTeacher) {
     $tc = teacher_counts($me);
     $ts = teacher_daily_series($me);
-    $online = array_map(fn ($r) => ['id' => (int) $r['id'], 'name' => (string) $r['name'], 'last_seen' => (int) $r['last_seen']], teacher_online_students($me));
-    $visits = array_map(fn ($r) => [
-        'id' => (int) $r['id'], 'user_id' => (int) $r['user_id'], 'name' => (string) $r['student_name'],
-        'course' => (string) $r['course_title'], 'entered_at' => (int) $r['entered_at'],
-        'left_at' => $r['left_at'] ? (int) $r['left_at'] : null,
-    ], teacher_today_visits($me));
-    $activity = array_map(fn ($r) => [
-        'ts' => $r['ts'], 'kind' => $r['kind'], 'who' => (string) $r['who'],
-        'course' => (string) $r['course'], 'lesson' => (string) $r['lesson'],
-    ], teacher_recent_activity($me));
-    $attention = array_map(fn ($r) => [
-        'uid' => (int) $r['uid'], 'name' => (string) $r['name'], 'course' => (string) $r['course'],
-        'course_id' => (int) $r['course_id'], 'done' => (int) $r['done'], 'total' => (int) $r['total'], 'pct' => (int) $r['pct'],
-    ], teacher_attention_students($me));
+    $onlineRows = teacher_online_students($me);
+    $visitRows = teacher_today_visits($me);
+    $activityRows = teacher_recent_activity($me);
+    $attentionRows = teacher_attention_students($me);
+    /* one query primes every hover card the rows below may carry */
+    profile_cards_preload(array_merge(
+        array_map(fn ($r) => (int) $r['id'], $onlineRows),
+        array_map(fn ($r) => (int) $r['user_id'], $visitRows),
+        array_map(fn ($r) => (int) ($r['uid'] ?? 0), $activityRows),
+        array_map(fn ($r) => (int) $r['uid'], $attentionRows)
+    ));
+    /* Each row carries the circle and card trigger the dashboard first paint
+       drew — gated by the same can_view_profile_of() that paint went through,
+       so a live refresh can never show a face the page itself would hide. */
+    $peer = static function (int $uid, string $avatarFile): array {
+        return [
+            'avatar' => can_view_profile_of($uid) ? user_avatar_url(['id' => $uid, 'avatar' => $avatarFile]) : '',
+            'hover' => profile_hover_attrs($uid, ['self' => false]),
+        ];
+    };
+    $online = array_map(static function ($r) use ($peer): array {
+        $p = $peer((int) $r['id'], (string) ($r['avatar'] ?? ''));
+        return ['id' => (int) $r['id'], 'name' => (string) $r['name'], 'last_seen' => (int) $r['last_seen'], 'avatar' => $p['avatar'], 'hover' => $p['hover']];
+    }, $onlineRows);
+    $visits = array_map(static function ($r) use ($peer): array {
+        $p = $peer((int) $r['user_id'], (string) ($r['avatar'] ?? ''));
+        return [
+            'id' => (int) $r['id'], 'user_id' => (int) $r['user_id'], 'name' => (string) $r['student_name'],
+            'course' => (string) $r['course_title'], 'entered_at' => (int) $r['entered_at'],
+            'left_at' => $r['left_at'] ? (int) $r['left_at'] : null,
+            'avatar' => $p['avatar'], 'hover' => $p['hover'],
+        ];
+    }, $visitRows);
+    $activity = array_map(static function ($r) use ($peer): array {
+        $p = $peer((int) ($r['uid'] ?? 0), (string) ($r['avatar'] ?? ''));
+        return [
+            'ts' => $r['ts'], 'kind' => $r['kind'], 'who' => (string) $r['who'],
+            'course' => (string) $r['course'], 'lesson' => (string) $r['lesson'],
+            'avatar' => $p['avatar'], 'hover' => $p['hover'],
+        ];
+    }, $activityRows);
+    $attention = array_map(static function ($r) use ($peer): array {
+        $p = $peer((int) $r['uid'], (string) ($r['avatar'] ?? ''));
+        return [
+            'uid' => (int) $r['uid'], 'name' => (string) $r['name'], 'course' => (string) $r['course'],
+            'course_id' => (int) $r['course_id'], 'done' => (int) $r['done'], 'total' => (int) $r['total'], 'pct' => (int) $r['pct'],
+            'avatar' => $p['avatar'], 'hover' => $p['hover'],
+        ];
+    }, $attentionRows);
     echo json_encode([
         'ok' => true, 'role' => 'teacher',
         'counts' => [
@@ -260,7 +295,7 @@ if ($v === 'day') {
     $records = [];
     if ($scopeIds) {
         $in = implode(',', array_fill(0, count($scopeIds), '?'));
-        $st = db()->prepare("SELECT a.id, a.user_id, a.entered_at, a.left_at, a.ip, u.name,
+        $st = db()->prepare("SELECT a.id, a.user_id, a.entered_at, a.left_at, a.ip, u.name, u.avatar,
                                     c.title AS course_title, c.category AS course_category
                              FROM attendance a
                              JOIN users u ON u.id = a.user_id
@@ -272,6 +307,10 @@ if ($v === 'day') {
         $records = $st->fetchAll();
     }
     $recIds = array_values(array_unique(array_map('intval', array_column($records, 'user_id'))));
+    /* the picture and the hover card the sheet prints ride along with the redraw —
+       one query for every distinct student (skipped outright when a student looks,
+       whose pages carry no cards at all) */
+    profile_cards_preload($recIds);
     $online = $recIds ? array_fill_keys(online_user_ids($recIds), true) : [];
     $now = time();
     $nowCount = 0; $totalTime = 0; $studentsSeen = [];
@@ -286,6 +325,13 @@ if ($v === 'day') {
         if (!isset($studentsSeen[$uid])) $studentsSeen[$uid] = true;
         $rows[] = [
             'id' => (int) $r['id'], 'user_id' => $uid, 'name' => (string) $r['name'],
+            /* the circle and the card are the page's own first-paint rule again: the
+               picture blank for a viewer can_view_profile_of() turns away (or a row
+               naming no file behind it — never link a picture that would 404), the
+               hover attrs from profile_hover_attrs, '' for that same viewer and for
+               the viewer's own row (self => false) */
+            'avatar' => can_view_profile_of($uid) ? user_avatar_url(['id' => $uid, 'avatar' => (string) ($r['avatar'] ?? '')]) : '',
+            'hover' => profile_hover_attrs($uid, ['self' => false]),
             'course_title' => (string) $r['course_title'], 'course_category' => (string) ($r['course_category'] ?? ''),
             'entered_at' => (int) $r['entered_at'], 'left_at' => $r['left_at'] ? (int) $r['left_at'] : null,
             'open' => $open, 'duration' => $dur, 'online' => isset($online[$uid]),

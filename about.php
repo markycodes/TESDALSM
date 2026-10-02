@@ -89,8 +89,8 @@ $sections = [
     [
         'title' => 'Reaching us',
         'body'  => '<p>School office: 6th St. Brgy 12 Patag, Catbalogan City, Samar 6700<br>E-mail: '
-            . '<a class="font-semibold text-emerald-700 hover:underline" href="mailto:fttccatbalogan@gmail.com">'
-            . 'fttccatbalogan@gmail.com</a><br>Mobile: 0917 320 2508</p>'
+            . '<a class="font-semibold text-emerald-700 hover:underline" href="mailto:lhlms@learnhubonline.com">'
+            . 'lhlms@learnhubonline.com</a><br>Mobile: 0917 320 2508</p>'
             . '<p class="mt-3">A question about a lesson, a quiz or a grade goes to your trainer — message them '
             . 'inside LearnHub. Anything about your data (a copy, a correction, deletion) goes to the e-mail address '
             . 'above with <b>Data privacy request</b> in the subject line, and the Privacy Policy tells you exactly '

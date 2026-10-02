@@ -69,6 +69,26 @@ DirectoryIndex home.php
     RewriteCond %{REQUEST_METHOD} =GET
     RewriteRule ^ http://%{HTTP_HOST}%1home [R=302,L,NE]
 
+    # 0b) The folders that may live OFF the document root.
+    #     `assets/`, `logo/` and `signature/` can be deployed above public_html
+    #     (a Hostinger-style layout — see paths.php). Apache can only serve a
+    #     file that is under its document root, so on that layout every one of
+    #     those URLs would 404. So: when the file is NOT in the document root,
+    #     hand the request to asset.php, which reads it from wherever it really
+    #     lives (config.php's LH_STORAGE_DIR).
+    #     INTERNAL rewrite — no [R] — so the address bar keeps the URL the page
+    #     printed. That is not cosmetic: a browser resolves a stylesheet's
+    #     relative url(../logo/x.png) against the stylesheet's own address, so
+    #     serving the CSS from a different address would silently move every
+    #     font and image inside it.
+    #     When the folders ARE beside the PHP (XAMPP, and any host that keeps
+    #     them in public_html) the file exists, the condition fails, and Apache
+    #     serves the bytes itself — no PHP in the path and no cost, exactly as
+    #     before. data/ and uploads/ are deliberately absent: they are never
+    #     linked, and stream through download.php / avatar.php / read.php.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^(assets|logo|signature)/(.+)$ asset.php?lh_asset=$1/$2 [L,QSA]
+
     # 1) map the extensionless path to the real .php file (internal, no URL change)
     RewriteCond %{REQUEST_FILENAME}.php -f
     RewriteCond %{REQUEST_URI} !\.php$
@@ -89,7 +109,10 @@ DirectoryIndex home.php
     # leaks into the URL and Apache 403s it. An absolute URL is passed through
     # verbatim — no RewriteBase and no filesystem->URL conversion needed.
     # 302 (not 301): browsers cache 301s permanently; 302 is always re-evaluated.
-    RewriteCond %{REQUEST_URI} !^/([^/]+/)?(realtime|ping|presence|read_progress|watch|live_class)\.php$ [NC]
+    # Profile pictures join the no-redirect list: an <img> in the top bar is asked
+    # for on every single page view, and a circle should not cost two requests
+    # each time just to hide a file extension nobody sees anyway.
+    RewriteCond %{REQUEST_URI} !^/([^/]+/)?(realtime|ping|presence|read_progress|watch|live_class|avatar)\.php$ [NC]
     RewriteCond %{THE_REQUEST} \s(/[^\s?]+)(?=\.php) [NC]
     RewriteCond %{REQUEST_METHOD} =GET
     RewriteRule ^ http://%{HTTP_HOST}%1 [R=302,L,NE]

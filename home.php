@@ -157,7 +157,7 @@ require __DIR__ . '/header.php';
 
 <p class="mt-8 text-center text-sm leading-6 text-slate-500">
   Felices Technological Training Center, Inc. · 6th St. Brgy 12 Patag, Catbalogan City, Samar 6700 ·
-  <a class="font-semibold text-emerald-700 hover:underline" href="mailto:fttccatbalogan@gmail.com">fttccatbalogan@gmail.com</a> · 0917 320 2508
+  <a class="font-semibold text-emerald-700 hover:underline" href="mailto:lhlms@learnhubonline.com">lhlms@learnhubonline.com</a> · 0917 320 2508
 </p>
 
 <?php /* The cookie notice and the legal column travel with footer.php. */

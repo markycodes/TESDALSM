@@ -210,7 +210,7 @@ require __DIR__ . '/header.php';
               <td class="px-2 py-3">
                 <span class="font-mono text-sm font-bold text-slate-800"><?= e((string) $c['code']) ?></span>
                 <?php if (!$used): ?>
-                  <button type="button" data-copy="<?= e((string) $c['code']) ?>"
+                  <button type="button" data-lh-copy="<?= e((string) $c['code']) ?>" data-lh-label="copy" title="Copy code"
                     class="ml-2 rounded-lg border border-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-500 hover:bg-slate-50">copy</button>
                 <?php endif; ?>
               </td>

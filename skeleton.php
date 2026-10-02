@@ -1,4 +1,9 @@
 <?php
+/* paths.php must be loaded even when a page includes this partial without
+   lib.php first: lh_curtain_url() below resolves a real path, and that question
+   belongs to paths.php alone. require_once makes this free when lib.php has
+   already loaded it. */
+require_once __DIR__ . '/paths.php';
 /**
  * Skeleton loading screen — one shared partial, used by every page.
  *
@@ -118,7 +123,7 @@ if (!function_exists('lh_curtain_url')) {
     function lh_curtain_url(string $ext): string
     {
         $f = 'assets/curtain.' . $ext;
-        $v = (int) @filemtime(__DIR__ . '/' . $f);
+        $v = (int) @filemtime(lh_path($f));
         return $v > 0 ? $f . '?v=' . $v : $f;
     }
 }
@@ -208,6 +213,16 @@ if (!function_exists('lh_skeleton_css')) {
           html.lh-skel-on #lh-skel {
             display: block;
             opacity: 1
+          }
+
+          /* and never on paper. The pane lies fixed over the whole page, so a
+             print started inside its first seconds — or a certificate reached by
+             clicking a link, which puts the covers back up for the trip — would
+             print a frosted loading screen in place of the document. */
+          @media print {
+            #lh-skel {
+              display: none !important
+            }
           }
 
           /* the fade-down, then the script drops both classes: display:none */

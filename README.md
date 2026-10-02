@@ -58,7 +58,7 @@ Schema (auto-created, InnoDB, utf8mb4, foreign keys with `ON DELETE CASCADE`):
 
 | Table | Columns |
 |---|---|
-| `users` | id PK, name, email UNIQUE, password (hash), role ENUM(teacher/student), created_at |
+| `users` | id PK, name, email UNIQUE, password (hash), role ENUM(teacher/student), bio (one "about me" line, 280 chars), avatar (filename inside `uploads/avatars/`), created_at |
 | `courses` | id PK, teacher_id FK→users, title, category, description, created_at |
 | `materials` | id PK, course_id FK→courses, type ENUM(file/video/youtube), title, description, filename, orig_name, mime, size, url, created_at |
 | `enrollments` | course_id FK→courses + user_id FK→users (composite PK), created_at |
@@ -74,6 +74,8 @@ Schema (auto-created, InnoDB, utf8mb4, foreign keys with `ON DELETE CASCADE`):
 | `quiz_progress` | quiz_id + user_id (UNIQUE), answers JSON (in-progress, saved per question — survives a closed browser) |
 
 Uploaded files themselves live in `uploads/` (filenames are stored in `materials.filename`).
+Profile pictures live in `uploads/avatars/` — the same web-blocked tree, one file per account, named after it
+(`avatar7_20260101_121314_a1b2c3.jpg`); the row keeps the name, `avatar.php` streams the bytes.
 
 > Upgrading from the old JSON version? If `data/users.json` and `data/courses.json` exist and the database is empty, they are imported automatically on the first page load.
 
@@ -81,6 +83,7 @@ Uploaded files themselves live in `uploads/` (filenames are stored in `materials
 
 - 🗓️ **Class schedule** (`schedule.php`): a teacher builds a timetable out of two kinds of slot — a **weekly class** (a weekday, repeating every week) or a **one-off entry** on a date (an exam, an activity, a deadline) — each tied to **one of their own courses**, with start/end time, room and an optional note. The page opens as a **month calendar**: seven columns, whole weeks only, the neighbouring months' days greyed in, today ringed, and every day that holds something showing compact chips (a dot per slot on a phone). **Point at a day — or focus it with the keyboard, or tap it — and one card opens beside it with that day's own details**: each slot's time, type, title, course, room and note, a live-class link for one still to come, and "Open this day →" to jump into the week list. That card is a single element the page positions (clamped to the viewport, flipped above the day when there is no room below) rather than one per cell, so it can never be clipped by the grid; each day keeps only a `<template>` copy of its own details. The **Week** view (`?view=week`) is the same data as a list — what to read with scripting off — and the print stylesheet drops the card. Also there: previous/next month (or week), a Today button and a course filter. Students see **only the courses they are enrolled in** (every query is course-scoped, so another course's timetable can never be read), and the same list is echoed on their dashboard by `schedule_section.php`. Saving notifies that course's students (bell + e-mail) exactly like posting a new lesson; deleting is silent. One row per slot in `schedules` (`repeat_mode` = weekly/once), sidebar → **Schedule**.
 
+- 👤 **My profile** (`profile.php`, sidebar → **My profile**, every role including the admin): one page for what a person may change about themselves — display name, e-mail address (which **is** the login name, so moving it asks for the current password and refuses an address another account already holds), a one-line "about you" (280 characters, flattened to a single line, counter while typing), their **profile picture**, and their **password** (current + new + repeat, the same strength policy as registration, session ID regenerated afterwards). No `?id=` anywhere: the page only ever reads and writes the account in the session. **The picture** is the app's only image upload: the browser squares it off from the centre and shrinks it to 512 × 512 JPEG before uploading (about 60 KB from a 12 MB phone photo — courtesy to a shared host's request cap, never a check), and the server then decides everything for itself: `getimagesize()` on the bytes, JPG/PNG/WEBP/GIF only (SVG is refused because it can carry script), 64 px minimum, 8000 px maximum, 4 MB cap, the extension taken from the content and not the filename, and re-encode + EXIF strip when the server has GD (plain XAMPP builds don't — then the validated original is stored as it is, and the picture is simply larger). `uploads/` is web-blocked, so a picture cannot be linked directly: `avatar.php?u=u7&t=<mtime>` streams it back to signed-in sessions only, with an ETag, `nosniff`, and a year of cache — `u` and `t` are deliberately not numeric `id` parameters, because the URL encryptor in `lib.php` rewrites those on every rendered page and the circle would never be cached. It shows in the top bar, the sidebar footer and the profile page; with no picture, the coloured initial is drawn as it always was (`.lh-avatar-img` / `.lh-avatar-initial` in `shell.css`, with a rim in dark mode so a photo separates from a dark bar without being tinted). The old file is unlinked only after the new row is saved, so a failed upload can never leave an account pointing at a missing picture. Scratch checks: `php _profile_check.php` (pipeline) and `php _profile_render.php plain|photo` (renders the page as a signed-in account without needing the login form)
 - 🔐 Register/login with roles (Teacher/Student), hashed passwords, session hardening, CSRF tokens on every form, and a **strong password policy** (min 8 characters with an uppercase letter, a lowercase letter and a number) enforced on registration, e-mail reset and the admin panel
 - 🔑 **Forgot password** (`reset_password.php`, linked from the login page): e-mailed single-use reset link — 32 random bytes, only its SHA-256 is stored (in `user_meta`), 30-minute expiry, throttled to one e-mail per account per minute, no user enumeration (unknown addresses get the same confirmation), confirmation e-mail on change. Delivery uses the configured provider (Brevo API key in admin Settings / `config.php`); every attempt is logged to `data/mail.log`
 - 📚 Teachers: create/delete courses, upload documents &amp; videos, add YouTube/Vimeo links, paste material text, delete lessons, set each course's class schedule (`schedule.php`)
@@ -97,7 +100,7 @@ Uploaded files themselves live in `uploads/` (filenames are stored in `materials
 - 👥 **Enrollments & attendance page** (`enrollments.php`): a teacher sees every student enrolled with them, filter **by category and by course**, sees who is **online** (3-minute presence window, refreshed automatically), and a **complete attendance log** per course (student, entered/left time, time spent, **IP address**) — a student on the same page keeps the class list, the courses and the online dots, but only ever their **own** visits, and no IP column at all (🔐 below)
 - 🔐 **Attendance is private to the person it belongs to**: the rule is drawn in the SQL and not in the markup, so figures a viewer may not read never leave the server. A **teacher** reads every visit and IP address of the courses they teach (and of the students who enrolled in them); the **main admin** reads the whole site's; a **student** reads their **own** records only — classmates stay visible as names, courses and online status, with no visit count, no last-visit time, no address. `realtime.php` (`v=roster`, `v=day`) applies the same rule to the live refresh — it answers `ownOnly: true` and omits `ip` for a student, and `assets/app.js` leaves the IP column out of the table it redraws, guided by the `data-show-ip` flag `attendance_day.php` prints, so a redrawn table can't grow back a column the page never had. The catalogue (`courses.php`) keeps its aggregate counts but hands out its live counters only on courses this account is actually in, and `attendance.php` closes a session only in a course the caller belongs to
 - 🦉 **Tala, the dashboard owl** (`assets/hero.css` + `owl_news()` in `lib.php`): the banner owl introduces herself out of a cloud at her head — who she is, the greeting for the part of the day, and a QUEUE of one-line thoughts about **this** account — `owl_news()` returns `thoughts`, the ones worth acting on first (a message unread, a bell unread, the next scheduled class), then what is happening right now (who is online, visits so far today, the student falling behind, the plain tallies), up to `OWL_THOUGHTS` of them. One is on screen at a time and the next replaces it every `OWL_ROTATE_MS` = 20 seconds: no line is ever two facts glued together with a "·" any more — what used to read "0 visits today · 3 students enrolled" is now two thoughts, each in its own turn — and each one is wiped away and typed out letter by letter (`lhOwlCloud` in `assets/app.js`), opening with one small nod (`lh-owl-beat`). Between two thoughts she closes the whole cloud for a breath (`OWL_AWAY_MS` = 900 ms) and reopens it before the next line is typed — nothing is ever typed into a cloud you cannot see — and every 10 seconds she blinks: `logo/owl-eyes-close.*` is laid over her body (`.lh-hero-owl-eyes`, masked to the body's own silhouette) for a quarter of a second. The same function feeds the first render (the queue arrives as JSON in `data-live-owl-thoughts`, the visible line as `news`) and the 10-second poll (`data-live-owl-say` / `data-live-owl-news`), so the cloud and the tiles under it can never tell two different stories — and the two owners stay in their lanes: the poll refills the queue, only the 20-second timer decides which thought you are reading, so a refresh never rewrites a sentence you are halfway through. While she types, the cloud holds the size of the finished sentence — and keeps the widest it has ever held, so a shorter thought cannot slide the owl sideways either — the letters are left-aligned inside that reserved space, and screen readers are handed each whole sentence once (`data-live-owl-aria` / `.lh-owl-aria`) instead of a copy per keystroke. Under `prefers-reduced-motion` nothing is typed, nothing is held back, nothing rotates and nothing blinks — the words simply appear and stay — and a background tab spends none of her thoughts. Her name is `OWL_NAME`, written once
-- 🟢 **Live presence**: heartbeats keep `presence.last_seen` fresh; every visit to a course page is recorded in `attendance`
+- 🟢 **Live presence — and a lost connection is a logout**: heartbeats keep `presence.last_seen` fresh; every visit to a course page is recorded in `attendance`. A lost internet connection counts as going offline at once, and ends the session too: `assets/app.js` hears the browser's `offline` event (or a heartbeat whose fetch fails while `navigator.onLine` is false) and flips the page offline immediately, showing a sticky 📵 pill ("you show as offline to others until the connection is back"), firing a best-effort `sendBeacon` at `ping.php` with `v=offline` — whose `offline_user()` in `lib.php` backdates `presence.last_seen` past `PRESENCE_TIMEOUT`, so everyone else's next refresh shows the user Offline the moment the link died and `close_stale_attendance()` closes the open visit at that same instant — and, on a signed-in page, POSTing `logout.php` (which closes attendance, clears presence and destroys the session). If the server can hear that request (a local server can, even with the internet off) the tab goes straight to the login page; if it cannot (a full outage) the intent is parked in localStorage under `lh-pending-logout` and a signed-out screen covers the page, and the logout finishes at the first of the `online` event, the next heartbeat (also covering browsers that miss the event), or the next load of any signed-in tab. The flag is cleared only by a signed-out page — one the server rendered with no session left — so yesterday's outage can never sign out tomorrow's login, and while the flag stands no heartbeat leaves the page at all. When the beacon cannot be delivered nothing is lost: an untouched `last_seen` ages out of the 180-second timeout by itself, which remains the fallback. While `navigator.onLine` still reports no internet the heartbeat keeps its own presence POST back — a local server answers with the Wi-Fi off, and that touch would re-mark the user green — releasing the moment `onLine` recovers; and the live polls are never paused for being offline, so a roster on the same machine keeps refreshing through the drop. For anything still standing the reconnect is unchanged: the pill drops and heartbeats fire immediately, then once more 2.5 seconds later so an offline beacon that straggles in after the reconnect cannot pin a back-online user to offline — and a guest has no session to end, so they get the pill and nothing else.
 - 🗄️ All entities stored in MySQL via prepared statements
 - ⏳ **Per-page loading screens** (`skeleton.php` + `assets/curtain.css` / `curtain.js`): the shipped style is a **curtain**. Every page renders its real content normally, and the data inside it — every heading, paragraph, list item, table cell, chart and image — is laid under a plain gray cover that fades away once the page has settled (fonts included), one cover after the next in a slight cascade. The boxes are never covered themselves: a card keeps its background, border and radius, a table keeps its frame and its row lines, and a cover is measured to the content box so padding and cell gutters stay — the page goes on looking like itself while it loads, and only the words turn gray. Nothing fakes a line of text, and the app shell is never part of it: the sidebar and the top bar stay painted and clickable the whole time, and `<nav>`, `<form>`, buttons and inputs are always left live. Page code can drive it directly — `showSkeletons(root)` re-covers, `hideSkeletons()` reveals — so an AJAX refresh curtains just the data it refilled (a write into a covered element takes that element's own cover with it, which is the point: the data has arrived), and `data-skeleton-skip` keeps any region clear. It lifts early when a link or form hands over to the next page, and a hard cap puts it away even if `load` never fires. With scripting off, or if the script fails to load, no cover is ever created and the page simply shows. Off switches: `?noskeleton=1` on any URL, `$lh_skeleton = false;` per page, `define('LH_SKELETON', false);` site-wide. `define('LH_SKELETON_STYLE', 'pane');` brings back the earlier full-screen ghost (11 per-layout archetypes, still in `skeleton.php`) if you want to compare them. On a local server the covers are up for well under a second — correct, but hard to catch: add `?curtainhold=1500` to any URL to keep them up that long past "ready", or `define('LH_SKELETON_MIN', 600);` to lift the floor everywhere. `assets/curtain-fixture.html` shows the same thing on a page of its own.
 - 🧊 **3D study stack on the landing page** (`assets/book3d.css` + `assets/book3d.js`): the pile of books with a mortarboard under the hero is **real CSS 3D** — a camera, `preserve-3d`, six faces per solid — so it needs no WebGL library, no model file and no CDN, costs the page no extra requests beyond those two files, and stays sharp at any pixel density. Drag it (or use the arrow keys) to look around; vertical swipes still scroll the page (`touch-action: pan-y`). It shrinks for phones, **parks itself when scrolled out of view**, and stands still under `prefers-reduced-motion`. The turn is a CSS animation, so the stack keeps moving with scripting off, and the script only pauses that animation and moves its `currentTime` — which is why letting go continues from the angle you stopped at instead of jumping back. Add a solid to the pile with one row of the `$lh3d_solids` array in `learnhub.php`; the six faces come from its custom properties. `assets/book3d-fixture.html` reports what the browser computed (face matrices, animation state, a simulated drag) for checking it without eyeballing pixels.
@@ -185,16 +188,28 @@ no corner is ever caught mid-change — and `dark.css` clips the incoming page i
    page's own background, not hard-coded), with the real page swapped in underneath once it is covered.
 3. `prefers-reduced-motion: reduce` → no animation at all. The page simply changes.
 
-Two things are worth knowing. **Print stays white**: every rule in `dark.css` reads a token, so
-`@media print` hands the light values back in one place and a certificate printed from a dark session is
-unchanged. **Brand colours are not touched** — emerald buttons, their white labels and the indigo form accents
-read as well on a dark canvas as on a light one; a scheme that recoloured the brand would be a theme.
+Two things are worth knowing. **Print stays white**: nearly every rule in `dark.css` reads a token, so `@media print`
+hands the light values back in one place — plus a short list of hand-painted surfaces that could not be reached that
+way, and a certificate printed from a dark session is unchanged. **Brand colours are not touched** — emerald buttons,
+their white labels and the indigo form accents read as well on a dark canvas as on a light one; a scheme that
+recoloured the brand would be a theme.
 
-To extend it (a new page with a surface the scheme has not met): reproduce the offending rule with `html.dark` in
-front of it, `!important` if the original used it, and put the colour in a token if it is a surface rather than a
-one-off. The utilities section at the bottom of `dark.css` explains why a variant (`hover:bg-slate-100`) needs its
-own line, why a ring is fixed by setting `--tw-ring-color`, and why a divider needs the utility's own sibling
-selector. `assets/dark-fixture.html` is the page to eyeball it on: one of everything, no database, no login.
+Some designs do more than read the tokens. material paints the canvas behind the content a flat `#f5f6f8` and pins a
+near-black footer bar to the bottom of the window, console squares its hero sheet and its "plain" wells to `#fff`,
+paper rules a cream seam under the wordmark and writes its kicker in green. Section **4b** of `dark.css` answers each
+of those selector-for-selector, in the theme's own shape with `html.dark` in front of it — which wins on specificity
+instead of on a longer shout. One of them has to *agree* rather than overwrite: material draws no hero card at all,
+so `html.dark[data-theme="material"] .lh-hero-paper` stays transparent. Darkening it there would be the scheme
+designing, which is the one thing a scheme may not do.
+
+To extend it (a new page with a surface the scheme has not met): find the rule that paints it — `Ctrl+Shift+C` names
+both the class and the sheet it came from — and reproduce it with `html.dark` in front of it, `!important` if the
+original used it, putting the colour in a token if it is a surface rather than a one-off. The utilities section
+explains why a variant (`hover:bg-slate-100`) needs its own line, why a ring is fixed by setting `--tw-ring-color`,
+and why a divider needs the utility's own sibling selector. `assets/dark-fixture.html` is the page to eyeball it on:
+one of everything including the hand-painted pieces above, a design picker that swaps sheets without a reload, a
+readout of what the page thinks is happening, `?sheet=1` to see the reveal's fallback route, and no database, no
+login. It is dev-only and safe to delete.
 
 ## Adding lessons
 
@@ -254,14 +269,16 @@ LMS/
 ├── read.php            material reader (in-browser, scroll-tracked)
 ├── watch.php           video watch-time endpoint (auto-complete at 90%)
 ├── read_progress.php   reading-progress endpoint (auto-complete at 95% depth)
-├── ping.php            presence heartbeat (keeps users "online")
+├── ping.php            presence heartbeat (keeps users "online"); POST v=offline = "I lost the internet, drop me from presence now"
 ├── presence.php        online-status lookup (JSON)
 ├── attendance.php      close-attendance endpoint (pagehide beacon)
 ├── enrollments.php     classmates by category/course + online + attendance log
 ├── enroll.php          enroll / leave a course
 ├── schedule.php        the class timetable — a month calendar (hover a day for its details) plus a week list
 ├── course_create.php / course_delete.php / delete_material.php
-├── lib.php             core library (PDO connection, schema, queries, auth, uploads)
+├── lib.php             core library (PDO connection, schema, queries, auth, uploads, profile)
+├── profile.php         My profile — name, e-mail, about line, profile picture, password
+├── avatar.php          streams a profile picture to signed-in sessions (uploads/ is web-blocked)
 ├── header.php / footer.php
 ├── skeleton.php        loading screens: the curtain (shipped) + the legacy pane
 ├── assets/app.js       toasts, modals, tabs, search, progress
@@ -278,13 +295,104 @@ LMS/
 └── uploads/            uploaded files (web-blocked; streamed via download.php)
 ```
 
+## Deploying with the folders outside `public_html`
+
+Shared hosts (Hostinger and its like) hand you a `public_html` and expect everything web-facing to
+live in it. Half of this app's folders want the opposite: `data/` and `uploads/` are storage, not
+pages, and should never be web-reachable at all, while `assets/`, `logo/` and `signature/` sit
+happily above the document root too — out of reach of directory listings and of anything that would
+serve them as PHP. The layout on the server is this:
+
+```
+/home/uXXXXXXXX/domains/example.com/      the storage root — Apache serves nothing here
+├── assets/
+├── data/                written by PHP; blocked from the web the moment it is created
+├── logo/
+├── signature/
+├── uploads/             ditto
+├── config.php           optional, above the docroot: the MySQL password,
+│                        API keys and Turnstile secret never enter public_html
+└── public_html/         ONLY the *.php files, .htaccess and .user.ini
+```
+
+That is the whole deploy — plus **one line** in `config.php` telling the app where the folders
+went (whichever of the two places the config file itself is in — `paths.php` looks for it in both):
+
+```php
+define('LH_STORAGE_DIR', dirname(__DIR__));   // config.php inside public_html
+define('LH_STORAGE_DIR', __DIR__);            // config.php above public_html
+```
+
+An absolute path to the storage root works as well, for a host that keeps the folders somewhere
+else (a second disk, a subfolder such as `private/`). With no config at all the storage root is the
+PHP folder itself, so the classic XAMPP layout is unchanged.
+
+How one line is enough:
+
+- **`paths.php`** is the only file that knows where anything lives; `lib.php` and `asset.php` both
+  start with it and never build a path by hand. It loads `config.php` first — beside the PHP, then
+  one level up — and then resolves each folder: a pin from config (`LH_ASSET_DIR`, `LH_LOGO_DIR`,
+  `LH_SIGNATURE_DIR`, `LH_DATA_DIR`, `LH_UPLOAD_DIR`) wins, otherwise the storage root when it
+  really holds a folder of that name, otherwise the folder beside the PHP.
+- **`asset.php`** is what keeps every existing URL working while the folders are above the
+  document root. A rule in `.htaccess` hands `assets/`, `logo/` and `signature/` to it **only when
+  the file is not under the docroot** (`RewriteCond %{REQUEST_FILENAME} !-f`), as an internal
+  rewrite — the address bar never changes, so a stylesheet's relative `url(../logo/owl-body.png)`
+  still resolves. When the folders are beside the PHP, the condition fails and Apache serves the
+  bytes itself: no PHP runs, exactly as before.
+- The gateway is deliberately tiny: it includes `paths.php` and nothing else — no session, no
+  database — so a CSS request can never be turned away by the boot-time maintenance gate. It
+  accepts only those three folder names, only extensions it knows (never `.php`), only files that
+  resolve inside those folders after `realpath()`, and it does the caching work the filesystem and
+  `mod_deflate` used to give away: `ETag` + `Last-Modified`, `304` on `If-None-Match`, gzip for
+  text, a week of `Cache-Control`, `HEAD`.
+- **`data/` and `uploads/` never touch HTTP.** They are not in the rewrite rule, not in the
+  gateway's allowlist, and `ensure_storage()` creates them (with their `.htaccess` + `index.html`
+  blockers) in the storage root — never inside `public_html`. Files reach the user through
+  `download.php`, `avatar.php` and `read.php`, which read them from the same constants and check
+  permissions first.
+- **Nothing on a page changed**: the markup, templates and stylesheets are untouched and the URLs
+  are relative and identical in both layouts. The only edits were the four places that used to
+  build a path from `__DIR__` (`header.php`, `dashboard.php`, `learnhub.php`, `skeleton.php`), and
+  they now ask `lh_path()` for what `__DIR__` gave them — so the same URLs keep working from
+  either folder.
+
+Uploading:
+
+1. Copy the `*.php` files, `.htaccess` and `.user.ini` into `public_html/`.
+2. Copy `assets/`, `logo/`, `signature/`, `data/` and `uploads/` into the storage root — the folder
+   that holds `public_html/`. `data/` and `uploads/` only need their blocker files — the app
+   creates both folders there itself on the first run if they are missing.
+3. Copy `config.sample.php` to `config.php` (above `public_html/` if you want it out of the
+   docroot), fill in the database values from the hosting panel, and add the `LH_STORAGE_DIR` line.
+   On **Hostinger** the database host is **`localhost`** (hPanel says so itself) — `srvNNN.hstgr.io`
+   is only for connecting from your own computer, and even then your IP must first be allowed under
+   Websites → Dashboard → *Remote MySQL*. A wrong host or password shows the grey
+   *🗄️ Database not reachable* page; the exact reason is always appended to `data/error.log`
+   (read it in hPanel → File Manager, it is not reachable over HTTP).
+4. Make sure the storage root's `data/` and `uploads/` are writable by PHP (755, or 775 when the
+   panel lets you choose).
+
 ## Security notes
 
 - Passwords hashed with `password_hash()`; session ID regenerated on login
 - CSRF tokens on all forms (including the AJAX progress endpoint)
 - All SQL uses **prepared statements**; all output is HTML-escaped
 - Uploads validated by extension + size and stored under random names
-- `data/` and `uploads/` deny direct web access — files stream through `download.php` with permission checks
+- **Profile pictures** are validated by their **content** (`getimagesize()`), not their filename: SVG and renamed
+  scripts never get in, the stored extension comes from the bytes, and the file is re-encoded (EXIF stripped) when
+  the server has GD. `avatar.php` serves a picture to the account it belongs to, to an admin, and to the teacher of a
+  course that account joined — never to a guest, never as a listing, and never on the strength of a user number alone:
+  `can_view_profile_of()` in `lib.php` is the one rule, and the pages that print an `<img>` consult it too, so a
+  picture that would be refused is never even linked
+- **Profile hover card**: on the pages where a teacher already sees a student's name — the class roster
+  (`enrollments.php`), a day's attendance (`attendance_day.php`), their chat list (`messages.php`) — pointing at the
+  name or the circle floats a small card: the picture, the name, the role, the about line, the month they joined. The
+  words arrive with the page (`profile_hover_attrs()` / `profile_hover_html()` in `lib.php`); `app.js` paints ONE
+  floating card and moves it, and builds it with `textContent`, so an about line stays words. Students are shown
+  nobody's card, there is no card for a person you share no course with, and no directory or listing of people exists
+- `data/` and `uploads/` deny direct web access — files stream through `download.php` with permission checks,
+  and pictures through `avatar.php`
 - Demo/teaching project: for production add HTTPS, rate limiting, and a dedicated DB user with limited privileges
 
 ## Resetting

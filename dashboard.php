@@ -37,23 +37,23 @@ $lh_owl_v = 0;
 $lh_owl_wing_v = 0;
 $lh_owl_eyes_v = 0;
 foreach (['owl-body.png', 'owl-body.webp', 'owl-body.jpg', 'owl-body.jpeg'] as $lh_owl_file) {
-  if (is_file(__DIR__ . '/logo/' . $lh_owl_file)) {
+  if (is_file(lh_path('logo/' . $lh_owl_file))) {
     $lh_owl = 'logo/' . $lh_owl_file;
-    $lh_owl_v = (int) filemtime(__DIR__ . '/logo/' . $lh_owl_file);
+    $lh_owl_v = (int) filemtime(lh_path('logo/' . $lh_owl_file));
     break;
   }
 }
 foreach (['owl-rightwing.png', 'owl-rightwing.webp', 'owl-rightwing.jpg', 'owl-rightwing.jpeg'] as $lh_owl_file) {
-  if (is_file(__DIR__ . '/logo/' . $lh_owl_file)) {
+  if (is_file(lh_path('logo/' . $lh_owl_file))) {
     $lh_owl_wing = 'logo/' . $lh_owl_file;
-    $lh_owl_wing_v = (int) filemtime(__DIR__ . '/logo/' . $lh_owl_file);
+    $lh_owl_wing_v = (int) filemtime(lh_path('logo/' . $lh_owl_file));
     break;
   }
 }
 foreach (['owl-eyes-close.png', 'owl-eyes-close.webp', 'owl-eyes-close.jpg', 'owl-eyes-close.jpeg'] as $lh_owl_file) {
-  if (is_file(__DIR__ . '/logo/' . $lh_owl_file)) {
+  if (is_file(lh_path('logo/' . $lh_owl_file))) {
     $lh_owl_eyes = 'logo/' . $lh_owl_file;
-    $lh_owl_eyes_v = (int) filemtime(__DIR__ . '/logo/' . $lh_owl_file);
+    $lh_owl_eyes_v = (int) filemtime(lh_path('logo/' . $lh_owl_file));
     break;
   }
 }
@@ -133,6 +133,17 @@ if ($isTeacher) {
   $todayVisits = teacher_today_visits((int) $user['id']);
   $activity = teacher_recent_activity((int) $user['id']);
   $attention = teacher_attention_students((int) $user['id']);
+  /* One query primes every profile the four live lists below may print — both
+     the circles (user_peer_avatar_html) and the hover cards
+     (profile_hover_attrs) read through profile_card_data()'s per-request
+     cache, so a roster of two hundred names costs one lookup, not two hundred. */
+  $dashPeerIds = array_merge(
+    array_map(fn ($r) => (int) $r['id'], $online),
+    array_map(fn ($r) => (int) $r['user_id'], $todayVisits),
+    array_map(fn ($r) => (int) ($r['uid'] ?? 0), $attention),
+    array_map(fn ($r) => (int) ($r['uid'] ?? 0), $activity)
+  );
+  profile_cards_preload($dashPeerIds);
 } else {
   $enrolled = array_values(array_filter($courses, fn($c) => is_enrolled($c, (string) $user['id'])));
   $totDone = 0;
@@ -158,7 +169,7 @@ require __DIR__ . '/header.php';
 ?>
 
 <!-- The owl perched in the banner below has styles of its own, and only here. -->
-<link rel="stylesheet" href="assets/hero.css?v=<?= (int) @filemtime(__DIR__ . '/assets/hero.css') ?>">
+<link rel="stylesheet" href="assets/hero.css?v=<?= (int) @filemtime(lh_path('assets/hero.css')) ?>">
 
 <!-- Hero banner: paper pinned to the wall -->
 <section class="reveal lh-hero overflow-hidden rounded-3xl p-5 text-slate-800 sm:p-8">
@@ -286,17 +297,16 @@ require __DIR__ . '/header.php';
         </div>
       </div>
       <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-        <h2 class="flex items-center gap-2 text-base font-bold text-slate-900">🟢 Live now
+        <h2 class="flex items-center gap-2 text-base font-bold text-slate-900">🟢 
           <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700"
             data-live-online-count><?= count($online) ?> online</span>
         </h2>
         <ul class="mt-3 space-y-2.5" data-live-list="online">
           <?php foreach ($online as $o): ?>
             <li class="flex items-center gap-2.5">
-              <span
-                class="relative grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700"><?= e(mb_substr((string) $o['name'], 0, 1)) ?><span
+              <span class="relative shrink-0"><?= user_peer_avatar_html($o, 'h-8 w-8') ?><span
                   class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white"></span></span>
-              <span class="min-w-0 flex-1 truncate text-sm font-medium text-slate-700"><?= e((string) $o['name']) ?></span>
+              <span class="min-w-0 flex-1 truncate text-sm font-medium text-slate-700"<?= profile_hover_attrs($o) ?>><?= e((string) $o['name']) ?></span>
               <span class="shrink-0 text-[11px] text-slate-400"><?= $ago((int) $o['last_seen']) ?></span>
             </li>
           <?php endforeach; ?>
@@ -317,7 +327,8 @@ require __DIR__ . '/header.php';
         <ul class="mt-3 space-y-2 lg:max-h-72 lg:overflow-y-auto lg:pr-1" data-live-list="visits">
           <?php foreach ($todayVisits as $v): ?>
             <li class="flex items-center gap-2 text-sm">
-              <span class="min-w-0 flex-1 truncate font-medium text-slate-700"><?= e((string) $v['student_name']) ?></span>
+              <?= user_peer_avatar_html(['id' => (int) $v['user_id'], 'name' => (string) $v['student_name'], 'avatar' => (string) ($v['avatar'] ?? '')], 'h-8 w-8') ?>
+              <span class="min-w-0 flex-1 truncate font-medium text-slate-700"<?= profile_hover_attrs((int) $v['user_id']) ?>><?= e((string) $v['student_name']) ?></span>
               <span
                 class="hidden min-w-0 max-w-[7rem] flex-1 truncate text-xs text-slate-400 sm:block"><?= e((string) $v['course_title']) ?></span>
               <span
@@ -336,9 +347,8 @@ require __DIR__ . '/header.php';
           <?php foreach ($attention as $a): ?>
             <li>
               <div class="flex items-center gap-2 text-sm">
-                <span
-                  class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-rose-100 text-xs font-bold text-rose-600"><?= e(mb_substr((string) $a['name'], 0, 1)) ?></span>
-                <span class="min-w-0 flex-1 truncate font-medium text-slate-700"><?= e((string) $a['name']) ?></span>
+                <span class="shrink-0"><?= user_peer_avatar_html(['id' => (int) $a['uid'], 'name' => (string) $a['name'], 'avatar' => (string) ($a['avatar'] ?? '')], 'h-7 w-7') ?></span>
+                <span class="min-w-0 flex-1 truncate font-medium text-slate-700"<?= profile_hover_attrs((int) $a['uid']) ?>><?= e((string) $a['name']) ?></span>
                 <span class="shrink-0 text-[11px] font-bold text-slate-500"><?= $a['pct'] ?>%</span>
               </div>
               <div class="mt-1 flex items-center gap-2 pl-9">
@@ -359,10 +369,9 @@ require __DIR__ . '/header.php';
         <ul class="mt-3 space-y-2.5 lg:max-h-72 lg:overflow-y-auto lg:pr-1" data-live-list="activity">
           <?php foreach ($activity as $act): ?>
             <li class="flex items-start gap-2.5 text-sm">
-              <span
-                class="grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs <?= $act['kind'] === 'enrolled' ? 'bg-emerald-100 text-emerald-700' : 'bg-emerald-100 text-emerald-600' ?>"><?= $act['kind'] === 'enrolled' ? '👥' : '✅' ?></span>
+              <?= user_peer_avatar_html(['id' => (int) ($act['uid'] ?? 0), 'name' => (string) $act['who'], 'avatar' => (string) ($act['avatar'] ?? '')], 'h-7 w-7') ?>
               <span class="min-w-0 flex-1">
-                <span class="block truncate text-slate-700"><b class="font-semibold"><?= e((string) $act['who']) ?></b>
+                <span class="block truncate text-slate-700"<?= profile_hover_attrs((int) ($act['uid'] ?? 0)) ?>><b class="font-semibold"><?= e((string) $act['who']) ?></b>
                   <?= $act['kind'] === 'enrolled' ? 'enrolled in' : 'completed' ?>
                   <?= $act['kind'] === 'completed' ? '<b class="font-semibold">' . e((string) $act['lesson']) . '</b> · ' : '' ?><span
                     class="text-slate-500"><?= e((string) $act['course']) ?></span></span>

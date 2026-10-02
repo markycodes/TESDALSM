@@ -122,7 +122,14 @@ document.querySelectorAll('[data-toast]').forEach((t) => setTimeout(() => t.remo
       el.classList.add('in');
       io.unobserve(el);
     });
-  }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+  /* threshold: 0 — with the 0.12 this shipped with, the legal pages broke on
+     phones: their whole body sits in ONE .reveal card (thousands of px tall),
+     and a viewport can never show 12% of an element ~8x its own height, so
+     the card never earned `.in` and stayed at opacity:0 below its short,
+     already-revealed title. Any pixel crossing the 6%-inset viewport edge
+     reveals it instead; the rootMargin still holds ordinary cards back until
+     they are nearly in view. */
+  }, { threshold: 0, rootMargin: '0px 0px -6% 0px' });
   els.forEach((el) => io.observe(el));
 })();
 
@@ -877,13 +884,181 @@ document.addEventListener('click', async (e) => {
   const data = await sendWatch(btn.getAttribute('data-course') || '', btn.getAttribute('data-material') || '', 1, 1, 0);
   if (data && data.complete) btn.remove();
 });
+/* ---------- connectivity: a lost connection means OFFLINE, and OUT ----------
+   Presence is built from heartbeats: while ping.php keeps landing, last_seen
+   stays fresh and everyone sees 🟢. But the instant a browser LOSES its internet
+   no request can reach us to report it, so without help the user stays green for
+   a whole PRESENCE_TIMEOUT (3 minutes) after the wire went dead — and their own
+   screen gives no hint either. The browser itself is the alarm: the `offline`
+   event (and a heartbeat whose fetch fails while navigator.onLine is false) flips
+   THIS page offline at once — a sticky pill says you show as offline to others,
+   and a best-effort sendBeacon posts ping.php v=offline, whose offline_user()
+   backdates presence.last_seen past the cutoff, so everyone else's next refresh
+   shows the user Offline immediately and close_stale_attendance() finishes the
+   open visit at that same moment. On a full outage the beacon cannot be
+   delivered — nothing is lost: an untouched last_seen simply ages out of
+   PRESENCE_TIMEOUT by itself, which remains the fallback.
+
+   And losing the connection is also the end of the session: this is a logout,
+   not merely a status change. The session cookie is HttpOnly, so JavaScript
+   cannot end the session alone — a signed-in page asks logout.php (which closes
+   attendance, clears presence and destroys the session) the moment the server
+   can hear it. When that request lands, the tab goes straight to the login page
+   with the flag cleared. When it cannot (a full outage — nothing reaches the
+   server), the intent is parked in localStorage and a signed-out screen covers
+   the page; the logout then finishes at the first of: the `online` event, the
+   next heartbeat (for browsers that miss the event), or the next load of any
+   signed-in tab. The flag never outlives its logout — only a signed-out page
+   (one the server rendered with no session left) clears it, so yesterday's
+   outage cannot sign out tomorrow's login — and while it stands no heartbeat
+   leaves the page. The older guard stays beside it: while navigator.onLine
+   still reports NO internet the heartbeat holds its own presence POST back, a
+   local server answers fine with the Wi-Fi off (loopback owes the missing
+   connection nothing) and its touch would flip the user green again seconds
+   after the offline beacon; both guards let go the moment the connection is
+   back, which is also the reconnect path for browsers that miss the `online`
+   event. Coming back is symmetric for anything still standing: the `online`
+   event drops the pill and heartbeats at once, then again 2.5s later, so a
+   straggling offline beacon queued during the outage cannot pin a reconnected
+   user back to offline. Guests have no session to end — they get the pill, the
+   beacon stays home, and never the logout. */
+let lhOffline = false;
+let lhOfflinePill = null;
+let lhSignedOutScreen = null;
+const LH_PENDING_LOGOUT = 'lh-pending-logout';
+
+function lhIsOffline() { return lhOffline; }
+
+/* The logout parked mid-outage: flagged the moment a signed-in page drops,
+   cleared only once logout.php has actually run (a signed-out page proves it). */
+function lhPendingLogout() {
+  try { return window.localStorage.getItem(LH_PENDING_LOGOUT) === '1'; } catch (e) { return false; }
+}
+function lhMarkPendingLogout() {
+  try { window.localStorage.setItem(LH_PENDING_LOGOUT, '1'); } catch (e) { /* storage blocked — the request below still carries the logout out if the server can hear it */ }
+}
+function lhClearPendingLogout() {
+  try { window.localStorage.removeItem(LH_PENDING_LOGOUT); } catch (e) { /* nothing to clear */ }
+}
+
+/* The signed-out screen: the page behind it can no longer be trusted — its data
+   belongs to a session that is over (or about to be). Inline styles only: this
+   has to work even if no stylesheet ever loaded. */
+function lhShowSignedOutScreen() {
+  if (lhSignedOutScreen) return;
+  const screen = document.createElement('div');
+  screen.id = 'lh-signed-out';
+  screen.setAttribute('role', 'alertdialog');
+  screen.setAttribute('aria-modal', 'true');
+  screen.style.cssText = 'position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;background:rgba(15,23,42,.75);padding:1rem;font-family:inherit;';
+  const card = document.createElement('div');
+  card.style.cssText = 'width:100%;max-width:26rem;background:#fff;border-radius:1rem;padding:1.5rem;text-align:center;color:#0f172a;box-shadow:0 25px 50px -12px rgba(0,0,0,.4);';
+  const head = document.createElement('h2');
+  head.textContent = "📵 You've been signed out";
+  const why = document.createElement('p');
+  why.textContent = "You're offline, so this session is over. Your open visits are closed and others see you as offline.";
+  const hint = document.createElement('p');
+  hint.textContent = 'Waiting for the connection — you will land on the login page the moment it is back.';
+  card.appendChild(head);
+  card.appendChild(why);
+  card.appendChild(hint);
+  screen.appendChild(card);
+  document.body.appendChild(screen);
+  lhSignedOutScreen = screen;
+}
+
+function lhShowOfflinePill(show) {
+  if (!show) {
+    if (lhOfflinePill) { lhOfflinePill.remove(); lhOfflinePill = null; }
+    return;
+  }
+  if (lhOfflinePill) return;
+  const el = document.createElement('div');
+  el.id = 'lh-offline-pill';
+  el.setAttribute('role', 'status');
+  el.className = 'fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full bg-rose-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg';
+  const msg = document.createElement('span');
+  msg.textContent = "📵 You're offline — you show as offline to others until the connection is back.";
+  el.appendChild(msg);
+  document.body.appendChild(el);
+  lhOfflinePill = el;
+}
+
+function lhSetOffline(off) {
+  if (off === lhOffline) return; /* idempotent: one pill and one beacon per drop */
+  lhOffline = off;
+  lhShowOfflinePill(off);
+  if (off) {
+    /* Best effort: say it NOW, while the link may still deliver (Wi-Fi switches,
+       captive portals). Signed-in pages only — ping.php wants the CSRF token and
+       a session. A hard outage drops the beacon on the floor and PRESENCE_TIMEOUT
+       answers for it. */
+    if (navigator.sendBeacon && document.body.hasAttribute('data-heartbeat')) {
+      navigator.sendBeacon('ping.php', new URLSearchParams({ csrf: csrfToken(), v: 'offline' }));
+    }
+    /* Instant logout, same audience as the beacon: a signed-in page ends the
+       session NOW if the server can hear us — a local server can, even with the
+       internet off — and parks the intent in localStorage when it cannot, so the
+       logout finishes at the first `online`, heartbeat or signed-in page load.
+       The session cookie is HttpOnly: this POST to logout.php is the only way
+       JavaScript can end a session at all. */
+    if (document.body.hasAttribute('data-heartbeat')) {
+      lhMarkPendingLogout();
+      fetch('logout.php', { method: 'POST', credentials: 'same-origin', keepalive: true })
+        .then(() => {
+          lhClearPendingLogout(); /* the session is gone — nothing left to finish */
+          window.location.replace('login.php?next=' +
+            encodeURIComponent(window.location.pathname + window.location.search));
+        })
+        .catch(() => lhShowSignedOutScreen()); /* the wire ate it: the flag will finish it */
+    }
+  } else {
+    heartbeat();                   /* the wire is back: reappear immediately... */
+    setTimeout(heartbeat, 2500);   /* ...and once more, so an offline beacon that
+                                      arrives AFTER the reconnect cannot flip a
+                                      back-online user straight back to offline */
+  }
+}
+window.addEventListener('offline', () => lhSetOffline(true));
+window.addEventListener('online', () => {
+  /* A logout still parked from the outage owns this page — finish it first:
+     there is no session left to reappear as. */
+  if (lhPendingLogout()) { window.location.replace('logout.php'); return; }
+  lhSetOffline(false);
+});
+if (navigator.onLine === false) lhSetOffline(true); /* opened with no connection */
+/* The parked logout also finishes when a signed-in tab merely LOADS — the
+   outage may have ended with that tab closed. The other half proves it landed:
+   a page rendered with no session clears the flag, so the next sign-in starts
+   clean. */
+if (document.body.hasAttribute('data-heartbeat')) {
+  if (lhPendingLogout()) window.location.replace('logout.php');
+} else {
+  lhClearPendingLogout();
+}
+
 /* ---------- presence heartbeat (keep "online") ---------- */
 function heartbeat() {
+  /* A parked logout owns this page: no presence POST leaves it. If the link is
+     already back but the `online` event never fired, this same beat finishes
+     the logout instead. */
+  if (lhPendingLogout()) {
+    if (navigator.onLine !== false) window.location.replace('logout.php');
+    return;
+  }
+  /* And the presence POST itself waits while the browser still says there is no
+     internet: a local server would answer anyway and re-mark a user green that
+     the offline beacon just dropped. The moment navigator.onLine flips true the
+     guard releases — that is also the reconnect path for browsers which never
+     fire the `online` event. */
+  if (lhOffline && navigator.onLine === false) return;
   fetch('ping.php', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'fetch' },
     body: 'csrf=' + encodeURIComponent(csrfToken()),
-  }).catch(() => { });
+  })
+    .then(() => lhSetOffline(navigator.onLine === false)) /* landed: online — unless the browser still insists there is no internet */
+    .catch(() => { if (navigator.onLine === false) lhSetOffline(true); });
 }
 if (document.body.hasAttribute('data-heartbeat')) {
   setInterval(heartbeat, 55000);
@@ -930,7 +1105,7 @@ const presenceMeta = document.querySelector('meta[name="presence-ids"]');
 if (presenceMeta) {
   const ids = presenceMeta.getAttribute('content').split(',').map((s) => s.trim()).filter(Boolean);
   async function refreshPresence() {
-    if (!ids.length) return;
+    if (!ids.length) return; /* no offline guard: a local server still answers with the internet down, and a dead link just fails fast */
     try {
       const res = await fetch('presence.php?ids=' + ids.join(','), { headers: { 'X-Requested-With': 'fetch' } });
       const data = await res.json();
@@ -1683,6 +1858,18 @@ if (dayFilter) {
        before the first sentence is typed out. */
     var owl = lhOwlCloud();
     if (owl) setTimeout(function () { owl.speak(); }, 700);
+    /* One row's circle — the photo when there is one, the coloured initial when
+       there is not — built exactly like user_avatar_html() prints it server-side,
+       so the first live refresh paints the same face the first paint did. */
+    function dashPeerCircle(r, size) {
+      var name = String(r.name || '');
+      if (r.avatar) {
+        return '<img src="' + lmsEsc(r.avatar) + '" alt="' + lmsEsc(name ? 'Profile picture of ' + name : 'Profile picture')
+          + '" loading="lazy" decoding="async" class="lh-avatar-img ' + size + ' rounded-full">';
+      }
+      return '<span class="lh-avatar-initial grid ' + size + ' place-items-center rounded-full bg-emerald-600 text-sm font-bold text-white" aria-hidden="true">'
+        + lmsEsc((name.charAt(0) || '?').toUpperCase()) + '</span>';
+    }
     livePoll(dashUrl, 10000, function (d) {
       var counts = d.counts || {};
       document.querySelectorAll('[data-live-stat]').forEach(function (el) {
@@ -1710,7 +1897,13 @@ if (dayFilter) {
       if (onl) {
         onl.innerHTML = d.online.length
           ? d.online.map(function (u) {
-            return '<li class="flex items-center gap-3 px-4 py-2.5"><span class="relative grid h-9 w-9 shrink-0 place-items-center rounded-full bg-indigo-600 text-sm font-bold text-white">' + lmsEsc(String(u.name).charAt(0).toUpperCase()) + '<span class="absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500"></span></span><span class="min-w-0"><span class="block truncate font-semibold text-slate-900">' + lmsEsc(u.name) + '</span><span class="block text-xs text-slate-400">online · ' + lmsAgo(u.last_seen) + '</span></span></li>';
+            /* mirrors dashboard.php's first paint: photo circle + presence dot,
+               the name carries the profile-card trigger, then the ago text */
+            return '<li class="flex items-center gap-2.5">'
+              + '<span class="relative shrink-0">' + dashPeerCircle(u, 'h-8 w-8')
+              + '<span class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white"></span></span>'
+              + '<span class="min-w-0 flex-1 truncate text-sm font-medium text-slate-700"' + (u.hover || '') + '>' + lmsEsc(u.name) + '</span>'
+              + '<span class="shrink-0 text-[11px] text-slate-400">' + lmsAgo(u.last_seen) + '</span></li>';
           }).join('')
           : '<li class="px-4 py-4 text-center text-sm text-slate-400">No students online right now.</li>';
       }
@@ -1719,8 +1912,11 @@ if (dayFilter) {
       if (vis) {
         vis.innerHTML = d.visits.length
           ? d.visits.map(function (r) {
-            var openNow = !r.left_at;
-            return '<li class="flex items-center gap-3 px-4 py-2.5"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700">' + lmsEsc(String(r.name).charAt(0).toUpperCase()) + '</span><span class="min-w-0 flex-1"><span class="block truncate font-semibold text-slate-900">' + lmsEsc(r.name) + '</span><span class="block text-xs text-slate-400">' + lmsEsc(r.course) + '</span></span><span class="text-right text-xs"><span class="block font-semibold ' + (openNow ? 'text-emerald-600' : 'text-slate-600') + '">' + lmsClock(r.entered_at) + '</span><span class="block text-slate-400">' + (openNow ? 'now' : 'left') + '</span></span></li>';
+            return '<li class="flex items-center gap-2 text-sm">'
+              + dashPeerCircle(r, 'h-8 w-8')
+              + '<span class="min-w-0 flex-1 truncate font-medium text-slate-700"' + (r.hover || '') + '>' + lmsEsc(r.name) + '</span>'
+              + '<span class="hidden min-w-0 max-w-[7rem] flex-1 truncate text-xs text-slate-400 sm:block">' + lmsEsc(r.course) + '</span>'
+              + '<span class="shrink-0 rounded-lg bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">' + lmsClock(r.entered_at) + (r.left_at ? ' – ' + lmsClock(r.left_at) : ' …') + '</span></li>';
           }).join('')
           : '<li class="px-4 py-4 text-center text-sm text-slate-400">No visits recorded today yet.</li>';
       }
@@ -1729,8 +1925,13 @@ if (dayFilter) {
       if (act) {
         act.innerHTML = d.activity.length
           ? d.activity.map(function (r) {
-            var icon = r.kind === 'enrolled' ? '🎒' : '✅';
-            return '<li class="flex items-start gap-3 px-4 py-2.5"><span class="mt-0.5 text-base">' + icon + '</span><span class="min-w-0 flex-1"><span class="block break-words text-sm text-slate-700"><span class="font-semibold text-slate-900">' + lmsEsc(r.who) + '</span> ' + (r.kind === 'enrolled' ? 'enrolled in' : 'completed') + ' <span class="font-semibold text-indigo-700">' + lmsEsc(r.course) + '</span>' + (r.lesson ? ' · ' + lmsEsc(r.lesson) : '') + '</span></span><span class="shrink-0 text-xs text-slate-400">' + lmsAgo(r.ts) + '</span></li>';
+            return '<li class="flex items-start gap-2.5 text-sm">'
+              + dashPeerCircle({ name: r.who, avatar: r.avatar }, 'h-7 w-7')
+              + '<span class="min-w-0 flex-1"><span class="block truncate text-slate-700"' + (r.hover || '') + '><b class="font-semibold">' + lmsEsc(r.who) + '</b> '
+              + (r.kind === 'enrolled' ? 'enrolled in' : 'completed') + ' '
+              + (r.lesson ? '<b class="font-semibold">' + lmsEsc(r.lesson) + '</b> · ' : '')
+              + '<span class="text-slate-500">' + lmsEsc(r.course) + '</span></span>'
+              + '<span class="text-[11px] text-slate-400">' + lmsAgo(r.ts) + '</span></span></li>';
           }).join('')
           : '<li class="px-4 py-4 text-center text-sm text-slate-400">No recent activity.</li>';
       }
@@ -1739,7 +1940,15 @@ if (dayFilter) {
       if (att) {
         att.innerHTML = d.attention.length
           ? d.attention.map(function (s) {
-            return '<li class="flex items-center gap-3 px-4 py-2.5"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-amber-100 text-sm font-bold text-amber-700">' + lmsEsc(String(s.name).charAt(0).toUpperCase()) + '</span><span class="min-w-0 flex-1"><span class="block truncate font-semibold text-slate-900">' + lmsEsc(s.name) + '</span><span class="block truncate text-xs text-slate-400">' + lmsEsc(s.course) + ' · ' + s.done + '/' + s.total + ' lessons · ' + s.pct + '%</span></span><span class="w-16 shrink-0"><span class="mb-1 block text-right text-xs font-bold text-amber-600">' + s.pct + '%</span><span class="block h-1.5 overflow-hidden rounded-full bg-slate-100"><span class="block h-full rounded-full bg-amber-500" style="width:' + s.pct + '%"></span></span></span></li>';
+            /* two stacked rows like dashboard.php prints: name row, then the
+               progress row indented to the name (pl-9 clears the h-7 circle) */
+            return '<li><div class="flex items-center gap-2 text-sm">'
+              + dashPeerCircle(s, 'h-7 w-7')
+              + '<span class="min-w-0 flex-1 truncate font-medium text-slate-700"' + (s.hover || '') + '>' + lmsEsc(s.name) + '</span>'
+              + '<span class="shrink-0 text-[11px] font-bold text-slate-500">' + s.pct + '%</span></div>'
+              + '<div class="mt-1 flex items-center gap-2 pl-9"><div class="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">'
+              + '<div class="h-full rounded-full bg-rose-400" style="width:' + s.pct + '%"></div></div>'
+              + '<span class="min-w-0 truncate text-[10px] text-slate-400">' + s.done + '/' + s.total + ' · ' + lmsEsc(s.course) + '</span></div></li>';
           }).join('')
           : '<li class="px-4 py-4 text-center text-sm text-slate-400">Everyone is keeping up 🎉</li>';
       }
@@ -1819,9 +2028,22 @@ if (dayFilter) {
          of blanks would be worse than no column. */
       var showIp = !d.ownOnly && liveBox.getAttribute('data-show-ip') !== '0';
       var rows = d.records.map(function (r) {
+        /* the circle and the card the first paint printed, redrawn: the payload
+           carries the picture this viewer is entitled to (blank when they are not,
+           or when no file stands behind the row — never link a picture that would
+           404) and the hover-card attributes lib.php itself would have printed
+           ('' for the viewer's own row). user_avatar_html()'s two shapes exactly:
+           the photo circle, or the coloured initial when there is none. */
+        var circle = r.avatar
+          ? '<img src="' + lmsEsc(r.avatar) + '" alt="' + lmsEsc(r.name ? 'Profile picture of ' + r.name : 'Profile picture') + '" loading="lazy" decoding="async" class="lh-avatar-img h-8 w-8 rounded-full">'
+          : '<span class="lh-avatar-initial grid h-8 w-8 place-items-center rounded-full bg-emerald-600 text-sm font-bold text-white" aria-hidden="true">' + lmsEsc((String(r.name || '').charAt(0) || '?').toUpperCase()) + '</span>';
+        var student = '<div class="flex items-center gap-2">' + circle + '<div class="min-w-0"><p class="truncate font-semibold text-slate-900">' + lmsEsc(r.name) + '</p><p class="text-xs text-slate-400">' + (r.online ? '🟢 online' : 'offline') + '</p></div></div>';
+        /* the shared hover card listens on the document, so the rebuilt cell only
+           needs the same wrapper attrs the first paint carried to keep its card */
+        if (r.hover) student = '<div class="lh-hcard lh-hcard-block"' + r.hover + '>' + student + '</div>';
         return '<tr>' +
           '<td class="px-4 py-3 font-semibold text-slate-900">' + lmsClock(r.entered_at) + '</td>' +
-          '<td class="px-4 py-3"><div class="flex items-center gap-2"><span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-indigo-600 text-xs font-bold text-white">' + lmsEsc(String(r.name).charAt(0).toUpperCase()) + '</span><div class="min-w-0"><p class="truncate font-semibold text-slate-900">' + lmsEsc(r.name) + '</p><p class="text-xs text-slate-400">' + (r.online ? '🟢 online' : 'offline') + '</p></div></div></td>' +
+          '<td class="px-4 py-3">' + student + '</td>' +
           '<td class="px-4 py-3"><span class="inline-block rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">' + lmsEsc(r.course_title) + '</span><span class="block text-xs text-slate-400">' + lmsEsc(r.course_category) + '</span></td>' +
           '<td class="px-4 py-3">' + (r.open ? (r.online ? '<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700"><span class="relative flex h-2 w-2"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span></span> Online</span>' : '<span class="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">⏳ In course</span>') : '<span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">⏹ Left ' + lmsClock(r.left_at) + '</span>') + '</td>' +
           '<td class="px-4 py-3 text-slate-600">' + (r.open ? '<span data-open-seconds="' + Math.max(0, Math.floor(Date.now() / 1000) - r.entered_at) + '" data-mark="d' + r.id + '" class="font-semibold text-emerald-700"></span>' : lmsDur(r.duration)) + '</td>' +
@@ -2052,3 +2274,180 @@ if (dayFilter) {
     apply();
   });
 })();
+
+/* ---------- profile hover cards ----------
+   lib.php marks up the accounts a viewer is allowed to see with data-hcard and
+   the words to show; this builds ONE card, fills it from those attributes and
+   puts it beside the name. One card because a roster of two hundred students
+   must not mean two hundred hidden boxes, and because a card inside a table cell
+   or a scrolling list gets clipped (a transformed ancestor also turns a fixed
+   element into a positioned one, which is why it is re-parented to <body> first,
+   as modals are).
+
+   Everything is built with textContent, never innerHTML: the about line is words
+   a person typed about themselves, and words must stay words.
+
+   Nothing here fetches anything — if the server was willing to name this person
+   to you, the words were already in the page. */
+(function () {
+  var pop = null, openBy = null, pending = null, openTimer = null, hideTimer = null;
+
+  function card() {
+    if (pop) return pop;
+    pop = document.createElement('div');
+    pop.id = 'lh-hcard-pop';
+    pop.className = 'lh-hcard-pop';
+    pop.setAttribute('role', 'tooltip');
+    pop.hidden = true;
+    document.body.appendChild(pop);
+    /* staying open while the pointer travels from the name into the card is what
+       makes an about line readable instead of a flash */
+    pop.addEventListener('mouseenter', cancelHide);
+    pop.addEventListener('mouseleave', function () { hide(false); });
+    return pop;
+  }
+
+  function cancelHide() { if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; } }
+  function cancelOpen() { if (openTimer) { clearTimeout(openTimer); openTimer = null; } }
+
+  function place(el) {
+    var r = el.getBoundingClientRect(), pad = 10;
+    var w = pop.offsetWidth, h = pop.offsetHeight;
+    var left = Math.max(pad, Math.min(r.left - w - 10, window.innerWidth - w - pad));
+    /* prefer the left of the name (a list reads better that way); when the name
+       sits too near the left edge, drop the card under it instead */
+    if (left < pad) left = Math.max(pad, Math.min(r.left, window.innerWidth - w - pad));
+    var top = r.top + r.height / 2 - h / 2;
+    top = Math.max(pad, Math.min(top, window.innerHeight - h - pad));
+    pop.style.left = Math.round(left) + 'px';
+    pop.style.top = Math.round(top) + 'px';
+  }
+
+  function initial(name) {
+    var s = document.createElement('span');
+    s.className = 'lh-hcard-init';
+    s.setAttribute('aria-hidden', 'true');
+    s.textContent = (name || '?').trim().charAt(0).toUpperCase() || '?';
+    return s;
+  }
+
+  function show(el) {
+    var d = el.dataset, name = d.hcName || 'Account';
+    cancelHide(); cancelOpen();
+    if (openBy && openBy !== el) openBy.classList.remove('is-open');
+    openBy = el;
+    el.classList.add('is-open');
+    var p = card();
+    if (p.parentElement !== document.body) document.body.appendChild(p);
+    p.textContent = '';
+
+    var pic = d.hcPic || '';
+    if (pic) {
+      var img = document.createElement('img');
+      img.className = 'lh-hcard-pic';
+      img.src = pic;
+      img.alt = 'Profile picture of ' + name;
+      img.decoding = 'async';
+      /* a picture deleted between the page being built and this hover should
+         still leave a circle, not a torn image icon */
+      img.onerror = function () { img.replaceWith(initial(name)); };
+      p.appendChild(img);
+    } else {
+      p.appendChild(initial(name));
+    }
+
+    var box = document.createElement('div');
+    box.className = 'lh-hcard-txt';
+    var nm = document.createElement('span');
+    nm.className = 'lh-hcard-name';
+    nm.textContent = name;
+    box.appendChild(nm);
+    if (d.hcRole) {
+      var role = document.createElement('span');
+      role.className = 'lh-hcard-role';
+      role.textContent = d.hcRole;
+      box.appendChild(role);
+    }
+    var bio = document.createElement('p');
+    bio.className = 'lh-hcard-bio';
+    bio.textContent = d.hcBio || 'No about line yet.';
+    box.appendChild(bio);
+    if (d.hcJoined) {
+      var jn = document.createElement('p');
+      jn.className = 'lh-hcard-join';
+      jn.textContent = d.hcJoined;
+      box.appendChild(jn);
+    }
+    p.appendChild(box);
+
+    p.hidden = false;
+    place(el);                                  /* measured once visible, then nudged into view */
+    p.classList.add('is-shown');
+    el.setAttribute('aria-describedby', p.id);
+  }
+
+  function hide(now) {
+    cancelOpen();
+    if (!openBy) return;
+    if (hideTimer) clearTimeout(hideTimer);
+    var run = function () {
+      if (openBy) {
+        openBy.classList.remove('is-open');
+        openBy.removeAttribute('aria-describedby');
+      }
+      openBy = null;
+      if (!pop) return;
+      pop.classList.remove('is-shown');
+      hideTimer = setTimeout(function () { if (!openBy) { pop.hidden = true; hideTimer = null; } }, 160);
+    };
+    /* the short delay on leaving a name lets the pointer cross into the card */
+    if (now === true) run(); else hideTimer = setTimeout(run, 110);
+  }
+
+  function hoverable(node) {
+    return (node && node.closest) ? node.closest('[data-hcard]') : null;
+  }
+
+  document.addEventListener('pointerover', function (e) {
+    var el = hoverable(e.target);
+    if (!el || el === openBy) return;
+    pending = el;
+    cancelHide();
+    if (openTimer) return;                        /* one name into the next: a timer already runs */
+    /* a sweep of the mouse down a list must not flash a card for every row */
+    openTimer = setTimeout(function () { openTimer = null; if (pending) show(pending); }, 140);
+  });
+
+  document.addEventListener('pointerout', function (e) {
+    var el = hoverable(e.target);
+    if (!el) return;
+    if (hoverable(e.relatedTarget) === el) return;    /* moved to a child of the same name */
+    if (pop && e.relatedTarget && pop.contains(e.relatedTarget)) return;   /* into the card itself */
+    cancelOpen();
+    pending = null;
+    hide(false);
+  });
+
+  /* the keyboard gets the same card, immediately — a delay there only feels laggy */
+  document.addEventListener('focusin', function (e) {
+    var el = hoverable(e.target);
+    if (!el) { if (openBy) hide(true); return; }
+    cancelOpen();
+    show(el);
+  });
+  document.addEventListener('focusout', function (e) {
+    if (hoverable(e.target)) hide(true);
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!openBy) return;
+    if (hoverable(e.target) || (pop && pop.contains(e.target))) return;
+    hide(true);                                       /* a tap anywhere else closes it */
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hide(true); });
+  window.addEventListener('resize', function () { if (openBy) place(openBy); });
+  /* capture, so a card beside a name inside a scrolling list box follows it */
+  document.addEventListener('scroll', function () { if (openBy) place(openBy); }, { passive: true, capture: true });
+})();
+
+

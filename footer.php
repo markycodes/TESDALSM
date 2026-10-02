@@ -57,23 +57,36 @@
          dismissed for good. Dismissing stores one localStorage key
          (lh-cookie-notice), which that policy lists like every other key. */ ?>
 <div id="lh-cookie-note" role="region" aria-label="Cookie notice" hidden>
-  <p class="text-xs leading-5 text-slate-600">
+  <p class="text-xs leading-5">
     We set <b>one cookie</b> — the login session — and nothing that tracks or profiles you.
-    <a class="font-semibold text-emerald-700 hover:underline" href="<?= e(legal_url('cookies')) ?>">See the Cookie Policy</a>.
+    <a class="font-semibold hover:underline" href="<?= e(legal_url('cookies')) ?>">See the Cookie Policy</a>.
   </p>
   <button type="button" id="lh-cookie-note-ok"
-    class="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100">Got it</button>
+    class="shrink-0 rounded-lg border px-3 py-1.5 text-xs font-semibold transition">Got it</button>
 </div>
 <style>
+  /* Colours read the design-system tokens, with today's light palette as the
+     fallback — the interface dark.css documents. The note then wears the active
+     theme in light mode and flips with html.dark (paper surface, light ink,
+     readable link and button) instead of staying a white box on a dark canvas. */
   #lh-cookie-note {
     position: fixed; left: 1rem; bottom: 1rem; z-index: 60;
     display: flex; align-items: center; gap: .75rem;
     width: min(30rem, calc(100vw - 2rem));
     padding: .7rem .85rem;
-    border: 1px solid rgba(15, 23, 42, .08); border-radius: .9rem;
-    background: rgba(255, 255, 255, .97);
-    box-shadow: 0 18px 40px -20px rgba(15, 23, 42, .45);
+    border: 1px solid var(--lh-line, rgba(15, 23, 42, .08));
+    border-radius: .9rem;
+    background: var(--lh-paper, rgba(255, 255, 255, .97));
+    color: var(--lh-body, #475569);
+    box-shadow: var(--lh-shadow, 0 18px 40px -20px rgba(15, 23, 42, .45));
   }
+  #lh-cookie-note b { color: var(--lh-ink, inherit); }
+  #lh-cookie-note a { color: var(--lh-deep, #047857); }
+  #lh-cookie-note button {
+    border: 1px solid var(--lh-line-2, #e2e8f0);
+    color: var(--lh-mut, #475569);
+  }
+  #lh-cookie-note button:hover { background: var(--lh-tint, #f1f5f9); }
   /* hidden until JS decides this visitor has not dismissed it yet — and out of the
      way at the end of the page, where the fixed footer bar (with its Legal column)
      takes over the bottom of the screen */
@@ -187,7 +200,7 @@
 })();
 </script>
 
-<script src="assets/app.js?v=26"></script>
+<script src="assets/app.js?v=31"></script>
 <script>
 /* Self-healing fallback for the invite-link buttons. If the browser served a
    stale (or the host a missing) app.js — i.e. window.lhWireShare never appeared
