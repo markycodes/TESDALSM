@@ -58,11 +58,7 @@ require __DIR__ . '/header.php';
       <h1 class="mt-2 text-3xl font-extrabold tracking-tight text-slate-900"><?= e((string) $course['title']) ?></h1>
       <p class="mt-3 leading-7 text-slate-600"><?= e((string) ($course['description'] ?? '')) ?></p>
       <div class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500">
-        <span class="flex items-center gap-2">
-          <span
-            class="grid h-7 w-7 place-items-center rounded-full bg-indigo-600 text-xs font-bold text-white"><?= e(strtoupper(substr((string) ($course['teacher_name'] ?? '?'), 0, 1))) ?></span>
-          <?= e((string) ($course['teacher_name'] ?? '')) ?>
-        </span>
+        <?= course_teacher_html($course, 'h-7 w-7') ?>
         <span>👥 <?= count($course['enrolled'] ?? []) ?> enrolled</span>
         <?php if ($canLessons): ?><span>📦 <?= count($course['materials'] ?? []) ?> lessons</span>
         <?php else: ?><span>🔒 Lessons private</span><?php endif; ?>

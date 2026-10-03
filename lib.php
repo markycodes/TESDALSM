@@ -267,19 +267,70 @@ function lh_enc_url(string $url): string
 
 /** Outbound: rewrite every numeric id parameter in the rendered page into an
  *  encrypted token. Covers href/src/action attributes AND the same URLs inside
- *  inline JavaScript, so fetch() calls made by app.js stay encrypted too. */
+ *  inline JavaScript, so fetch() calls made by app.js stay encrypted too.
+ *
+ *  The .php extension comes off here too, so a page never hands the browser a
+ *  link that then has to bounce through the 302 in .htaccess. Doing it here (not
+ *  by editing every link) means one edit covers href, src, form action and the
+ *  URLs inside inline script, and it lands on the JSON endpoints app.js fetches
+ *  as well as the pages it links to.
+ *
+ *  The excluded names are the ones .htaccess deliberately keeps on .php so they
+ *  cost ONE request instead of a redirect pair — polling traffic doubled by a
+ *  redirect would be pure waste, and a shared host's security layer can
+ *  challenge every hop. avatar.php is in that list because the top bar asks for
+ *  a picture on every single page view.
+ *
+ *  read.php and watch.php and the other readers keep their extension: they are
+ *  only ever fetched with .php printed by the page that streams them, and they
+ *  are not linked from navigation. Everything reachable by clicking goes clean.
+ */
 function lh_url_encrypt_html(string $html): string
 {
-    if ($html === '' || !str_contains($html, '.php')) return $html;
+    if ($html === '') return $html;
+
+    /* 1) the id params, exactly as before */
+    if (str_contains($html, '.php')) {
+        $html = (string) preg_replace_callback(
+            '~(\?|&(?:amp;)?)(id|c|m|with|course|ids)=(\d+(?:,\d+)*)~i',
+            static function (array $m): string {
+                $parts = explode(',', $m[3]);
+                foreach ($parts as $i => $p) $parts[$i] = lh_enc_id($p);
+                return $m[1] . $m[2] . '=' . implode(',', $parts);
+            },
+            $html
+        );
+    }
+
+    /* 2) the .php extension, on the links a person clicks */
     return (string) preg_replace_callback(
-        '~(\?|&(?:amp;)?)(id|c|m|with|course|ids)=(\d+(?:,\d+)*)~i',
+        '~\b(href|src|action)=(["\'])([^"\'\s>?]*?)\.php((?:[?#][^"\'\s]*)?)\2~i',
         static function (array $m): string {
-            $parts = explode(',', $m[3]);
-            foreach ($parts as $i => $p) $parts[$i] = lh_enc_id($p);
-            return $m[1] . $m[2] . '=' . implode(',', $parts);
+            $file = lh_url_clean($m[3] . '.php', false);
+            return $m[1] . '=' . $m[2] . $file . $m[4] . $m[2];
         },
         $html
     );
+}
+
+/** One page address without its .php — returns the input unchanged when this
+ *  script is on the keep-the-extension list. Shared by the output filter above and
+ *  by the few Location: headers, which the filter cannot reach because headers are
+ *  not part of the buffered body. */
+function lh_url_clean(string $file, bool $withExt = false): string
+{
+    $stem = preg_replace('/\.php$/i', '', $file);
+    if (in_array($stem, lh_php_url_keep(), true)) return $file;   /* keeps .php */
+    return $withExt ? $stem . '.php' : $stem;
+}
+
+/** The scripts whose addresses keep their .php — the no-redirect list, mirroring
+ *  the RewriteCond in .htaccess rule 2 so the two never disagree. */
+function lh_php_url_keep(): array
+{
+    return ['realtime', 'ping', 'presence', 'read_progress', 'watch', 'live_class',
+            'avatar', 'read', 'download', 'asset', 'upload', 'upload_chunk',
+            'mark_messages_read', 'mark_notifications_read', 'login', 'logout'];
 }
 
 /* ---- e-mail (greeting / updates / reminders) -------------------------------
@@ -2110,9 +2161,12 @@ function profile_request_user_id(): int
 /* ---- the hover card: somebody else's profile, on their name ----------------
  * A teacher who already sees a student's name on a roster, an attendance sheet
  * or a chat list can hover that name and get the small card: the picture, the
- * name, the about line, when they joined. That is the whole rule — nobody gets a
- * directory, a search, or a card for a person they never share a course with,
- * and students get no cards at all. avatar.php, user_peer_avatar_html() and
+ * name, the about line, when they joined. A student gets the same card for the
+ * teacher of a course they are enrolled in, which is how a course card, a course
+ * page or a timetable slot can show a face instead of a bare name. That is the
+ * whole rule — it runs both ways along one shared course, and nobody gets a
+ * directory, a search, or a card for a person they never share a course with.
+ * avatar.php, user_peer_avatar_html() and
  * profile_hover_html() all consult can_view_profile_of(), so the picture a page
  * prints and the file the browser fetches are decided the same way: a card that
  * renders is a card whose bytes arrive, and one that is not allowed cannot be
@@ -2144,19 +2198,20 @@ function profile_card_data(int $id): ?array
 
 /** Prime the cache for a list of accounts in a single query, so a roster of 200
  *  names costs one round trip and not two hundred. Ids with no row are remembered
- *  as misses, which keeps a deleted account from being asked for twice. */
+ *  as misses, which keeps a deleted account from being asked for twice.
+ *  An id this viewer may not see is dropped rather than fetched, so the cache only
+ *  ever holds rows that can legitimately be printed on this page — a student's
+ *  course cards prime their teachers, not every name on the page. */
 function profile_cards_preload(array $ids, ?array $viewer = null): void
 {
-    /* a student's pages never carry cards, so there is nothing to prime — skip
-       the query rather than fetch rows that will never be printed */
     $me = $viewer ?? current_user();
-    $role = (string) ($me['role'] ?? '');
-    if ($role !== 'teacher' && $role !== 'admin') return;
     $cache = &profile_card_cache();
     $todo = [];
     foreach ($ids as $id) {
         $id = (int) $id;
-        if ($id > 0 && !array_key_exists($id, $cache)) $todo[] = $id;
+        if ($id <= 0 || array_key_exists($id, $cache)) continue;
+        if (!can_view_profile_of($id, $me)) continue;   /* nothing here would be printed */
+        $todo[] = $id;
     }
     if (!$todo) return;
     $todo = array_values(array_unique($todo));
@@ -2172,8 +2227,12 @@ function profile_cards_preload(array $ids, ?array $viewer = null): void
  *  - anybody's, for an admin (they run the site and already have the user list);
  *  - a student's, for the teacher of a course that student is enrolled in — the
  *    same teacher who sees that name on their roster;
- *  - nothing for a student. This is a courtesy card between a class and its
- *    teacher, not a people browser.
+ *  - a teacher's, for the students of a course they teach — the other half of the
+ *    same courtesy, and the reason a student's course card, dashboard and schedule
+ *    can show a face instead of a bare name;
+ *  - nothing else. This is a card between a class and its teacher, not a people
+ *    browser: no directory, no search, and no card for a person you share no
+ *    course with.
  * $viewer is the signed-in account; pass one only where there is no session to
  * read (a page built for somebody else, or the checks in _profile_check.php). */
 function can_view_profile_of(int $targetId, ?array $viewer = null): bool
@@ -2188,11 +2247,18 @@ function can_view_profile_of(int $targetId, ?array $viewer = null): bool
     if ($viewerId === $targetId) return true;            // never gate a person on themselves
     $role = (string) ($me['role'] ?? '');
     if ($role === 'admin') return true;
-    if ($role !== 'teacher') return false;
+    if ($role !== 'teacher' && $role !== 'student') return false;
     if (!isset($scopes[$viewerId])) {
         $scopes[$viewerId] = [];
-        $stmt = db()->prepare('SELECT DISTINCT e.user_id FROM enrollments e'
-            . ' JOIN courses c ON c.id = e.course_id WHERE c.teacher_id = ?');
+        /* The mirror image of the roster query above, so the rule reads the same
+           from both sides of a class: a teacher's scope is the accounts enrolled
+           in a course they own, a student's scope is the accounts who own a course
+           they are enrolled in. Still one query per viewer per page load. */
+        $stmt = $role === 'teacher'
+            ? db()->prepare('SELECT DISTINCT e.user_id FROM enrollments e'
+                . ' JOIN courses c ON c.id = e.course_id WHERE c.teacher_id = ?')
+            : db()->prepare('SELECT DISTINCT c.teacher_id FROM enrollments e'
+                . ' JOIN courses c ON c.id = e.course_id WHERE e.user_id = ?');
         $stmt->execute([$viewerId]);
         foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $id) $scopes[$viewerId][(int) $id] = true;
     }
@@ -2209,26 +2275,10 @@ function user_peer_avatar_html(array $user, string $sizeClass = 'h-9 w-9', ?arra
 }
 
 /**
- * Wrap the markup that stands for an account (their circle and name, usually) so
- * that pointing at it — or tabbing to it — floats a small card with that
- * account's profile: picture, name, role, about line, date joined.
- *
- * Nothing is fetched on hover. The words ride along as data attributes and the
- * script in app.js paints ONE shared floating card and moves it, so a long
- * roster carries no hidden cards and the page stays as small as it was. With
- * scripting off the title attribute still carries the name and the about line.
- *
- * $inner comes back untouched when this viewer may not see this person's profile,
- * so a page cannot leak by forgetting to check, and a student's pages never grow
- * cards at all. $opt understands 'class' (extra classes on the wrapper) and
- * 'focusable' => false where the wrapper already sits inside a link.
- */
-/**
  * The attributes that turn any element into a profile card trigger: the words
  * the card is made of ride along as data attributes, and the title attribute is
  * the no-script version of the same card. '' when this viewer may not see this
- * person's profile — so a page cannot leak by forgetting to check, and a
- * student's pages never grow cards at all.
+ * person's profile — so a page cannot leak by forgetting to check.
  *
  * Use this on markup that already exists (a link, a table row); use
  * profile_hover_html() when there is nothing to decorate.
@@ -2288,6 +2338,60 @@ function profile_hover_html(string $inner, $user, array $opt = []): string
     $attr = ' class="lh-hcard' . ($block ? ' lh-hcard-block' : '')
           . (isset($opt['class']) ? ' ' . $opt['class'] : '') . '"' . $attr;
     return '<' . $tag . $attr . '>' . $inner . '</' . $tag . '>';
+}
+
+/**
+ * Whoever teaches a course, as one piece of markup: their circle beside their
+ * name, carrying the hover card when this viewer may see them.
+ *
+ * The course rows load_courses() hands back already carry the teacher's name and
+ * id but not their picture, so this reads the picture through the same
+ * profile_card_data() cache the roster uses — prime the ids first with
+ * profile_cards_preload() and a page full of course cards costs one query, not
+ * one per card. The circle and the card are both decided by can_view_profile_of():
+ * a student enrolled in the course gets the teacher's picture and card, everyone
+ * else gets the plain initial and no card, exactly as on a roster.
+ *
+ * 'self' => false throughout: a teacher looking at their own course should not
+ * hover their own name to be told about themselves.
+ * @param array  $course    one row from load_courses() or course_row()
+ * @param string $sizeClass circle size, e.g. 'h-7 w-7'
+ * @param bool   $withName  false prints the circle alone, for a line that already
+ *                          names the course (a timetable slot) where a name too
+ *                          would just crowd the row
+ * @param array  $viewer    whose screen this is; leave null on a page and it reads
+ *                          the signed-in account. Pass it only where there is no
+ *                          session to read (the checks in _profile_check.php) —
+ *                          current_user() memoises, so a later session change is
+ *                          not seen.
+ */
+function course_teacher_html(array $course, string $sizeClass = 'h-7 w-7', bool $withName = true, ?array $viewer = null): string
+{
+    $teacherId = (int) ($course['teacher_id'] ?? 0);
+    $name      = trim((string) ($course['teacher_name'] ?? ''));
+    if ($teacherId <= 0 || $name === '') return '';
+    $t = profile_card_data($teacherId);
+    /* the teacher row is gone (deleted account): keep the name the course row
+       still carries rather than printing an empty chip */
+    if ($t === null) return $withName ? '<span>' . e($name) . '</span>' : '';
+    $inner = '<span class="inline-flex items-center gap-2">'
+        . user_peer_avatar_html($t, $sizeClass, $viewer);
+    if ($withName) $inner .= '<span class="truncate">' . e($name) . '</span>';
+    return profile_hover_html($inner . '</span>', $teacherId,
+        ['self' => false] + ($viewer !== null ? ['viewer' => $viewer] : []));
+}
+
+/** The same chip for a page that only holds course ids (a timetable slot carries a
+ *  course_id, not a course row). Keeps its own per-request course cache so a week
+ *  of slots costs one course lookup per distinct course and not one per row, and
+ *  hands what it finds straight to course_teacher_html(). */
+function course_teacher_chip(int $courseId, string $sizeClass = 'h-5 w-5', bool $withName = false): string
+{
+    static $rows = [];
+    $courseId = (int) $courseId;
+    if ($courseId <= 0) return '';
+    if (!array_key_exists($courseId, $rows)) $rows[$courseId] = course_row($courseId);
+    return $rows[$courseId] === null ? '' : course_teacher_html($rows[$courseId], $sizeClass, $withName);
 }
 
 /**
@@ -2938,6 +3042,36 @@ function schedule_weekdays(): array
     return [1 => 'Monday', 2 => 'Tuesday', 3 => 'Wednesday', 4 => 'Thursday', 5 => 'Friday', 6 => 'Saturday', 0 => 'Sunday'];
 }
 
+/** The teacher who owns a schedule row as their own face, ready for a list or a
+ *  calendar day. Goes through the peer helper, so the picture is replaced by the
+ *  coloured initial when the viewer may not see that profile. */
+function schedule_teacher_face_html(array $row, string $sizeClass = 'h-9 w-9', ?array $viewer = null): string
+{
+    $teacherId = (int) ($row['teacher_id'] ?? 0);
+    $user = [
+        'id' => $teacherId,
+        'name' => (string) ($row['teacher_name'] ?? ''),
+        'avatar' => (string) ($row['teacher_avatar'] ?? ''),
+    ];
+    return user_peer_avatar_html($user, $sizeClass, $viewer);
+}
+
+/** One teacher face per distinct teacher on this day, at most $limit of them.
+ *  Deduplicated so a teacher with three classes that morning wears one face, not
+ *  three — the calendar cell is small and the badge already says "3 slots". */
+function schedule_day_faces(array $items, int $limit = 3, ?array $viewer = null): array
+{
+    if ($limit < 1) return [];
+    $seen = [];
+    foreach ($items as $it) {
+        $id = (int) ($it['teacher_id'] ?? 0);
+        if ($id <= 0) continue;
+        $seen[$id] ??= $it;
+        if (count($seen) >= $limit) break;
+    }
+    return array_map(fn ($it) => schedule_teacher_face_html($it, 'h-5 w-5', $viewer), array_values($seen));
+}
+
 /** A stored time ('09:30:00' or '09:30') as 'HH:MM'; anything unusable becomes ''. */
 function schedule_hm($t): string
 {
@@ -2981,6 +3115,10 @@ function schedule_shape(array $r): array
     $r['repeat_mode'] = ((string) $r['repeat_mode'] === 'once') ? 'once' : 'weekly';
     $r['start_time'] = schedule_hm($r['start_time'] ?? '');
     $r['end_time'] = schedule_hm($r['end_time'] ?? '');
+    /* Carried so the calendar can put a teacher's own face on a day. A slot is
+       deleted with its teacher (FK ON DELETE CASCADE), so this is always set. */
+    $r['teacher_name'] ??= '';
+    $r['teacher_avatar'] ??= '';
     return $r;
 }
 
@@ -2995,8 +3133,10 @@ function schedule_rows_for_courses(array $courseIds): array
     $ids = array_values(array_unique(array_filter(array_map('intval', $courseIds), fn ($i) => $i > 0)));
     if (!$ids) return [];
     $in = implode(',', array_fill(0, count($ids), '?'));
-    $st = db()->prepare("SELECT s.*, c.title AS course_title, c.category AS course_category
+    $st = db()->prepare("SELECT s.*, c.title AS course_title, c.category AS course_category,
+                                u.name AS teacher_name, u.avatar AS teacher_avatar
                          FROM schedules s JOIN courses c ON c.id = s.course_id
+                         JOIN users u ON u.id = s.teacher_id
                          WHERE s.course_id IN ($in)
                          ORDER BY s.start_time ASC, s.id ASC");
     $st->execute($ids);
@@ -3579,11 +3719,13 @@ function admin_course_overview(): array
                         LIMIT 200')->fetchAll();
 }
 
-/** Users currently online (heartbeat within PRESENCE_TIMEOUT), newest heartbeat first. */
+/** Users currently online (heartbeat within PRESENCE_TIMEOUT), newest heartbeat first.
+ *  u.avatar comes along so an online list can print a real circle through
+ *  user_peer_avatar_html() instead of drawing the initial itself. */
 function admin_online_users(array $roles = []): array
 {
     $roles = array_values(array_intersect($roles, ['teacher', 'student', 'admin']));
-    $sql = 'SELECT u.id, u.name, u.role, p.last_seen FROM presence p
+    $sql = 'SELECT u.id, u.name, u.role, u.avatar, p.last_seen FROM presence p
             JOIN users u ON u.id = p.user_id
             WHERE p.last_seen >= ?';
     $args = [time() - PRESENCE_TIMEOUT];

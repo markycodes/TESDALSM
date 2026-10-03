@@ -55,6 +55,11 @@ $tcodes = admin_teacher_codes();
 $diag   = mail_diagnostics();
 $overview = admin_course_overview();
 $onlineTeachers = admin_online_users(['teacher']);
+$onlineStudents = admin_online_users(['student']);
+/* The circles and the hover cards below read through profile_card_data()'s
+   per-request cache, so one query primes the whole list here. */
+profile_cards_preload(array_column($onlineTeachers, 'id'));
+profile_cards_preload(array_column($onlineStudents, 'id'));
 
 /* tiny stats strip */
 $stats = ['admins' => 0, 'teachers' => 0, 'students' => 0, 'courses' => 0, 'enrollments' => 0];
@@ -64,6 +69,13 @@ try {
     }
     $stats['courses'] = (int) db()->query('SELECT COUNT(*) FROM courses')->fetchColumn();
     $stats['enrollments'] = (int) db()->query('SELECT COUNT(*) FROM enrollments')->fetchColumn();
+
+    /* Today's timetable across every course — the admin side is the one place
+       that sees all of them at once, so this is where a school-wide view of
+       who is teaching whom belongs. Course-scoped like the rest of the app:
+       the rows only ever come from schedule_rows_for_courses(). */
+    $scheduleKinds = schedule_kinds();
+    $adminTodayItems = schedule_today(schedule_rows_for_courses(schedule_teacher_course_ids(0, true)));
 } catch (Throwable $e) { /* stats are decorative */ }
 
 function lh_ago_txt(int $ts): string
@@ -139,11 +151,9 @@ require __DIR__ . '/header.php';
         <ul class="mt-4 space-y-3">
           <?php foreach ($onlineTeachers as $t): ?>
           <li class="flex items-center gap-3">
-            <span class="relative grid h-9 w-9 shrink-0 place-items-center rounded-full bg-emerald-600 text-sm font-bold text-white">
-              <?= e(strtoupper(substr((string) $t['name'], 0, 1))) ?>
-              <span class="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500"></span>
-            </span>
-            <span class="min-w-0 flex-1 leading-tight">
+            <span class="relative shrink-0"><?= user_peer_avatar_html($t, 'h-9 w-9') ?><span
+                class="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500"></span></span>
+            <span class="min-w-0 flex-1 leading-tight"<?= profile_hover_attrs($t) ?>>
               <span class="block truncate text-sm font-semibold text-slate-800"><?= e((string) $t['name']) ?></span>
               <span class="block text-[11px] text-slate-400">online · <?= e(lh_ago_txt((int) $t['last_seen'])) ?></span>
             </span>
@@ -152,6 +162,57 @@ require __DIR__ . '/header.php';
         </ul>
         <p class="mt-4 text-[11px] text-slate-400">Online = active in the last 3 minutes.</p>
       <?php endif; ?>
+    </div>
+  </div>
+
+  <!-- students online -->
+  <div class="reveal mt-6 grid gap-6 lg:grid-cols-3">
+    <div class="lg:col-span-2 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="text-base font-bold text-slate-900">🟣 Students online now</h2>
+        <span class="text-xs text-slate-400"><?= count($onlineStudents) ?> online · <?= (int) $stats['students'] ?> total</span>
+      </div>
+      <?php if (!$onlineStudents): ?>
+        <p class="mt-4 rounded-xl border-2 border-dashed border-slate-300 p-6 text-center text-sm text-slate-400">No students online right now.</p>
+      <?php else: ?>
+        <ul class="mt-4 grid gap-3 sm:grid-cols-2">
+          <?php foreach ($onlineStudents as $s): ?>
+          <li class="flex items-center gap-3 rounded-xl border border-slate-100 px-3 py-2">
+            <span class="relative shrink-0"><?= user_peer_avatar_html($s, 'h-9 w-9') ?><span
+                class="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500"></span></span>
+            <span class="min-w-0 flex-1 leading-tight"<?= profile_hover_attrs($s) ?>>
+              <span class="block truncate text-sm font-semibold text-slate-800"><?= e((string) $s['name']) ?></span>
+              <span class="block text-[11px] text-slate-400">online · <?= e(lh_ago_txt((int) $s['last_seen'])) ?></span>
+            </span>
+          </li>
+          <?php endforeach; ?>
+        </ul>
+        <p class="mt-4 text-[11px] text-slate-400">Online = active in the last 3 minutes.</p>
+      <?php endif; ?>
+    </div>
+
+    <div class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+      <h2 class="text-base font-bold text-slate-900">🗓️ Timetable today</h2>
+      <?php if (!$adminTodayItems): ?>
+        <p class="mt-4 rounded-xl border-2 border-dashed border-slate-300 p-6 text-center text-sm text-slate-400">No teacher has anything scheduled today.</p>
+      <?php else: ?>
+        <ul class="mt-4 space-y-3">
+          <?php foreach (array_slice($adminTodayItems, 0, 6) as $it): ?>
+          <li class="flex items-center gap-3">
+            <span class="shrink-0"><?= schedule_teacher_face_html($it, 'h-7 w-7') ?></span>
+            <span class="min-w-0 flex-1 leading-tight">
+              <span class="block truncate text-sm font-semibold text-slate-800"><?= e($it['title'] !== '' ? $it['title'] : ($scheduleKinds[$it['kind']]['label'] ?? 'Class')) ?></span>
+              <span class="block truncate text-[11px] text-slate-400"><?= e((string) ($it['teacher_name'] ?? '')) ?> · <?= e(schedule_clock((string) $it['start_time'])) ?></span>
+            </span>
+          </li>
+          <?php endforeach; ?>
+        </ul>
+        <?php if (count($adminTodayItems) > 6): ?>
+          <p class="mt-3 text-[11px] text-slate-400">+<?= count($adminTodayItems) - 6 ?> more today</p>
+        <?php endif; ?>
+      <?php endif; ?>
+      <a href="schedule.php"
+        class="mt-4 inline-block rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100">Open the full timetable →</a>
     </div>
   </div>
 

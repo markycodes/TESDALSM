@@ -115,7 +115,8 @@ foreach ($records as $r) {
     $openCount++;
 }
 /* the profile cards on this sheet ride along with it — one query for every
-   distinct student here, and nothing at all when a student is looking */
+   distinct student here, and nothing at all when a student is looking, since they
+   may not see a classmate's card */
 profile_cards_preload($recordUserIds);
 $fmtDur = function (int $s): string {          /* mirrors lmsDur() in app.js so the first live tick doesn't reformat the number */
     $h = intdiv($s, 3600);

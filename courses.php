@@ -13,6 +13,14 @@ foreach ($courses as $c) {
 }
 sort($categories);
 
+/* Every card below prints the course's teacher through course_teacher_html(), which
+   reads that teacher's picture out of the shared profile cache. One query primes
+   * them all here. profile_cards_preload does the filtering: an id this viewer may not
+   see (a teacher's name on a course they do not teach, a teacher on a course this
+   student never joined) is dropped, so those cards fall back to the plain initial
+   with no card — the same answer the catalogue has always given those names. */
+profile_cards_preload(array_column($courses, 'teacher_id'));
+
 /* A card's counters (lessons · students) either carry the live hook or are printed
    plain, and the card itself decides which — see $mayWatchCounts below.
    realtime.php (v=courses) reports figures only for a teacher's own courses and
@@ -76,7 +84,7 @@ require __DIR__ . '/header.php';
     </div>
     <h3 class="mt-2 text-lg font-bold text-slate-900"><?= e((string) $c['title']) ?></h3>
     <p class="mt-1 line-clamp-2 flex-1 text-sm text-slate-500"><?= e((string) ($c['description'] ?? '')) ?></p>
-    <p class="mt-3 text-xs text-slate-500">👩‍🏫 <?= e((string) ($c['teacher_name'] ?? '')) ?> ·
+    <p class="mt-3 flex items-center gap-2 text-xs text-slate-500"><?= course_teacher_html($c, 'h-5 w-5') ?> ·
       <?php if ($canLessons): ?>📦 <?= $live_count($mayWatchCounts, 'lessons', (int) $c['id'], count($c['materials'] ?? [])) ?> lessons ·
       <?php else: ?>🔒 lessons private · <?php endif; ?>👥 <?= $live_count($mayWatchCounts, 'students', (int) $c['id'], count($c['enrolled'] ?? [])) ?></p>
     <a href="course.php?id=<?= e((string) $c['id']) ?>"

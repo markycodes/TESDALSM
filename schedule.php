@@ -283,6 +283,11 @@ require __DIR__ . '/header.php';
               aria-label="<?= e($day['label'] . ', ' . $day['month'] . ' ' . $day['day'] . ($dayTotal ? ' — ' . $dayTotal . ' slot' . ($dayTotal === 1 ? '' : 's') : ' — nothing scheduled')) ?>">
               <span class="lh-cal-num"><?= (int) $day['day'] ?></span>
               <?php if ($dayTotal > 1): ?><span class="lh-cal-badge"><?= $dayTotal ?></span><?php endif; ?>
+              <?php /* A teacher's own face on every day they teach, so the month reads
+                     as "who is on today" at a glance. Capped: the count badge and
+                     the chips below still carry the full picture. */ ?>
+              <?php $dayFaces = schedule_day_faces($dayItems);
+              if ($dayFaces): ?><span class="lh-cal-faces" aria-hidden="true"><?php foreach ($dayFaces as $face): ?><?= $face ?><?php endforeach; ?></span><?php endif; ?>
               <span class="lh-cal-chips">
                 <?php foreach (array_slice($dayItems, 0, 2) as $it):
                   $k = $kinds[$it['kind']] ?? $kinds['class']; ?>
@@ -307,7 +312,7 @@ require __DIR__ . '/header.php';
                         <span class="lh-cal-n"><?= $k['icon'] ?>
                           <?= e($it['title'] !== '' ? $it['title'] : $k['label']) ?></span>
                         <span
-                          class="lh-cal-m"><?= e((string) $it['course_title']) ?><?= trim((string) $it['place']) !== '' ? ' · 📍 ' . e((string) $it['place']) : '' ?></span>
+                          class="lh-cal-m"><?= course_teacher_chip((int) $it['course_id'], 'h-5 w-5') ?><?= e((string) $it['course_title']) ?><?= trim((string) $it['place']) !== '' ? ' · 📍 ' . e((string) $it['place']) : '' ?></span>
                         <?php if (trim((string) $it['notes']) !== ''): ?><span
                             class="lh-cal-x"><?= e((string) $it['notes']) ?></span><?php endif; ?>
                         <?php if ($isLive): ?><a class="lh-cal-live"
@@ -361,6 +366,7 @@ require __DIR__ . '/header.php';
                     <span class="text-sm font-semibold text-slate-800"><?= e($it['title'] !== '' ? $it['title'] : $k['label']) ?></span>
                     <span class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide <?= e($k['chip']) ?>"><?= $k['icon'] ?>
                       <?= e($k['label']) ?></span>
+                    <?= course_teacher_chip((int) $it['course_id'], 'h-5 w-5') ?>
                     <span class="text-xs font-medium text-slate-500"><?= e((string) $it['course_title']) ?></span>
                     <?php if ($it['place'] !== ''): ?><span class="text-xs text-slate-500">📍 <?= e((string) $it['place']) ?></span><?php endif; ?>
                     <?php if ($it['repeat_mode'] === 'weekly'): ?><span class="text-[11px] text-slate-400">· repeats every week</span><?php endif; ?>
@@ -552,7 +558,8 @@ require __DIR__ . '/header.php';
                   <td class="px-4 py-3"><span
                       class="inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide <?= e($k['chip']) ?>"><?= $k['icon'] ?>
                       <?= e($k['label']) ?></span></td>
-                  <td class="hidden px-4 py-3 text-slate-600 md:table-cell"><?= e((string) $r['course_title']) ?></td>
+                  <td class="hidden px-4 py-3 text-slate-600 md:table-cell"><span
+                      class="inline-flex items-center gap-2"><?= course_teacher_chip((int) $r['course_id'], 'h-5 w-5') ?><?= e((string) $r['course_title']) ?></span></td>
                   <td class="hidden px-4 py-3 text-slate-500 sm:table-cell">
                     <?= $r['place'] !== '' ? e((string) $r['place']) : '—' ?></td>
                   <td class="px-4 py-3">

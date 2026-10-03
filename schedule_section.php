@@ -38,6 +38,7 @@ $slotKind = fn (array $r) => schedule_kinds()[(string) ($r['kind'] ?? 'class')] 
           <span class="text-sm font-semibold text-slate-800"><?= e($slotName($it)) ?></span>
           <span
             class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide <?= e($k['chip']) ?>"><?= $k['icon'] ?></span>
+          <?= course_teacher_chip((int) $it['course_id'], 'h-5 w-5') ?>
           <span class="text-xs font-medium text-slate-500"><?= e((string) $it['course_title']) ?></span>
           <?php if (trim((string) $it['place']) !== ''): ?><span
               class="text-xs text-slate-500">📍 <?= e((string) $it['place']) ?></span><?php endif; ?>
@@ -66,6 +67,7 @@ $slotKind = fn (array $r) => schedule_kinds()[(string) ($r['kind'] ?? 'class')] 
           <span class="text-sm font-medium text-slate-800"><?= e($slotName($it)) ?></span>
           <span
             class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide <?= e($k['chip']) ?>"><?= $k['icon'] ?></span>
+          <?= course_teacher_chip((int) $it['course_id'], 'h-5 w-5') ?>
           <span class="text-xs text-slate-500"><?= e((string) $it['course_title']) ?></span>
         </li>
       <?php endforeach; ?>

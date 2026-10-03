@@ -14,5 +14,10 @@ if (ini_get('session.use_cookies')) {
     setcookie(session_name(), '', time() - 42000, $p['path'], $p['domain'], (bool) $p['secure'], (bool) $p['httponly']);
 }
 session_destroy();
-header('Location: ' . public_url('home'));   /* the public front page */
+/* The public front page. Clean, without the .php: this is a Location HEADER, which
+   the output filter in lib.php cannot reach (headers are not part of the buffered
+   body), and .htaccess deliberately does NOT redirect logout.php — so printing
+   home.php here would bounce the browser to /logout and then straight back here,
+   a redirect loop on the way out. Emit the extensionless address directly. */
+header('Location: ' . lh_url_clean(public_url('home')));
 exit;

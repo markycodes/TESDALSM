@@ -19,6 +19,7 @@ Teachers create courses and upload **learning materials** (PDF, DOCX, PPTX, imag
   - **Teacher access codes** (`T-XXXXXX`, one-time): a person can only register as a **teacher** with one of these codes. Student invite codes remain a teacher tool (`codes.php`).
   - **Site settings** (e-mail delivery/provider) — moved here from the teacher account; `settings.php` is admin-only.
   - **Change the admin password.**
+  - **"Teachers online now"** shows each teacher's real **profile picture** beside their name (the coloured initial when they have not uploaded one), with the same hover card everywhere else — an admin may see any account's profile, so no shared course is needed here.
 - **Live overview**: per-course **enrolled-student counts** (with totals) and which **teachers are online right now** (3-minute presence window).
 - The admin can open every teacher page as well (admin passes all teacher gates).
 
@@ -334,6 +335,19 @@ How one line is enough:
   one level up — and then resolves each folder: a pin from config (`LH_ASSET_DIR`, `LH_LOGO_DIR`,
   `LH_SIGNATURE_DIR`, `LH_DATA_DIR`, `LH_UPLOAD_DIR`) wins, otherwise the storage root when it
   really holds a folder of that name, otherwise the folder beside the PHP.
+- **Clean URLs**: the address bar shows `/courses`, never `/courses.php`. Two halves, and they
+  cover each other. **The pages print the clean form themselves** — `lh_url_encrypt_html()` in `lib.php`
+  is an output filter that runs over every rendered page and rewrites `href`/`src`/`action` (and the
+  same URLs inside inline script) so no link ever costs a redirect. **`.htaccess` catches the rest** —
+  rule 1 maps an extensionless path to the real script internally, and rule 2 302s a typed or
+  bookmarked `.php` address back to the clean one, so old links and shared URLs keep working. The few
+  `Location:` headers cannot be reached by an output filter (headers are not part of the buffered
+  body), so they call `lh_url_clean()` directly — `logout.php` needs that, because `.htaccess`
+  deliberately does not redirect `logout.php` and a `.php` header there would bounce back to itself.
+  The scripts on the **no-redirect list** (`avatar.php`, `realtime.php`, `ping.php`, `presence.php`,
+  `watch.php`, `read_progress.php`, `live_class.php`, the readers and the uploaders) keep their
+  extension on purpose: they are fetched constantly, and doubling polling traffic with a redirect
+  pair is waste that can also trip a shared host's rate limiting or security challenge.
 - **`asset.php`** is what keeps every existing URL working while the folders are above the
   document root. A rule in `.htaccess` hands `assets/`, `logo/` and `signature/` to it **only when
   the file is not under the docroot** (`RewriteCond %{REQUEST_FILENAME} !-f`), as an internal
@@ -385,12 +399,18 @@ Uploading:
   course that account joined — never to a guest, never as a listing, and never on the strength of a user number alone:
   `can_view_profile_of()` in `lib.php` is the one rule, and the pages that print an `<img>` consult it too, so a
   picture that would be refused is never even linked
-- **Profile hover card**: on the pages where a teacher already sees a student's name — the class roster
-  (`enrollments.php`), a day's attendance (`attendance_day.php`), their chat list (`messages.php`) — pointing at the
-  name or the circle floats a small card: the picture, the name, the role, the about line, the month they joined. The
-  words arrive with the page (`profile_hover_attrs()` / `profile_hover_html()` in `lib.php`); `app.js` paints ONE
-  floating card and moves it, and builds it with `textContent`, so an about line stays words. Students are shown
-  nobody's card, there is no card for a person you share no course with, and no directory or listing of people exists
+- **Profile hover card**: the rule runs **both ways along one shared course**. Where a teacher already sees a student's
+  name — the class roster (`enrollments.php`), a day's attendance (`attendance_day.php`), their chat list
+  (`messages.php`) — pointing at the name or the circle floats a small card: the picture, the name, the role, the
+  about line, the month they joined. The same goes the other way: a **student** gets the card for **the teacher of a
+  course they are enrolled in**, which is how a course card, a course page, the dashboard's "Continue learning" or a
+  timetable slot can show a face instead of a bare name (`course_teacher_html()` / `course_teacher_chip()` in
+  `lib.php`, drawn wherever a course names its teacher). The words arrive with the page (`profile_hover_attrs()` /
+  `profile_hover_html()`); `app.js` paints ONE floating card and moves it, and builds it with `textContent`, so an
+  about line stays words. Beyond that shared course there is nothing: **no card for a person you share no course
+  with** — a student never sees a classmate, an unrelated teacher is still only an initial, and there is no directory
+  or listing of people anywhere. `can_view_profile_of()` is the single decision, and `avatar.php`, the circle and the
+  card all consult it, so a picture that would be refused is never even linked.
 - `data/` and `uploads/` deny direct web access — files stream through `download.php` with permission checks,
   and pictures through `avatar.php`
 - Demo/teaching project: for production add HTTPS, rate limiting, and a dedicated DB user with limited privileges

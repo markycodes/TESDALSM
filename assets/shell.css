@@ -1713,6 +1713,32 @@
   background: #ecfdf5
 }
 
+/* One face per teacher with something on this day. Sits in the top corner,
+   overlapped like a row of faces so three still fit a narrow cell. */
+.lh-cal-faces {
+  position: absolute;
+  top: .3rem;
+  right: .3rem;
+  display: flex;
+  flex-direction: row-reverse
+}
+
+.lh-cal-faces > * {
+  margin-left: -.45rem;
+  border: 1.5px solid #fff;
+  border-radius: 999px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .12)
+}
+
+.lh-cal-faces > *:last-child {
+  margin-left: 0
+}
+
+/* once the count badge is on screen it owns the top corner, so drop below it */
+.lh-cal-day:has(.lh-cal-badge) .lh-cal-faces {
+  top: 1.5rem
+}
+
 .lh-cal-num {
   display: block;
   font-size: .78rem;

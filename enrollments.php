@@ -76,7 +76,8 @@ if ($scopeIds) {
     $stmt->execute($params);
     $students = $stmt->fetchAll();
     /* the hover cards on this list ride along with it: one query for the whole
-       page instead of one per name, and it does nothing at all for a student */
+       page instead of one per name — and for a student, who may see none of these
+       classmates, the gate drops every id and the query never runs */
     profile_cards_preload(array_column($students, 'id'));
 
     $stmt2 = db()->prepare("SELECT e.user_id, e.course_id, c.title FROM enrollments e JOIN courses c ON c.id = e.course_id WHERE e.course_id IN ($in)");
@@ -262,7 +263,9 @@ require __DIR__ . '/header.php';
 </section>
 <?php if ($selCourse > 0): ?>
 <section class="mt-10">
-  <h2 class="text-lg font-bold text-slate-900">📋 <?= $mayReadAttendance ? 'Attendance' : 'Your attendance' ?> — <?= e($logShow) ?></h2>
+  <h2 class="flex flex-wrap items-center gap-2 text-lg font-bold text-slate-900">📋
+    <?= $mayReadAttendance ? 'Attendance' : 'Your attendance' ?> — <?= e($logShow) ?>
+    <?= course_teacher_chip($selCourse, 'h-7 w-7') ?></h2>
   <p class="mt-1 text-sm text-slate-500"><?= $mayReadAttendance ? 'Every recorded entry into the course' : 'Your own entries into the course — when a classmate came is theirs to know' ?> (<span id="att-log-count"><?= count($attLog) ?></span> recorded).</p>
   <?php if (!$attLog): ?>
     <p class="mt-4 rounded-2xl border-2 border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">No attendance recorded for this course yet.</p>

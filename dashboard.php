@@ -465,7 +465,8 @@ require __DIR__ . '/header.php';
               <span
                 class="w-fit rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700"><?= e((string) ($c['category'] ?? 'General')) ?></span>
               <h3 class="mt-2 font-bold text-slate-900"><?= e((string) $c['title']) ?></h3>
-              <p class="mt-1 text-xs text-slate-500">by <?= e((string) ($c['teacher_name'] ?? '')) ?> · 📦 <?= $p['total'] ?>
+              <p class="mt-1 flex items-center gap-2 text-xs text-slate-500">by
+                <?= course_teacher_html($c, 'h-5 w-5') ?> · 📦 <?= $p['total'] ?>
                 lessons</p>
               <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
                 <div class="h-full rounded-full bg-indigo-600" style="width: <?= $p['pct'] ?>%"></div>
