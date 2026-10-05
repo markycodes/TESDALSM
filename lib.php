@@ -324,13 +324,28 @@ function lh_url_clean(string $file, bool $withExt = false): string
     return $withExt ? $stem . '.php' : $stem;
 }
 
-/** The scripts whose addresses keep their .php — the no-redirect list, mirroring
- *  the RewriteCond in .htaccess rule 2 so the two never disagree. */
+/** The scripts whose addresses keep their .php — the no-redirect list. This is
+ *  the SAME list as the RewriteCond in .htaccess rule 2, and the two have to be
+ *  kept in step: a script listed here but missing there would have every .php
+ *  link it printed bounced through a 302, and one listed there but missing here
+ *  would have PHP print an address that Apache then redirects away.
+ *
+ *  What is on it, and why:
+ *    • the polled / streamed endpoints (realtime, ping, presence, watch,
+ *      read_progress, live_class) — hit constantly, and a redirect on each one
+ *      doubles the request count;
+ *    • the binary/file endpoints (avatar, asset, download, read, upload,
+ *      upload_chunk, offline, download_submission) — same, and the last two
+ *      push a whole course as one download;
+ *    • the POST endpoints (mark_messages_read, mark_notifications_read, login,
+ *      logout) — rule 2 only ever redirects GET, but naming them here keeps the
+ *      address PHP prints identical to the one that served it. */
 function lh_php_url_keep(): array
 {
     return ['realtime', 'ping', 'presence', 'read_progress', 'watch', 'live_class',
-            'avatar', 'read', 'download', 'asset', 'upload', 'upload_chunk',
-            'mark_messages_read', 'mark_notifications_read', 'login', 'logout'];
+            'avatar', 'asset', 'read', 'download', 'download_submission', 'offline',
+            'upload', 'upload_chunk', 'mark_messages_read', 'mark_notifications_read',
+            'login', 'logout'];
 }
 
 /* ---- e-mail (greeting / updates / reminders) -------------------------------
@@ -1051,6 +1066,78 @@ function db_ensure_schema(PDO $pdo): void
             CONSTRAINT fk_cert_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
             CONSTRAINT fk_cert_course FOREIGN KEY (course_id) REFERENCES courses (id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        /* ---------------- assignments & submissions ----------------
+           The one thing the app could not do before: a teacher sets work with a
+           due date, a student hands something back, the teacher grades it in
+           place. `due_at` is NULL = no deadline. A student keeps ONE current
+           submission per assignment (uq_sub_once) and may resubmit until it is
+           graded — the row is updated, so there is never a pile of drafts and
+           the teacher's list is just "who is done, who is not". */
+        "CREATE TABLE IF NOT EXISTS assignments (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            course_id INT UNSIGNED NOT NULL,
+            teacher_id INT UNSIGNED NOT NULL,
+            title VARCHAR(160) NOT NULL,
+            instructions TEXT NOT NULL,
+            due_at INT UNSIGNED NULL DEFAULT NULL,
+            max_points INT UNSIGNED NOT NULL DEFAULT 100,
+            allow_late TINYINT(1) NOT NULL DEFAULT 1,
+            created_at INT UNSIGNED NOT NULL DEFAULT 0,
+            INDEX idx_assign_course (course_id),
+            INDEX idx_assign_due (due_at),
+            CONSTRAINT fk_assign_course FOREIGN KEY (course_id) REFERENCES courses (id) ON DELETE CASCADE,
+            CONSTRAINT fk_assign_teacher FOREIGN KEY (teacher_id) REFERENCES users (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        "CREATE TABLE IF NOT EXISTS submissions (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            assignment_id INT UNSIGNED NOT NULL,
+            user_id INT UNSIGNED NOT NULL,
+            body TEXT NOT NULL,
+            filename VARCHAR(255) NOT NULL DEFAULT '',
+            orig_name VARCHAR(255) NOT NULL DEFAULT '',
+            mime VARCHAR(100) NOT NULL DEFAULT '',
+            size INT UNSIGNED NOT NULL DEFAULT 0,
+            submitted_at INT UNSIGNED NOT NULL DEFAULT 0,
+            grade INT NULL DEFAULT NULL,
+            feedback TEXT NOT NULL,
+            graded_at INT UNSIGNED NOT NULL DEFAULT 0,
+            UNIQUE KEY uq_sub_once (assignment_id, user_id),
+            INDEX idx_sub_assign (assignment_id),
+            INDEX idx_sub_user (user_id),
+            CONSTRAINT fk_sub_assign FOREIGN KEY (assignment_id) REFERENCES assignments (id) ON DELETE CASCADE,
+            CONSTRAINT fk_sub_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        /* ---------------- course announcements ----------------
+           A teacher posts once, every enrolled student gets a notification row
+           (fan-out at post time, so the bell is instant and the list needs no
+           join to know who has read it). `pinned` keeps one at the top. */
+        "CREATE TABLE IF NOT EXISTS announcements (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            course_id INT UNSIGNED NOT NULL,
+            teacher_id INT UNSIGNED NOT NULL,
+            title VARCHAR(200) NOT NULL,
+            body TEXT NOT NULL,
+            pinned TINYINT(1) NOT NULL DEFAULT 0,
+            created_at INT UNSIGNED NOT NULL DEFAULT 0,
+            INDEX idx_ann_course (course_id, pinned, created_at),
+            CONSTRAINT fk_ann_course FOREIGN KEY (course_id) REFERENCES courses (id) ON DELETE CASCADE,
+            CONSTRAINT fk_ann_teacher FOREIGN KEY (teacher_id) REFERENCES users (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        /* ---------------- per-lesson discussion ----------------
+           Same shape as messages, but keyed to a lesson and open to everyone in
+           the course. parent_id = 0 is a top-level post; a reply points at its
+           parent (one level, the way a real lesson thread reads). */
+        "CREATE TABLE IF NOT EXISTS lesson_posts (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            material_id INT UNSIGNED NOT NULL,
+            user_id INT UNSIGNED NOT NULL,
+            parent_id INT UNSIGNED NOT NULL DEFAULT 0,
+            body TEXT NOT NULL,
+            created_at INT UNSIGNED NOT NULL DEFAULT 0,
+            INDEX idx_post_material (material_id, created_at),
+            CONSTRAINT fk_post_material FOREIGN KEY (material_id) REFERENCES materials (id) ON DELETE CASCADE,
+            CONSTRAINT fk_post_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
     ];
     foreach ($tables as $sql) {
         $pdo->exec($sql);
@@ -1081,6 +1168,10 @@ function db_schema_post_migrate(PDO $pdo): void
        inside uploads/avatars/ (never a path, so it can never point outside). */
     db_ensure_column($pdo, 'users', 'bio', "ALTER TABLE users ADD COLUMN bio VARCHAR(280) NOT NULL DEFAULT '' AFTER role");
     db_ensure_column($pdo, 'users', 'avatar', 'ALTER TABLE users ADD COLUMN avatar VARCHAR(255) NULL AFTER bio');
+    /* Lessons used to be ordered by id alone, with no way to reorder them at all.
+       sort_order lets a teacher move a batch (bulk.php) without renumbering rows;
+       NULL means "just keep the id order", so existing courses are untouched. */
+    db_ensure_column($pdo, 'materials', 'sort_order', 'ALTER TABLE materials ADD COLUMN sort_order INT NULL DEFAULT NULL AFTER size');
     admin_ensure($pdo);
 }
 
@@ -1340,9 +1431,24 @@ function load_courses(): array
     }
     unset($c);
 
+    /* Lessons a teacher has never reordered (sort_order NULL) keep the old id
+       order; once any lesson in the course is ordered, that column decides. This
+       is one place, so the course page, the offline bundle and bulk.php all
+       agree on what "the order of the lessons" means. */
     foreach (db()->query('SELECT * FROM materials ORDER BY id')->fetchAll() as $m) {
-        if (isset($byId[(int) $m['course_id']])) $byId[(int) $m['course_id']]['materials'][] = $m;
+        if (!isset($byId[(int) $m['course_id']])) continue;
+        $byId[(int) $m['course_id']]['materials'][] = $m;
     }
+    foreach ($byId as $cid => &$course) {
+        $ordered = array_filter($course['materials'], fn ($m) => $m['sort_order'] !== null);
+        if (!$ordered) continue;
+        usort($course['materials'], function ($a, $b) {
+            $ao = $a['sort_order'] ?? PHP_INT_MAX;
+            $bo = $b['sort_order'] ?? PHP_INT_MAX;
+            return $ao === $bo ? $a['id'] <=> $b['id'] : $ao <=> $bo;
+        });
+    }
+    unset($course);
     foreach (db()->query('SELECT course_id, user_id FROM enrollments')->fetchAll() as $e) {
         if (isset($byId[(int) $e['course_id']])) $byId[(int) $e['course_id']]['enrolled'][] = (int) $e['user_id'];
     }
@@ -4443,6 +4549,44 @@ function clear_presence(int $userId): void
 
 /* ---------------- live classes (teacher-initiated, Zoom-like) ---------------- */
 
+/** Is this the teacher who owns the course — the only person who may start or end
+ *  its live class? Deliberately narrower than live_class_can_join(): hosting is
+ *  the teacher's alone, so the main admin can sit in on a class without ever
+ *  being able to close one on its teacher. */
+function live_class_is_host(array $user, array $course): bool
+{
+    return ($user['role'] ?? '') === 'teacher'
+        && (int) ($course['teacher_id'] ?? 0) === (int) ($user['id'] ?? 0);
+}
+
+/** May this person sit in this course's live class? The owning teacher, the
+ *  enrolled students, and the main admin — who is not enrolled in anything by
+ *  definition but has to be able to observe any class in the school (see the
+ *  live courses list on the admin page). Every page and API action that admits
+ *  someone to a room goes through this one line, so the rule is stated once. */
+function live_class_can_join(array $user, array $course): bool
+{
+    if (($user['role'] ?? '') === 'admin') return true;
+    if (live_class_is_host($user, $course)) return true;
+    return is_enrolled($course, (int) ($user['id'] ?? 0));
+}
+
+/** Every class running right now, newest first, each row naming its course and
+ *  its teacher so the admin page can list them all at once. The one school-wide
+ *  read in the app, and it is read-only: it exposes who is teaching, never a
+ *  way to take a room over (starting and ending stay behind live_class_is_host). */
+function live_classes_now(): array
+{
+    return db()->query("SELECT lc.id, lc.course_id, lc.title, lc.started_at, lc.host_id,
+                               c.title AS course_title, u.name AS host_name
+                        FROM live_classes lc
+                        JOIN courses c ON c.id = lc.course_id
+                        JOIN users u ON u.id = lc.host_id
+                        WHERE lc.status = 'live'
+                        ORDER BY lc.started_at DESC
+                        LIMIT 50")->fetchAll();
+}
+
 /** The one currently-live class for a course (null when none). */
 function live_class_active(int $courseId): ?array
 {
@@ -5499,6 +5643,804 @@ function mark_conversation_read(int $conversationId, int $userId): void
     if ((int) $st->fetchColumn() === 0) return;
     db()->prepare('UPDATE messages SET is_read = 1 WHERE conversation_id = ? AND sender_id <> ? AND is_read = 0')
         ->execute([$conversationId, $userId]);
+}
+
+/* ---------------- assignments & submissions ---------------- */
+
+/** Every assignment of a course, soonest deadline first (no deadline last),
+ *  each carrying how many students have handed it in and how many are graded. */
+function course_assignments(int $courseId): array
+{
+    $st = db()->prepare("SELECT a.*, COUNT(s.id) AS submitted,
+                                SUM(CASE WHEN s.grade IS NOT NULL THEN 1 ELSE 0 END) AS graded
+                         FROM assignments a
+                         LEFT JOIN submissions s ON s.assignment_id = a.id
+                         WHERE a.course_id = ?
+                         GROUP BY a.id
+                         ORDER BY a.due_at IS NULL, a.due_at ASC, a.id DESC");
+    $st->execute([$courseId]);
+    return array_map('assignment_shape', $st->fetchAll());
+}
+
+/** One assignment by id, or null. */
+function assignment_row(int $id): ?array
+{
+    $st = db()->prepare('SELECT * FROM assignments WHERE id = ? LIMIT 1');
+    $st->execute([$id]);
+    $row = $st->fetch();
+    return $row === false ? null : assignment_shape($row);
+}
+
+/** A row as the rest of this file expects it (ints, '' not null, bool flag). */
+function assignment_shape(array $r): array
+{
+    $r['id'] = (int) $r['id'];
+    $r['course_id'] = (int) $r['course_id'];
+    $r['teacher_id'] = (int) $r['teacher_id'];
+    $r['max_points'] = (int) ($r['max_points'] ?? 100);
+    $r['allow_late'] = (int) ($r['allow_late'] ?? 0) ? 1 : 0;
+    $r['due_at'] = ($r['due_at'] === null || $r['due_at'] === '') ? null : (int) $r['due_at'];
+    return $r;
+}
+
+/** May this person act on this course as its teacher? The owning teacher and the
+ *  main admin, exactly like every other teacher gate in the app. */
+function assignment_can_manage(array $user, int $courseId): bool
+{
+    return schedule_can_manage($user, $courseId);
+}
+
+/** The students of a course (announcement fan-out, gradebook). */
+function course_student_ids(int $courseId): array
+{
+    $st = db()->prepare('SELECT user_id FROM enrollments WHERE course_id = ?');
+    $st->execute([$courseId]);
+    return array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN));
+}
+
+/** '2 days ago', 'in 3 hours' — how a deadline or a hand-in reads. */
+function assignment_when(int $ts): string
+{
+    $d = $ts - time();
+    $abs = abs($d);
+    $txt = $abs < 3600 ? max(1, (int) round($abs / 60)) . ' min'
+         : ($abs < 86400 ? (int) round($abs / 3600) . ' hour' . ($abs >= 7200 ? 's' : '')
+         : (int) round($abs / 86400) . ' day' . ($abs >= 172800 ? 's' : ''));
+    return $d < 0 ? $txt . ' ago' : 'in ' . $txt;
+}
+
+/** Has the deadline passed — and does it still accept work? 'open' | 'late' | 'closed'. */
+function assignment_due_state(array $a, int $now = 0): string
+{
+    $now = $now > 0 ? $now : time();
+    $due = $a['due_at'] ?? null;
+    if ($due === null || (int) $due === 0) return 'open';
+    if ($now > (int) $due) return $a['allow_late'] ? 'late' : 'closed';
+    return 'open';
+}
+
+/** Word for the deadline state, for the badges. */
+function assignment_due_label(array $a): string
+{
+    $due = $a['due_at'] ?? null;
+    if ($due === null || (int) $due === 0) return 'No deadline';
+    $state = assignment_due_state($a);
+    $when = date('M j, g:i A', (int) $due);
+    if ($state === 'closed') return 'Closed · was due ' . $when;
+    if ($state === 'late') return 'Late submissions accepted · was due ' . $when;
+    return 'Due ' . $when;
+}
+
+/** One submission by a student for an assignment (null when none yet). */
+function submission_for(int $assignmentId, int $userId): ?array
+{
+    $st = db()->prepare('SELECT * FROM submissions WHERE assignment_id = ? AND user_id = ? LIMIT 1');
+    $st->execute([$assignmentId, $userId]);
+    $row = $st->fetch();
+    return $row === false ? null : submission_shape($row);
+}
+
+/** Every submission for one assignment, with the student's name and avatar —
+ *  the teacher's grading queue. */
+function assignment_submissions(int $assignmentId): array
+{
+    $st = db()->prepare('SELECT s.*, u.name AS student_name, u.avatar AS student_avatar
+                         FROM submissions s JOIN users u ON u.id = s.user_id
+                         WHERE s.assignment_id = ?
+                         ORDER BY s.submitted_at ASC');
+    $st->execute([$assignmentId]);
+    return array_map('submission_shape', $st->fetchAll());
+}
+
+function submission_shape(array $r): array
+{
+    $r['id'] = (int) $r['id'];
+    $r['assignment_id'] = (int) $r['assignment_id'];
+    $r['user_id'] = (int) $r['user_id'];
+    $r['size'] = (int) ($r['size'] ?? 0);
+    $r['submitted_at'] = (int) ($r['submitted_at'] ?? 0);
+    $r['graded_at'] = (int) ($r['graded_at'] ?? 0);
+    $r['grade'] = ($r['grade'] === null || $r['grade'] === '') ? null : (int) $r['grade'];
+    $r['feedback'] ??= '';
+    return $r;
+}
+
+/** A stored timestamp as the `YYYY-MM-DDTHH:MM` string an <input
+ *  type="datetime-local"> expects — so an edit form comes back pre-filled with
+ *  the deadline it already had instead of silently blanking it. Null and 0 both
+ *  mean "no deadline", which is an empty input. */
+function lh_dt_local_value($ts): string
+{
+    $ts = (int) $ts;
+    return $ts > 0 ? date('Y-m-d\TH:i', $ts) : '';
+}
+
+/** Save (create or edit) an assignment. Returns ['ok', 'id', 'errors']. Only the
+ *  teacher may call this; the caller checks assignment_can_manage(). */
+function assignment_save(array $user, int $id, array $in): array
+{
+    $courseId = (int) ($in['course_id'] ?? 0);
+    $errors = [];
+    $title = trim((string) ($in['title'] ?? ''));
+    $instructions = trim((string) ($in['instructions'] ?? ''));
+    $maxPoints = (int) ($in['max_points'] ?? 100);
+    $allowLate = !empty($in['allow_late']) ? 1 : 0;
+
+    if (!assignment_can_manage($user, $courseId)) $errors[] = 'You can only manage assignments on your own courses.';
+    if ($title === '') $errors[] = 'Please give the assignment a title.';
+    if ($instructions === '') $errors[] = 'Please write what the students have to do.';
+    if ($maxPoints < 1 || $maxPoints > 10000) $errors[] = 'Maximum points must be between 1 and 10000.';
+
+    /* The form sends a datetime-local; an empty one means "no deadline". */
+    $dueAt = null;
+    $dueRaw = trim((string) ($in['due_at'] ?? ''));
+    if ($dueRaw !== '') {
+        $ts = strtotime($dueRaw);
+        if ($ts === false) $errors[] = 'That deadline could not be read.';
+        else $dueAt = (int) $ts;
+    }
+    if ($errors) return ['ok' => false, 'id' => $id, 'errors' => $errors];
+
+    if ($id > 0) {
+        $row = assignment_row($id);
+        if (!$row || !assignment_can_manage($user, (int) $row['course_id'])) {
+            return ['ok' => false, 'id' => 0, 'errors' => ['That assignment no longer exists.']];
+        }
+        db()->prepare('UPDATE assignments SET title = ?, instructions = ?, due_at = ?, max_points = ?, allow_late = ?
+                       WHERE id = ?')
+            ->execute([cut($title, 160), $instructions, $dueAt, $maxPoints, $allowLate, $id]);
+        return ['ok' => true, 'id' => $id, 'errors' => []];
+    }
+
+    db()->prepare('INSERT INTO assignments (course_id, teacher_id, title, instructions, due_at, max_points, allow_late, created_at)
+                   VALUES (?,?,?,?,?,?,?,?)')
+        ->execute([$courseId, (int) $user['id'], cut($title, 160), $instructions, $dueAt, $maxPoints, $allowLate, time()]);
+    return ['ok' => true, 'id' => (int) db()->lastInsertId(), 'errors' => []];
+}
+
+/** Hand in (or re-hand in) work. One row per student per assignment: resubmitting
+ *  replaces it until it has been graded, after which the student's copy locks so
+ *  a grade can never be left describing work that has since changed. */
+function assignment_submit(array $user, array $assignment, array $in): array
+{
+    $studentId = (int) $user['id'];
+    $courseId = (int) $assignment['course_id'];
+    if (!is_enrolled_id($courseId, $studentId)) return ['ok' => false, 'errors' => ['Enroll in this course first.']];
+    if (assignment_due_state($assignment) === 'closed') return ['ok' => false, 'errors' => ['This assignment is closed for submissions.']];
+
+    $existing = submission_for((int) $assignment['id'], $studentId);
+    if ($existing && $existing['grade'] !== null) {
+        return ['ok' => false, 'errors' => ['This work has already been graded, so it can no longer be changed.']];
+    }
+
+    $body = trim((string) ($in['body'] ?? ''));
+    $file = $in['file'] ?? null;
+    $hasFile = is_array($file) && (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && (int) ($file['size'] ?? 0) > 0;
+    if ($body === '' && !$hasFile) return ['ok' => false, 'errors' => ['Write something or attach a file before handing this in.']];
+
+    $filename = ''; $origName = ''; $mime = ''; $size = 0;
+    if ($hasFile) {
+        $stored = submission_store_file($file);
+        if (isset($stored['error'])) return ['ok' => false, 'errors' => [$stored['error']]];
+        $filename = $stored['filename']; $origName = $stored['orig_name'];
+        $mime = $stored['mime']; $size = $stored['size'];
+    }
+
+    /* Resubmitting replaces the row, so drop the file the old attempt owned. */
+    if ($existing && $existing['filename'] !== '') submission_delete_file($existing['filename']);
+
+    if ($existing) {
+        db()->prepare('UPDATE submissions SET body = ?, filename = ?, orig_name = ?, mime = ?, size = ?, submitted_at = ?
+                       WHERE id = ?')
+            ->execute([$body, $filename, $origName, $mime, $size, time(), (int) $existing['id']]);
+        return ['ok' => true, 'errors' => [], 'id' => (int) $existing['id']];
+    }
+
+    db()->prepare("INSERT INTO submissions (assignment_id, user_id, body, filename, orig_name, mime, size, submitted_at, grade, feedback, graded_at)
+                   VALUES (?,?,?,?,?,?,?,?,NULL,'',0)")
+        ->execute([(int) $assignment['id'], $studentId, $body, $filename, $origName, $mime, $size, time()]);
+    return ['ok' => true, 'errors' => [], 'id' => (int) db()->lastInsertId()];
+}
+
+/** Record a grade (or clear it by passing null) and tell the student. */
+function assignment_grade(array $user, int $submissionId, ?int $grade, string $feedback): array
+{
+    $st = db()->prepare('SELECT s.*, a.course_id, a.title AS assignment_title, a.teacher_id, a.max_points
+                         FROM submissions s JOIN assignments a ON a.id = s.assignment_id
+                         WHERE s.id = ? LIMIT 1');
+    $st->execute([$submissionId]);
+    $row = $st->fetch();
+    if ($row === false) return ['ok' => false, 'errors' => ['That submission no longer exists.']];
+    if (!assignment_can_manage($user, (int) $row['course_id'])) {
+        return ['ok' => false, 'errors' => ['You can only grade work on your own courses.']];
+    }
+    if ($grade !== null && ($grade < 0 || $grade > (int) $row['max_points'])) {
+        return ['ok' => false, 'errors' => ['The grade must be between 0 and ' . (int) $row['max_points'] . '.']];
+    }
+
+    db()->prepare('UPDATE submissions SET grade = ?, feedback = ?, graded_at = ? WHERE id = ?')
+        ->execute([$grade, trim($feedback), $grade === null ? 0 : time(), $submissionId]);
+
+    if ($grade !== null) {
+        add_notification((int) $row['user_id'], 'grade',
+            '📝 Graded: ' . (string) $row['assignment_title'],
+            $grade . ' / ' . (int) $row['max_points'] . ($feedback !== '' ? ' — ' : '') . cut($feedback, 300),
+            lh_enc_url('assignment.php?id=' . (int) $row['assignment_id']));
+    }
+    return ['ok' => true, 'errors' => []];
+}
+
+/** Delete an assignment (its submissions and files go with it). */
+function assignment_delete(array $user, int $id): bool
+{
+    $row = assignment_row($id);
+    if (!$row || !assignment_can_manage($user, (int) $row['course_id'])) return false;
+    foreach (assignment_submissions($id) as $s) submission_delete_file((string) $s['filename']);
+    db()->prepare('DELETE FROM assignments WHERE id = ?')->execute([$id]);
+    return true;
+}
+
+/** The folder hand-ins live in, created on demand under uploads/. */
+function submission_dir(): string
+{
+    $dir = rtrim(UPLOAD_DIR, '/\\') . DIRECTORY_SEPARATOR . 'submissions';
+    if (!is_dir($dir)) @mkdir($dir, 0775, true);
+    /* Belt and braces: even if a host misconfigures, nothing is served or run
+       from here — hand-ins are downloaded through download.php behind a session
+       check, and these two files block a direct hit. */
+    $ht = $dir . DIRECTORY_SEPARATOR . '.htaccess';
+    if (!is_file($ht)) @file_put_contents($ht, "Require all denied\n<IfModule !mod_authz_core.c>\n  Deny from all\n</IfModule>\n");
+    $idx = $dir . DIRECTORY_SEPARATOR . 'index.html';
+    if (!is_file($idx)) @file_put_contents($idx, '');
+    return $dir;
+}
+
+/** What a hand-in may be. Note there is no image/svg+xml and no text/html: an SVG
+ *  or an HTML file can carry script, and these are read back by staff. */
+function submission_allowed_mimes(): array
+{
+    return [
+        'application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+        'text/plain', 'text/markdown', 'text/csv',
+        'application/zip', 'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    ];
+}
+
+function submission_ext_for(string $mime): string
+{
+    return [
+        'application/pdf' => 'pdf',
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/gif' => 'gif',
+        'image/webp' => 'webp',
+        'text/plain' => 'txt',
+        'text/markdown' => 'md',
+        'text/csv' => 'csv',
+        'application/zip' => 'zip',
+        'application/msword' => 'doc',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation' => 'pptx',
+    ][$mime] ?? 'bin';
+}
+
+/** The real type of the bytes, decided from the file itself. */
+function submission_sniff_mime(string $path, string $clientName): string
+{
+    $lower = strtolower($clientName);
+    /* Office formats are ZIP containers, so the container alone cannot tell a
+       .docx from a .xlsx — the extension is the only signal, and it only ever
+       narrows which allowlisted type is claimed, never widens it. */
+    foreach ([
+        '.docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        '.xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        '.pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    ] as $ext => $mime) {
+        if (str_ends_with($lower, $ext)) return $mime;
+    }
+
+    $info = @getimagesize($path);
+    if (is_array($info) && isset($info['mime'])) return (string) $info['mime'];
+
+    if (function_exists('finfo_open')) {
+        $f = finfo_open(FILEINFO_MIME_TYPE);
+        if ($f) {
+            $m = finfo_file($f, $path);
+            finfo_close($f);
+            if (is_string($m) && $m !== '') {
+                $m = strtolower($m);
+                if ($m === 'application/zip' || $m === 'application/x-zip-compressed') return 'application/zip';
+                if (str_starts_with($m, 'text/')) return 'text/plain';
+                if ($m === 'application/msword') return 'application/msword';
+                return $m;
+            }
+        }
+    }
+
+    if (str_ends_with($lower, '.pdf')) return 'application/pdf';
+    if (str_ends_with($lower, '.txt') || str_ends_with($lower, '.md')) return 'text/plain';
+    if (str_ends_with($lower, '.csv')) return 'text/csv';
+    if (str_ends_with($lower, '.doc')) return 'application/msword';
+    return 'application/octet-stream';
+}
+
+/** Store one uploaded hand-in. The stored name is generated (never the client's)
+ *  and the bytes are sniffed, so a submission cannot smuggle in a .php. */
+function submission_store_file(array $file): array
+{
+    $err = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
+    if ($err === UPLOAD_ERR_INI_SIZE || $err === UPLOAD_ERR_FORM_SIZE) {
+        return ['error' => 'That file is too large for the server to accept in one request.'];
+    }
+    if ($err !== UPLOAD_ERR_OK) return ['error' => 'That file could not be uploaded.'];
+
+    $tmp = (string) ($file['tmp_name'] ?? '');
+    if ($tmp === '' || !is_uploaded_file($tmp)) return ['error' => 'That file could not be uploaded.'];
+
+    $size = (int) ($file['size'] ?? 0);
+    if ($size <= 0) return ['error' => 'That file is empty.'];
+    $cap = 25 * 1024 * 1024;   /* a hand-in, not a video — see upload.php for lessons */
+    if ($size > $cap) return ['error' => 'Hand-ins are limited to 25 MB. Attach a link for anything bigger.'];
+
+    $mime = submission_sniff_mime($tmp, (string) ($file['name'] ?? ''));
+    if (!in_array($mime, submission_allowed_mimes(), true)) {
+        return ['error' => 'That file type is not accepted. Attach a PDF, an image, a document or an archive.'];
+    }
+
+    $name = date('Ymd') . '-' . bin2hex(random_bytes(8)) . '.' . submission_ext_for($mime);
+    if (!@move_uploaded_file($tmp, submission_dir() . DIRECTORY_SEPARATOR . $name)) {
+        return ['error' => 'That file could not be saved.'];
+    }
+    return [
+        'filename' => $name,
+        'orig_name' => cut(basename((string) ($file['name'] ?? 'file')), 255),
+        'mime' => $mime,
+        'size' => $size,
+    ];
+}
+
+/** Delete a stored hand-in. Only our own generated names, and never a path. */
+function submission_delete_file(string $filename): void
+{
+    if (!preg_match('/^\d{8}-[a-f0-9]{16}\.[a-z0-9]{1,5}$/', $filename)) return;
+    @unlink(submission_dir() . DIRECTORY_SEPARATOR . $filename);
+}
+
+/** A stored hand-in, or null — the name is checked against the generated pattern
+ *  so a tampered row can never point the download at anything else. */
+function submission_file_path(string $filename): ?string
+{
+    if (!preg_match('/^\d{8}-[a-f0-9]{16}\.[a-z0-9]{1,5}$/', $filename)) return null;
+    $full = submission_dir() . DIRECTORY_SEPARATOR . $filename;
+    return is_file($full) ? $full : null;
+}
+
+/* ---------------- course announcements ---------------- */
+
+/** A course's announcements, pinned first then newest. */
+function course_announcements(int $courseId): array
+{
+    $st = db()->prepare('SELECT a.*, u.name AS teacher_name, u.avatar AS teacher_avatar
+                         FROM announcements a JOIN users u ON u.id = a.teacher_id
+                         WHERE a.course_id = ?
+                         ORDER BY a.pinned DESC, a.created_at DESC
+                         LIMIT 100');
+    $st->execute([$courseId]);
+    return $st->fetchAll();
+}
+
+function announcement_row(int $id): ?array
+{
+    $st = db()->prepare('SELECT * FROM announcements WHERE id = ? LIMIT 1');
+    $st->execute([$id]);
+    $row = $st->fetch();
+    return $row === false ? null : $row;
+}
+
+/** Post an announcement and ring the bell for everyone enrolled. */
+function announcement_post(array $user, int $courseId, string $title, string $body, bool $pinned = false): array
+{
+    if (!assignment_can_manage($user, $courseId)) {
+        return ['ok' => false, 'errors' => ['You can only post announcements on your own courses.']];
+    }
+    $title = trim($title);
+    $body = trim($body);
+    $errors = [];
+    if ($title === '') $errors[] = 'Please give the announcement a title.';
+    if ($body === '') $errors[] = 'Please write the announcement.';
+    if ($errors) return ['ok' => false, 'errors' => $errors];
+
+    db()->prepare('INSERT INTO announcements (course_id, teacher_id, title, body, pinned, created_at) VALUES (?,?,?,?,?,?)')
+        ->execute([$courseId, (int) $user['id'], cut($title, 200), $body, $pinned ? 1 : 0, time()]);
+    $id = (int) db()->lastInsertId();
+
+    $link = lh_enc_url('announcements.php?id=' . $courseId);
+    foreach (course_student_ids($courseId) as $sid) {
+        add_notification($sid, 'announcement', '📣 ' . cut($title, 120), cut($body, 200), $link);
+    }
+    return ['ok' => true, 'id' => $id, 'errors' => []];
+}
+
+/* ---------------- per-lesson discussion ---------------- */
+
+/** A lesson's thread: top-level posts, each carrying its replies. */
+function lesson_posts(int $materialId): array
+{
+    $st = db()->prepare('SELECT p.*, u.name AS author_name, u.role AS author_role, u.avatar AS author_avatar
+                         FROM lesson_posts p JOIN users u ON u.id = p.user_id
+                         WHERE p.material_id = ?
+                         ORDER BY p.created_at ASC');
+    $st->execute([$materialId]);
+    $all = $st->fetchAll();
+    $top = []; $replies = [];
+    foreach ($all as $p) {
+        $pid = (int) $p['parent_id'];
+        /* Every post carries its own 'replies' key, not just the top-level ones.
+           The thread is rendered by recursing into a post's replies, and a reply
+           has none — without this the renderer reads a key that is not there. */
+        if ($pid === 0) { $top[] = $p + ['replies' => []]; }
+        else $replies[$pid][] = $p + ['replies' => []];
+    }
+    foreach ($top as &$t) {
+        $t['replies'] = $replies[(int) $t['id']] ?? [];
+    }
+    return $top;
+}
+
+function lesson_post_count(int $materialId): int
+{
+    $st = db()->prepare('SELECT COUNT(*) FROM lesson_posts WHERE material_id = ?');
+    $st->execute([$materialId]);
+    return (int) $st->fetchColumn();
+}
+
+/** Add a post or a reply. The parent must belong to the same lesson, so a reply
+ *  can never be smuggled onto a thread it does not belong to. */
+function lesson_post_add(array $user, int $materialId, string $body, int $parentId = 0): array
+{
+    $body = trim($body);
+    if ($body === '') return ['ok' => false, 'errors' => ['Write something first.']];
+    if (mb_strlen($body) > 2000) $body = cut($body, 2000);
+
+    if ($parentId > 0) {
+        $st = db()->prepare('SELECT material_id, parent_id FROM lesson_posts WHERE id = ? LIMIT 1');
+        $st->execute([$parentId]);
+        $parent = $st->fetch();
+        if ($parent === false || (int) $parent['material_id'] !== $materialId) {
+            return ['ok' => false, 'errors' => ['That reply target is no longer there.']];
+        }
+        /* one level only: replying to a reply joins the same conversation */
+        $parentId = (int) $parent['parent_id'] > 0 ? (int) $parent['parent_id'] : $parentId;
+    }
+
+    db()->prepare('INSERT INTO lesson_posts (material_id, user_id, parent_id, body, created_at) VALUES (?,?,?,?,?)')
+        ->execute([$materialId, (int) $user['id'], $parentId, $body, time()]);
+    return ['ok' => true, 'errors' => [], 'id' => (int) db()->lastInsertId()];
+}
+
+function lesson_post_delete(array $user, int $postId): bool
+{
+    $st = db()->prepare('SELECT p.user_id, p.parent_id, p.material_id, m.course_id
+                         FROM lesson_posts p JOIN materials m ON m.id = p.material_id
+                         WHERE p.id = ? LIMIT 1');
+    $st->execute([$postId]);
+    $row = $st->fetch();
+    if ($row === false) return false;
+    /* Your own post, or a moderator of THIS lesson. Moderation follows the same
+       rule the lesson itself is gated by: the teacher who owns the course the
+       post sits in, or an admin. A teacher from another course must not be able
+       to delete a stranger's discussion — "any teacher can moderate" would let
+       any of them walk into any class and clear its thread. */
+    $mine = (int) $row['user_id'] === (int) $user['id'];
+    if (!$mine && !lesson_can_moderate((int) $row['course_id'], $user)) return false;
+    /* Deleting a TOP-LEVEL post takes its replies with it — they are unreadable
+       without their parent. Deleting a REPLY must take only that reply: the old
+       code deleted every post sharing its parent, so removing one answer threw
+       away every other answer to the same question. */
+    if ((int) $row['parent_id'] === 0) {
+        db()->prepare('DELETE FROM lesson_posts WHERE parent_id = ?')->execute([$postId]);
+    }
+    db()->prepare('DELETE FROM lesson_posts WHERE id = ?')->execute([$postId]);
+    return true;
+}
+
+/** May this user delete other people's posts in this course's lesson threads?
+ *  The course's own teacher, or an admin — never a teacher from another course. */
+function lesson_can_moderate(int $courseId, array $user): bool
+{
+    $role = (string) ($user['role'] ?? '');
+    if ($role === 'admin') return true;
+    if ($role !== 'teacher') return false;
+    $course = course_row($courseId);
+    return $course !== null && (int) ($course['teacher_id'] ?? 0) === (int) $user['id'];
+}
+
+/* ---------------- search ---------------- */
+
+/** Find courses and lessons this user is allowed to see. Students are scoped to
+ *  their enrolments, teachers to their own courses, the admin to everything —
+ *  the same rule the rest of the app uses, so search can never widen access. */
+function lh_search(string $q, array $user, int $limit = 40): array
+{
+    $q = trim($q);
+    if (mb_strlen($q) < 2) return ['courses' => [], 'lessons' => []];
+    $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $q) . '%';
+    $role = (string) ($user['role'] ?? '');
+    $uid = (int) ($user['id'] ?? 0);   /* cast to int before it goes near SQL */
+    $limit = max(1, min(100, $limit));
+
+    /* Scope by role, and default to the NARROWEST scope. The old `else 1 = 1`
+       handed every course on the site to any account whose role was neither
+       'student' nor 'teacher' — a role typo, a half-made account or anything
+       else unexpected saw all of it. Only the admin is meant to see everything;
+       every other role falls back to the enrolment scope, which for an account
+       with no enrolments means nothing. */
+    if ($role === 'admin') {
+        $where = '1 = 1';
+    } elseif ($role === 'teacher') {
+        $where = 'c.teacher_id = ' . $uid;
+    } else {
+        $where = 'c.id IN (SELECT course_id FROM enrollments WHERE user_id = ' . $uid . ')';
+    }
+
+    $cs = db()->prepare("SELECT c.id, c.title, c.category, u.name AS teacher_name
+                         FROM courses c JOIN users u ON u.id = c.teacher_id
+                         WHERE $where AND (c.title LIKE ? OR c.description LIKE ? OR c.category LIKE ?)
+                         ORDER BY c.title ASC LIMIT $limit");
+    $cs->execute([$like, $like, $like]);
+
+    $ls = db()->prepare("SELECT m.id, m.title, m.type, m.course_id, c.title AS course_title
+                         FROM materials m JOIN courses c ON c.id = m.course_id
+                         WHERE $where AND (m.title LIKE ? OR m.description LIKE ?)
+                         ORDER BY m.title ASC LIMIT $limit");
+    $ls->execute([$like, $like]);
+
+    return ['courses' => $cs->fetchAll(), 'lessons' => $ls->fetchAll()];
+}
+
+/* ---------------- gradebook ---------------- */
+
+/** One student's standing in a course: lessons finished, quizzes taken, hand-ins
+ *  graded, and the weighted total as a percentage. Quizzes and graded assignments
+ *  each count half — and a half with nothing in it is not counted at all, so a
+ *  course of pure videos is still gradable and is never dragged down. */
+function course_gradebook_row(int $courseId, int $studentId): ?array
+{
+    $course = course_row($courseId);
+    if (!$course) return null;
+    $cid = (int) $courseId;
+    $sid = (int) $studentId;   /* both cast to int before they go near SQL */
+
+    $lessonTotal = (int) db()->query('SELECT COUNT(*) FROM materials WHERE course_id = ' . $cid)->fetchColumn();
+    $lessonDone = (int) db()->query('SELECT COUNT(*) FROM progress p JOIN materials m ON m.id = p.material_id
+                                     WHERE p.user_id = ' . $sid . ' AND m.course_id = ' . $cid)->fetchColumn();
+
+    $qr = db()->query('SELECT COUNT(*) AS n, AVG(percentage) AS avg
+                       FROM quiz_results qr JOIN materials m ON m.id = qr.lesson_id
+                       WHERE qr.user_id = ' . $sid . ' AND m.course_id = ' . $cid)->fetch();
+    $sr = db()->query('SELECT COUNT(*) AS n, AVG(grade / NULLIF(max_points,0) * 100) AS avg
+                       FROM submissions s JOIN assignments a ON a.id = s.assignment_id
+                       WHERE s.user_id = ' . $sid . ' AND s.grade IS NOT NULL AND a.course_id = ' . $cid)->fetch();
+
+    $quizAvg = $qr['avg'] === null ? null : (float) $qr['avg'];
+    $subAvg = $sr['avg'] === null ? null : (float) $sr['avg'];
+    $parts = array_values(array_filter([$quizAvg, $subAvg], fn ($v) => $v !== null));
+    $overall = $parts ? array_sum($parts) / count($parts) : null;
+
+    return [
+        'course' => $course,
+        'student_id' => $sid,
+        'lessons_total' => $lessonTotal,
+        'lessons_done' => $lessonDone,
+        'lessons_pct' => $lessonTotal > 0 ? round($lessonDone * 100 / $lessonTotal, 1) : 0.0,
+        'quizzes_taken' => (int) $qr['n'],
+        'quiz_avg' => $quizAvg === null ? null : round($quizAvg, 1),
+        'graded' => (int) $sr['n'],
+        'assign_avg' => $subAvg === null ? null : round($subAvg, 1),
+        'overall' => $overall === null ? null : round($overall, 1),
+        'passed' => $overall !== null && $overall >= 75,
+    ];
+}
+
+/** The whole class's gradebook, one row per enrolled student, best first. */
+function course_gradebook(int $courseId): array
+{
+    $rows = [];
+    foreach (course_student_ids($courseId) as $sid) {
+        $r = course_gradebook_row($courseId, $sid);
+        if ($r !== null) $rows[] = $r;
+    }
+    usort($rows, function ($a, $b) {
+        if ($a['overall'] === null && $b['overall'] === null) return $a['student_id'] <=> $b['student_id'];
+        if ($a['overall'] === null) return 1;    /* anyone still ungraded sits last */
+        if ($b['overall'] === null) return -1;
+        return $b['overall'] <=> $a['overall'];
+    });
+    return $rows;
+}
+
+/* ---------------- offline bundle ---------------- */
+
+/**
+ * A minimal ZIP writer, because the php-zip extension is often OFF on a plain
+ * XAMPP build and on plenty of shared hosts — and "download your course" is not
+ * a feature worth losing over a missing extension. Everything is stored (no
+ * compression): the bundle is mostly PDF/JPEG/MP4, which deflate barely shrinks,
+ * and a stored entry is far simpler to get right.
+ *
+ * It writes straight into an open stream as it goes and keeps only the central
+ * directory (a few dozen bytes per entry) in memory — a course of videos would
+ * exhaust PHP's memory limit if the archive were assembled in a string first,
+ * which is exactly what ZipArchive would NOT have done.
+ *
+ * The result is a normal archive: local headers, a central directory and an
+ * end-of-central-directory record, openable by any unzip, Finder or Explorer.
+ */
+class lh_zip_writer
+{
+    /** @var resource the stream the archive is written into */
+    private $out;
+    /** @var int bytes written so far — the central directory needs the offsets */
+    private int $offset = 0;
+    /** @var array<string> the central-directory records, flushed at the end */
+    private array $central = [];
+
+    public function __construct($out)
+    {
+        $this->out = $out;
+    }
+
+    /** Add one entry held in memory (the readme and the manifest). */
+    public function addString(string $name, string $data): void
+    {
+        $this->addEntry($name, $data);
+    }
+
+    /** Add one real file from disk, copied in chunks so its size never matters. */
+    public function addFile(string $path, string $nameInZip): bool
+    {
+        if (!is_file($path) || !is_readable($path)) return false;
+        $in = fopen($path, 'rb');
+        if (!$in) return false;
+        $this->addEntry($nameInZip, null, $in);
+        fclose($in);
+        return true;
+    }
+
+    /** Write the central directory and the end record, and close the archive. */
+    public function finish(): void
+    {
+        $central = '';
+        foreach ($this->central as $rec) $central .= $rec;
+        /* Where the central directory STARTS. The end record has to point here —
+           reading $this->offset at the end would give the position reached AFTER
+           writing it, which is the end of the directory, and every extractor
+           would then fail to find a single entry. */
+        $centralOffset = $this->offset;
+        $this->write($central);
+        $count = count($this->central);
+        /* end-of-central-directory record */
+        $this->write(pack('V', 0x06054b50)
+            . pack('v', 0) . pack('v', 0)            /* this disk / start disk */
+            . pack('v', $count) . pack('v', $count)  /* entries here / total   */
+            . pack('V', strlen($central)) . pack('V', $centralOffset)
+            . pack('v', 0));                          /* comment length */
+    }
+
+    private function write(string $s): void
+    {
+        if ($s === '') return;
+        /* fwrite() may write fewer bytes than asked (a full disk, a pipe), and a
+           short write would silently shift every offset after it — leaving a
+           central directory pointing at the wrong place and an archive no
+           extractor can open. So keep writing until the string is out, and take
+           the new position from the stream itself rather than counting bytes. */
+        $len = strlen($s);
+        $done = 0;
+        while ($done < $len) {
+            $n = fwrite($this->out, substr($s, $done));
+            if ($n === false || $n === 0) {
+                throw new RuntimeException('Could not write to the offline archive.');
+            }
+            $done += $n;
+        }
+        $pos = ftell($this->out);
+        if ($pos !== false) $this->offset = $pos;
+    }
+
+    private function addEntry(string $name, ?string $data, $fh = null): void
+    {
+        [$dosTime, $dosDate] = self::dosStamp();
+        $crc = 0;
+        $size = 0;
+        $localOffset = $this->offset;
+
+        /* A local header carries the CRC and both sizes, but for a file on disk
+           neither is known until it has been read. Zip solves this with a data
+           descriptor after the data; this writer instead reserves those fields,
+           streams the bytes past while hashing and counting them, then seeks back
+           and fills them in. That keeps the header in the simplest possible form
+           (the one every extractor expects) without ever holding the file. */
+        if ($fh !== null) {
+            $this->write(pack('V', 0x04034b50)
+                . pack('v', 20) . pack('v', 0) . pack('v', 0)     /* stored */
+                . pack('v', $dosTime) . pack('v', $dosDate)
+                . pack('V', 0) . pack('V', 0) . pack('V', 0)       /* patched below */
+                . pack('v', strlen($name)) . pack('v', 0)
+                . $name);
+            $crcCtx = hash_init('crc32b');       /* CRC-32/BZIP2 — the flavour ZIP uses */
+            $written = 0;
+            while (!feof($fh)) {
+                $chunk = fread($fh, 262144);
+                if ($chunk === false || $chunk === '') break;
+                hash_update($crcCtx, $chunk);
+                $written += strlen($chunk);
+                $this->write($chunk);
+            }
+            $size = $written;
+            $crc = (int) hexdec(hash_final($crcCtx));
+            /* patch the header: CRC at +14, compressed size at +18, raw at +22 */
+            fseek($this->out, $localOffset + 14, SEEK_SET);
+            fwrite($this->out, pack('V', $crc) . pack('V', $size) . pack('V', $size));
+            fseek($this->out, 0, SEEK_END);
+            $pos = ftell($this->out);
+            if ($pos !== false) $this->offset = $pos;
+        } else {
+            $data ??= '';
+            $size = strlen($data);
+            $crc = crc32($data);
+            $this->write(pack('V', 0x04034b50)
+                . pack('v', 20) . pack('v', 0) . pack('v', 0)
+                . pack('v', $dosTime) . pack('v', $dosDate)
+                . pack('V', $crc) . pack('V', $size) . pack('V', $size)
+                . pack('v', strlen($name)) . pack('v', 0)
+                . $name . $data);
+        }
+
+        $this->central[] = pack('V', 0x02014b50)
+            . pack('v', 20) . pack('v', 20) . pack('v', 0)
+            . pack('v', 0)                           /* stored                */
+            . pack('v', $dosTime) . pack('v', $dosDate)
+            . pack('V', $crc) . pack('V', $size) . pack('V', $size)
+            . pack('v', strlen($name)) . pack('v', 0) . pack('v', 0)
+            . pack('v', 0) . pack('v', 0) . pack('V', 32)
+            . pack('V', $localOffset)
+            . $name;
+    }
+
+    private static function dosStamp(): array
+    {
+        $t = getdate();
+        $year = max(1980, (int) $t['year']);   /* MS-DOS counts from 1980 */
+        return [
+            ($t['hours'] << 11) | ($t['minutes'] >> 1),   /* stored to 2 seconds */
+            (($year - 1980) << 9) | ($t['mon'] << 5) | $t['mday'],
+        ];
+    }
 }
 
 /* ---------------- notifications ---------------- */

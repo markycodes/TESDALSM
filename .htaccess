@@ -112,7 +112,7 @@ DirectoryIndex home.php
     # Profile pictures join the no-redirect list: an <img> in the top bar is asked
     # for on every single page view, and a circle should not cost two requests
     # each time just to hide a file extension nobody sees anyway.
-    RewriteCond %{REQUEST_URI} !^/([^/]+/)?(realtime|ping|presence|read_progress|watch|live_class|avatar)\.php$ [NC]
+    RewriteCond %{REQUEST_URI} !^/([^/]+/)?(realtime|ping|presence|read_progress|watch|live_class|avatar|asset|read|download|download_submission|offline|upload|upload_chunk|mark_messages_read|mark_notifications_read|login|logout)\.php$ [NC]
     RewriteCond %{THE_REQUEST} \s(/[^\s?]+)(?=\.php) [NC]
     RewriteCond %{REQUEST_METHOD} =GET
     RewriteRule ^ http://%{HTTP_HOST}%1 [R=302,L,NE]

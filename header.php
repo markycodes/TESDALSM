@@ -167,6 +167,18 @@ if ($user) {
                 <path d="M4 20V10M10 20V4M16 20v-7" />
               </svg></span><span
               class="lh-side-label"><?= ($user['role'] ?? '') === 'teacher' ? 'Student Records' : 'My Progress' ?></span></a>
+          <a href="search.php" class="lh-side-link <?= $nav_active === 'search' ? 'active' : '' ?>"
+            data-tip="Search"><span class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="6.5" />
+                <path d="M15.8 15.8L20 20" />
+              </svg></span><span class="lh-side-label">Search</span></a>
+          <a href="offline.php" class="lh-side-link <?= $nav_active === 'offline' ? 'active' : '' ?>"
+            data-tip="Offline copy"><span class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3v11m0 0l-4-4m4 4l4-4" />
+                <path d="M4 16v2.5A2.5 2.5 0 006.5 21h11a2.5 2.5 0 002.5-2.5V16" />
+              </svg></span><span class="lh-side-label">Offline copy</span></a>
         <?php endif; ?>
       </nav>
 

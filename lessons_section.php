@@ -174,6 +174,12 @@ $courseQuiz = course_quizzes((int) $course['id'], true);
               </span>
             <?php endif; ?>
           <?php endif; ?>
+          <?php /* The lesson's own thread — everyone who can open the lesson can
+                 join it, so the count is worth showing right on the card. */
+          $lhPosts = lesson_post_count((int) $mid); ?>
+          <a href="discussion.php?c=<?= e((string) $course['id']) ?>&amp;m=<?= e((string) $mid) ?>"
+             class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-50"
+             title="Ask a question about this lesson">💬 Discuss<?php if ($lhPosts): ?> (<?= $lhPosts ?>)<?php endif; ?></a>
           <?php if ($isOwner): ?>
             <a href="download.php?c=<?= e((string) $course['id']) ?>&amp;m=<?= e((string) $mid) ?>"
                class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-50" title="Download original file">⬇ Original</a>

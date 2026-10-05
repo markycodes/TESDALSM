@@ -62,6 +62,35 @@ require __DIR__ . '/header.php';
         <span>👥 <?= count($course['enrolled'] ?? []) ?> enrolled</span>
         <?php if ($canLessons): ?><span>📦 <?= count($course['materials'] ?? []) ?> lessons</span>
         <?php else: ?><span>🔒 Lessons private</span><?php endif; ?>
+        <?php if ($canLessons): ?>
+          <?php
+          $lhAssigns = course_assignments($courseId);
+          $lhUndone  = 0;
+          if ($enrolled && ($user['role'] ?? '') === 'student' && $lhAssigns) {
+              foreach ($lhAssigns as $la) {
+                  $ls = submission_for((int) $la['id'], $userId);
+                  if ($ls === null) $lhUndone++;
+              }
+          }
+          $lhAnnCount = count(course_announcements($courseId));
+          ?>
+          <span class="flex flex-wrap items-center gap-2">
+            <a href="<?= e(lh_url_clean('assignment.php?course=' . $courseId)) ?>"
+               class="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100">
+              📝 <?= count($lhAssigns) ?> assignment<?= count($lhAssigns) === 1 ? '' : 's' ?><?php if ($lhUndone): ?> · <?= $lhUndone ?> to do<?php endif; ?></a>
+            <a href="<?= e(lh_url_clean('announcements.php?id=' . $courseId)) ?>"
+               class="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 hover:bg-amber-100">
+              📣 <?= $lhAnnCount ?> announcement<?= $lhAnnCount === 1 ? '' : 's' ?></a>
+            <a href="<?= e(lh_url_clean('gradebook.php?id=' . $courseId)) ?>"
+               class="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100">📊
+              Gradebook</a>
+            <?php if ($isOwner): ?>
+              <a href="<?= e(lh_url_clean('bulk.php?c=' . $courseId)) ?>"
+                 class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 hover:bg-slate-200">🗂️
+                Organise lessons</a>
+            <?php endif; ?>
+          </span>
+        <?php endif; ?>
         <?php if (!empty($attendance_entered)): ?>
           <span
             class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">

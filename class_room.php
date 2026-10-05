@@ -2,7 +2,10 @@
 /**
  * Live-class room — embeds a Jitsi Meet room (video / audio / screen share / chat)
  * keyed to the course, so every course gets its own private meeting.
- * Host: the course teacher. Entry: owning teacher + enrolled students only.
+ * Host: the course teacher, and only the course teacher — starting and ending a
+ * class are behind live_class_is_host(). Entry: owning teacher, enrolled
+ * students, and the main admin (live_class_can_join()), who may observe any
+ * class in the school but is never handed the host controls.
  */
 require_once __DIR__ . '/lib.php';
 $user = require_login();
@@ -17,8 +20,8 @@ if ($idx === null) {
 $course = $courses[$idx];
 $courseId = (int) $course['id'];
 $userId = (int) $user['id'];
-$isHost = ($user['role'] ?? '') === 'teacher' && (int) ($course['teacher_id'] ?? 0) === $userId;
-if (!$isHost && !is_enrolled($course, $userId)) {
+$isHost = live_class_is_host($user, $course);
+if (!live_class_can_join($user, $course)) {
     set_flash('error', 'Enroll in this course to join its live class.');
     header('Location: course.php?id=' . $courseId);
     exit;

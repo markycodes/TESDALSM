@@ -13,8 +13,9 @@
  *                            moment the teacher opens the room
  *   • class is live       -> straight into class_room.php
  *
- * Access mirrors class_room.php exactly: the owning teacher, or an enrolled
- * student. Nobody else ever reaches the room.
+ * Access mirrors class_room.php exactly (live_class_can_join()): the owning
+ * teacher, an enrolled student, or the main admin observing any class in the
+ * school. Nobody else ever reaches the room.
  */
 require_once __DIR__ . '/lib.php';
 
@@ -38,8 +39,8 @@ if (!$user) {
     exit;
 }
 $userId  = (int) $user['id'];
-$isHost  = ($user['role'] ?? '') === 'teacher' && (int) ($course['teacher_id'] ?? 0) === $userId;
-$allowed = $isHost || is_enrolled($course, $userId);
+$isHost  = live_class_is_host($user, $course);
+$allowed = live_class_can_join($user, $course);
 
 /* 2) Signed in, but this course is not theirs: say so plainly. */
 if (!$allowed) {

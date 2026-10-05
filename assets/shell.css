@@ -1739,6 +1739,28 @@
   top: 1.5rem
 }
 
+/* On a phone the cells are only ~45px wide, so a two-digit date and a 20px
+   picture cannot share one row: the date ends around x=20 and the face would
+   begin at x=19. Rather than hide the faces on the smallest screens, they drop
+   below the number and shrink — the teacher is still identifiable at 14px, and
+   the date keeps the corner it has always owned. */
+@media (max-width: 640px) {
+  .lh-cal-faces {
+    top: 1.3rem;
+    right: .25rem
+  }
+
+  .lh-cal-faces > * {
+    width: 14px;
+    height: 14px;
+    margin-left: -.35rem
+  }
+
+  .lh-cal-day:has(.lh-cal-badge) .lh-cal-faces {
+    top: 2.5rem
+  }
+}
+
 .lh-cal-num {
   display: block;
   font-size: .78rem;

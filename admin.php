@@ -76,6 +76,11 @@ try {
        the rows only ever come from schedule_rows_for_courses(). */
     $scheduleKinds = schedule_kinds();
     $adminTodayItems = schedule_today(schedule_rows_for_courses(schedule_teacher_course_ids(0, true)));
+
+    /* Every class live anywhere in the school right now. Read-only on purpose:
+       the admin may sit in on any of them (live_class_can_join) but never
+       starts or ends one — that stays with the teacher who owns the course. */
+    $liveNow = live_classes_now();
 } catch (Throwable $e) { /* stats are decorative */ }
 
 function lh_ago_txt(int $ts): string
@@ -215,6 +220,33 @@ require __DIR__ . '/header.php';
         class="mt-4 inline-block rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100">Open the full timetable →</a>
     </div>
   </div>
+
+  <!-- live classes happening anywhere right now -->
+  <?php if ($liveNow): ?>
+  <div class="reveal mt-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <h2 class="text-base font-bold text-slate-900">🔴 Live classes now</h2>
+      <span class="text-xs text-slate-400"><?= count($liveNow) ?> running</span>
+    </div>
+    <ul class="mt-4 grid gap-3 sm:grid-cols-2">
+      <?php foreach ($liveNow as $lc):
+        $host = (array) find_user_by_id((int) $lc['host_id']); ?>
+      <li class="flex items-center gap-3 rounded-xl border border-rose-100 bg-rose-50/40 px-3 py-2">
+        <span class="relative shrink-0"><?= user_peer_avatar_html($host, 'h-9 w-9') ?><span
+            class="absolute -bottom-0.5 -right-0.5 h-3 w-3 animate-pulse rounded-full border-2 border-white bg-rose-500"></span></span>
+        <span class="min-w-0 flex-1 leading-tight">
+          <span class="block truncate text-sm font-semibold text-slate-800"><?= e((string) ($lc['course_title'] ?? 'Live class')) ?></span>
+          <span class="block truncate text-[11px] text-slate-500"><?= e((string) ($lc['host_name'] ?? '')) ?><?= ($lc['title'] ?? '') !== '' ? ' · ' . e((string) $lc['title']) : '' ?></span>
+          <span class="block text-[11px] text-slate-400">started <?= e(lh_ago_txt((int) $lc['started_at'])) ?></span>
+        </span>
+        <a href="<?= e(live_class_join_link((int) $lc['course_id'])) ?>"
+          class="shrink-0 rounded-xl bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-700">Join</a>
+      </li>
+      <?php endforeach; ?>
+    </ul>
+    <p class="mt-4 text-[11px] text-slate-400">You can observe any live class. Starting or ending one stays with the teacher who owns the course.</p>
+  </div>
+  <?php endif; ?>
 
   <!-- site control -->
   <div class="reveal mt-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">

@@ -2,7 +2,9 @@
 /**
  * Live-class API (teacher starts/ends, everyone heartbeats).
  * All actions are POST + CSRF. `v=state` is GET and returns the room snapshot.
- * Access: the owning teacher + enrolled students only (same rule as lessons).
+ * Access: the owning teacher, the enrolled students, and the main admin — the
+ * same rule as the pages (live_class_can_join). Starting and ending stay with
+ * the owning teacher alone, checked below with $isHost.
  */
 require_once __DIR__ . '/lib.php';
 
@@ -22,8 +24,15 @@ if ($courseId <= 0) lj(['ok' => false, 'error' => 'Course required']);
 
 $ownerId = course_owner_id($courseId);
 if ($ownerId === null) lj(['ok' => false, 'error' => 'Course not found']);
+/* Two separate questions, kept apart on purpose. May this person be in the room
+   at all — the owning teacher, the enrolled students, and the main admin, who
+   must be able to sit in on any class in the school. And may they RUN it: only
+   the owning teacher, checked separately below, so the admin can never start or
+   end a class that is not theirs. live_class_can_join() is stated over the full
+   course row; this endpoint only has an id, so the two are spelled out here. */
 $isHost = ($ownerId === $me);
-if (!$isHost && !is_enrolled_id($courseId, $me)) lj(['ok' => false, 'error' => 'Enroll in this course first.']);
+if (!$isHost && ($user['role'] ?? '') !== 'admin' && !is_enrolled_id($courseId, $me))
+    lj(['ok' => false, 'error' => 'Enroll in this course first.']);
 
 $v = (string) ($_POST['v'] ?? $_GET['v'] ?? '');
 
