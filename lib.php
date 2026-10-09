@@ -1219,6 +1219,35 @@ function db_ensure_schema(PDO $pdo): void
             CONSTRAINT fk_post_material FOREIGN KEY (material_id) REFERENCES materials (id) ON DELETE CASCADE,
             CONSTRAINT fk_post_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        "CREATE TABLE IF NOT EXISTS lesson_typing (
+            material_id INT UNSIGNED NOT NULL,
+            user_id INT UNSIGNED NOT NULL,
+            typed_at INT UNSIGNED NOT NULL,
+            PRIMARY KEY (material_id, user_id),
+            INDEX idx_lesson_typing_time (typed_at),
+            CONSTRAINT fk_lesson_typing_material FOREIGN KEY (material_id) REFERENCES materials (id) ON DELETE CASCADE,
+            CONSTRAINT fk_lesson_typing_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        "CREATE TABLE IF NOT EXISTS lesson_post_reactions (
+            post_id INT UNSIGNED NOT NULL,
+            user_id INT UNSIGNED NOT NULL,
+            reaction VARCHAR(16) NOT NULL,
+            created_at INT UNSIGNED NOT NULL DEFAULT 0,
+            PRIMARY KEY (post_id, user_id),
+            INDEX idx_post_reactions_user (user_id),
+            CONSTRAINT fk_post_reactions_post FOREIGN KEY (post_id) REFERENCES lesson_posts (id) ON DELETE CASCADE,
+            CONSTRAINT fk_post_reactions_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        "CREATE TABLE IF NOT EXISTS announcement_reactions (
+            announcement_id INT UNSIGNED NOT NULL,
+            user_id INT UNSIGNED NOT NULL,
+            reaction VARCHAR(16) NOT NULL,
+            created_at INT UNSIGNED NOT NULL DEFAULT 0,
+            PRIMARY KEY (announcement_id, user_id),
+            INDEX idx_announcement_reactions_user (user_id),
+            CONSTRAINT fk_announcement_reactions_announcement FOREIGN KEY (announcement_id) REFERENCES announcements (id) ON DELETE CASCADE,
+            CONSTRAINT fk_announcement_reactions_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
     ];
     foreach ($tables as $sql) {
         $pdo->exec($sql);
@@ -6675,26 +6704,193 @@ function announcement_post(array $user, int $courseId, string $title, string $bo
 
 /* ---------------- per-lesson discussion ---------------- */
 
-/** A lesson's thread: top-level posts, each carrying its replies. */
-function lesson_posts(int $materialId): array
+/** Supported reaction identifiers and their display emoji. */
+function content_reaction_options(): array
+{
+    return ['like' => '👍', 'love' => '❤️', 'haha' => '😂', 'wow' => '😮', 'sad' => '😢', 'angry' => '😡'];
+}
+
+/** Fixed table/key mapping for the two reaction targets. */
+function content_reaction_storage(string $type): ?array
+{
+    if ($type === 'lesson_post') return ['table' => 'lesson_post_reactions', 'key' => 'post_id'];
+    if ($type === 'announcement') return ['table' => 'announcement_reactions', 'key' => 'announcement_id'];
+    return null;
+}
+
+/** A single Like button with the remaining reactions revealed on hover/focus. */
+function content_reaction_html(string $type, int $targetId, array $summary): string
+{
+    $icons = content_reaction_options();
+    $counts = (array) ($summary['counts'] ?? []);
+    $mine = (string) ($summary['mine'] ?? '');
+    $active = $mine !== '' && isset($icons[$mine]) ? $mine : 'like';
+    $total = array_sum(array_map('intval', $counts));
+    $html = '<div class="lh-reaction-control relative mt-3 inline-flex border-t border-slate-100 pt-2"'
+          . ' data-reaction-control data-reaction-type="' . e($type) . '" data-reaction-target="' . $targetId . '">';
+    $html .= '<button type="button" data-reaction="like" data-reaction-primary aria-label="Like"'
+          . ' aria-pressed="' . ($mine === 'like' ? 'true' : 'false') . '"'
+          . ' class="inline-flex min-h-8 items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-semibold '
+          . ($mine !== '' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-500 hover:bg-slate-50')
+          . '"><span data-primary-icon aria-hidden="true">' . $icons[$active] . '</span>'
+          . '<span data-primary-label>' . e(ucfirst($active === 'like' ? 'Like' : $active)) . '</span></button>';
+    $html .= '<div data-reaction-menu class="lh-reaction-menu absolute bottom-full left-0 z-20 mb-1 items-center gap-1 rounded-full border border-slate-200 bg-white p-1.5 shadow-lg">';
+    foreach ($icons as $name => $emoji) {
+        $count = (int) ($counts[$name] ?? 0);
+        $selected = $mine === $name;
+        $html .= '<button type="button" data-reaction="' . e($name) . '" aria-label="' . e(ucfirst($name)) . '"'
+              . ' aria-pressed="' . ($selected ? 'true' : 'false') . '"'
+              . ' title="' . e(ucfirst($name) . ($count > 0 ? ' (' . $count . ')' : '')) . '"'
+              . ' class="inline-flex h-9 w-9 items-center justify-center rounded-full text-xl transition hover:scale-110 '
+              . ($selected ? 'bg-indigo-50' : 'hover:bg-slate-100') . '">'
+              . '<span aria-hidden="true">' . $emoji . '</span></button>';
+    }
+    $html .= '</div><div class="lh-reaction-people-row" data-reaction-people-row>'
+          . content_reaction_people_html((array) ($summary['reactors'] ?? []))
+          . '<span data-reaction-total class="text-xs font-semibold text-slate-500">' . ($total > 0 ? '+' . $total : '') . '</span></div>'
+          . '<span data-reaction-status role="status" class="ml-1 text-xs text-rose-600"></span></div>';
+    return $html;
+}
+
+/** Three most recent reactors, with the middle avatar raised between the others. */
+function content_reaction_people_html(array $reactors): string
+{
+    $options = content_reaction_options();
+    $html = '<span class="lh-reaction-people" aria-label="Latest reactions">';
+    foreach (array_slice($reactors, 0, 3) as $index => $reactor) {
+        $position = $index + 1;
+        $reaction = (string) ($reactor['reaction'] ?? '');
+        $name = (string) ($reactor['name'] ?? '');
+        $user = [
+            'id' => (int) ($reactor['user_id'] ?? 0),
+            'name' => $name,
+            'avatar' => (string) ($reactor['avatar'] ?? ''),
+        ];
+        $html .= '<span class="lh-reaction-face lh-reaction-face-' . $position . '" title="' . e($name . ' · ' . ucfirst($reaction)) . '">'
+              . user_peer_avatar_html($user, 'h-7 w-7')
+              . '<span class="lh-reaction-face-emoji" aria-hidden="true">' . ($options[$reaction] ?? '') . '</span></span>';
+    }
+    return $html . '</span>';
+}
+
+/** Return counts and the viewer's selected reaction for a list of target ids. */
+function content_reaction_summaries(string $type, array $targetIds, int $userId): array
+{
+    $storage = content_reaction_storage($type);
+    $ids = array_values(array_unique(array_filter(array_map('intval', $targetIds), static fn($id) => $id > 0)));
+    if ($storage === null || !$ids) return [];
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $sql = 'SELECT ' . $storage['key'] . ' AS target_id, reaction, COUNT(*) AS total, '
+         . 'SUM(user_id = ?) AS mine FROM ' . $storage['table'] . ' WHERE '
+         . $storage['key'] . ' IN (' . $placeholders . ') GROUP BY ' . $storage['key'] . ', reaction';
+    $st = db()->prepare($sql);
+    $st->execute(array_merge([$userId], $ids));
+    $result = [];
+    foreach ($st->fetchAll() as $row) {
+        $targetId = (int) $row['target_id'];
+        $reaction = (string) $row['reaction'];
+        if (!isset(content_reaction_options()[$reaction])) continue;
+        $result[$targetId]['counts'][$reaction] = (int) $row['total'];
+        if ((int) $row['mine'] > 0) $result[$targetId]['mine'] = $reaction;
+    }
+    $reactorSql = 'SELECT r.' . $storage['key'] . ' AS target_id, r.user_id, r.reaction, r.created_at,'
+                . ' u.name, u.avatar FROM ' . $storage['table'] . ' r JOIN users u ON u.id = r.user_id'
+                . ' WHERE r.' . $storage['key'] . ' IN (' . $placeholders . ')'
+                . ' ORDER BY r.' . $storage['key'] . ', r.created_at DESC, r.user_id DESC';
+    $reactorStmt = db()->prepare($reactorSql);
+    $reactorStmt->execute($ids);
+    foreach ($reactorStmt->fetchAll() as $row) {
+        $targetId = (int) $row['target_id'];
+        if (count($result[$targetId]['reactors'] ?? []) >= 3) continue;
+        $reaction = (string) $row['reaction'];
+        if (!isset(content_reaction_options()[$reaction])) continue;
+        $result[$targetId]['reactors'][] = [
+            'user_id' => (int) $row['user_id'],
+            'name' => (string) $row['name'],
+            'avatar' => (string) $row['avatar'],
+            'reaction' => $reaction,
+        ];
+    }
+    foreach ($result as &$summary) {
+        if (isset($summary['reactors'])) $summary['reactors'] = array_reverse($summary['reactors']);
+    }
+    unset($summary);
+    return $result;
+}
+
+/** Toggle the viewer's reaction, or clear it when the same reaction is chosen. */
+function content_reaction_toggle(string $type, int $targetId, int $userId, string $reaction): array
+{
+    $storage = content_reaction_storage($type);
+    if ($storage === null || $targetId <= 0) return ['ok' => false, 'error' => 'Invalid reaction target.'];
+    if ($reaction !== '' && !isset(content_reaction_options()[$reaction])) {
+        return ['ok' => false, 'error' => 'Choose a supported reaction.'];
+    }
+
+    $table = $storage['table'];
+    $key = $storage['key'];
+    $st = db()->prepare('SELECT reaction FROM ' . $table . ' WHERE ' . $key . ' = ? AND user_id = ? LIMIT 1');
+    $st->execute([$targetId, $userId]);
+    $current = $st->fetchColumn();
+    if ($reaction === '' || ($current !== false && (string) $current === $reaction)) {
+        db()->prepare('DELETE FROM ' . $table . ' WHERE ' . $key . ' = ? AND user_id = ?')
+            ->execute([$targetId, $userId]);
+    } else {
+        db()->prepare('INSERT INTO ' . $table . ' (' . $key . ', user_id, reaction, created_at) VALUES (?, ?, ?, ?) '
+                    . 'ON DUPLICATE KEY UPDATE reaction = VALUES(reaction), created_at = VALUES(created_at)')
+            ->execute([$targetId, $userId, $reaction, time()]);
+    }
+    $summary = content_reaction_summaries($type, [$targetId], $userId);
+    return [
+        'ok' => true,
+        'counts' => $summary[$targetId]['counts'] ?? [],
+        'mine' => $summary[$targetId]['mine'] ?? '',
+        'reactors_html' => content_reaction_people_html($summary[$targetId]['reactors'] ?? []),
+        'total' => array_sum(array_map('intval', $summary[$targetId]['counts'] ?? [])),
+    ];
+}
+
+/** A lesson's thread: newest-first posts, nested under the exact replied-to item. */
+function lesson_posts(int $materialId, int $viewerId = 0): array
 {
     $st = db()->prepare('SELECT p.*, u.name AS author_name, u.role AS author_role, u.avatar AS author_avatar
                          FROM lesson_posts p JOIN users u ON u.id = p.user_id
                          WHERE p.material_id = ?
-                         ORDER BY p.created_at ASC');
+                         ORDER BY p.created_at DESC, p.id DESC');
     $st->execute([$materialId]);
     $all = $st->fetchAll();
-    $top = []; $replies = [];
-    foreach ($all as $p) {
-        $pid = (int) $p['parent_id'];
-        /* Every post carries its own 'replies' key, not just the top-level ones.
-           The thread is rendered by recursing into a post's replies, and a reply
-           has none — without this the renderer reads a key that is not there. */
-        if ($pid === 0) { $top[] = $p + ['replies' => []]; }
-        else $replies[$pid][] = $p + ['replies' => []];
+    $reactions = content_reaction_summaries('lesson_post', array_column($all, 'id'), $viewerId);
+    foreach ($all as &$post) {
+        $post['reaction_summary'] = $reactions[(int) $post['id']] ?? [];
+        $post['replies'] = [];
     }
-    foreach ($top as &$t) {
-        $t['replies'] = $replies[(int) $t['id']] ?? [];
+    unset($post);
+
+    $postsById = [];
+    $children = [];
+    foreach ($all as $p) {
+        $postsById[(int) $p['id']] = $p;
+        $parentId = (int) $p['parent_id'];
+        if ($parentId > 0) $children[$parentId][] = (int) $p['id'];
+    }
+
+    $buildReplies = function (int $postId) use (&$buildReplies, &$children, &$postsById): array {
+        $replies = [];
+        foreach ($children[$postId] ?? [] as $childId) {
+            if (!isset($postsById[$childId])) continue;
+            $reply = $postsById[$childId];
+            $reply['replies'] = $buildReplies($childId);
+            $replies[] = $reply;
+        }
+        return $replies;
+    };
+
+    $top = [];
+    foreach ($all as $p) {
+        if ((int) $p['parent_id'] !== 0) continue;
+        $post = $postsById[(int) $p['id']];
+        $post['replies'] = $buildReplies((int) $p['id']);
+        $top[] = $post;
     }
     return $top;
 }
@@ -6714,25 +6910,50 @@ function lesson_post_add(array $user, int $materialId, string $body, int $parent
     if ($body === '') return ['ok' => false, 'errors' => ['Write something first.']];
     if (mb_strlen($body) > 2000) $body = cut($body, 2000);
 
+    $replyToUserId = 0;
     if ($parentId > 0) {
-        $st = db()->prepare('SELECT material_id, parent_id FROM lesson_posts WHERE id = ? LIMIT 1');
+        $st = db()->prepare('SELECT material_id, parent_id, user_id FROM lesson_posts WHERE id = ? LIMIT 1');
         $st->execute([$parentId]);
         $parent = $st->fetch();
         if ($parent === false || (int) $parent['material_id'] !== $materialId) {
             return ['ok' => false, 'errors' => ['That reply target is no longer there.']];
         }
-        /* one level only: replying to a reply joins the same conversation */
-        $parentId = (int) $parent['parent_id'] > 0 ? (int) $parent['parent_id'] : $parentId;
+        $replyToUserId = (int) $parent['user_id'];
     }
 
     db()->prepare('INSERT INTO lesson_posts (material_id, user_id, parent_id, body, created_at) VALUES (?,?,?,?,?)')
         ->execute([$materialId, (int) $user['id'], $parentId, $body, time()]);
-    return ['ok' => true, 'errors' => [], 'id' => (int) db()->lastInsertId()];
+    $postId = (int) db()->lastInsertId();
+
+    $courseStmt = db()->prepare('SELECT m.course_id, m.title, c.teacher_id, c.title AS course_title
+                                 FROM materials m JOIN courses c ON c.id = m.course_id
+                                 WHERE m.id = ? LIMIT 1');
+    $courseStmt->execute([$materialId]);
+    $context = $courseStmt->fetch();
+    if ($context) {
+        $recipientId = $parentId > 0 ? $replyToUserId : (int) $context['teacher_id'];
+        if ($recipientId > 0 && $recipientId !== (int) $user['id']) {
+            $posterName = trim((string) ($user['name'] ?? 'A course member'));
+            $isReply = $parentId > 0;
+            $title = $isReply ? $posterName . ' replied to your discussion' : $posterName . ' started a discussion';
+            $preview = cut(preg_replace('/\s+/', ' ', $body) ?? $body, 180);
+            $link = lh_enc_url('discussion.php?c=' . (int) $context['course_id']
+                . '&m=' . $materialId . '#post-' . $postId);
+            add_notification(
+                $recipientId,
+                'discussion',
+                $title,
+                cut((string) $context['title'] . ': ' . $preview, 500),
+                $link
+            );
+        }
+    }
+    return ['ok' => true, 'errors' => [], 'id' => $postId];
 }
 
 function lesson_post_delete(array $user, int $postId): bool
 {
-    $st = db()->prepare('SELECT p.user_id, p.parent_id, p.material_id, m.course_id
+    $st = db()->prepare('SELECT p.user_id, p.material_id, m.course_id
                          FROM lesson_posts p JOIN materials m ON m.id = p.material_id
                          WHERE p.id = ? LIMIT 1');
     $st->execute([$postId]);
@@ -6745,15 +6966,43 @@ function lesson_post_delete(array $user, int $postId): bool
        any of them walk into any class and clear its thread. */
     $mine = (int) $row['user_id'] === (int) $user['id'];
     if (!$mine && !lesson_can_moderate((int) $row['course_id'], $user)) return false;
-    /* Deleting a TOP-LEVEL post takes its replies with it — they are unreadable
-       without their parent. Deleting a REPLY must take only that reply: the old
-       code deleted every post sharing its parent, so removing one answer threw
-       away every other answer to the same question. */
-    if ((int) $row['parent_id'] === 0) {
-        db()->prepare('DELETE FROM lesson_posts WHERE parent_id = ?')->execute([$postId]);
+    $deleteIds = [$postId];
+    $pending = [$postId];
+    $childrenStmt = db()->prepare('SELECT id FROM lesson_posts WHERE parent_id = ? AND material_id = ?');
+    while ($pending) {
+        $parentId = array_pop($pending);
+        $childrenStmt->execute([$parentId, (int) $row['material_id']]);
+        foreach ($childrenStmt->fetchAll(PDO::FETCH_COLUMN) as $childId) {
+            $childId = (int) $childId;
+            $deleteIds[] = $childId;
+            $pending[] = $childId;
+        }
     }
-    db()->prepare('DELETE FROM lesson_posts WHERE id = ?')->execute([$postId]);
+    $placeholders = implode(',', array_fill(0, count($deleteIds), '?'));
+    db()->prepare('DELETE FROM lesson_posts WHERE id IN (' . $placeholders . ')')->execute($deleteIds);
     return true;
+}
+
+/** Edit your own post, or any post as the teacher of the course/admin. */
+function lesson_post_edit(array $user, int $postId, string $body): array
+{
+    $body = trim($body);
+    if ($body === '') return ['ok' => false, 'errors' => ['Write something before saving.']];
+    if (mb_strlen($body) > 2000) $body = cut($body, 2000);
+
+    $st = db()->prepare('SELECT p.user_id, m.course_id
+                         FROM lesson_posts p JOIN materials m ON m.id = p.material_id
+                         WHERE p.id = ? LIMIT 1');
+    $st->execute([$postId]);
+    $row = $st->fetch();
+    if ($row === false) return ['ok' => false, 'errors' => ['That post is no longer available.']];
+    $mine = (int) $row['user_id'] === (int) $user['id'];
+    if (!$mine && !lesson_can_moderate((int) $row['course_id'], $user)) {
+        return ['ok' => false, 'errors' => ['You do not have permission to edit this post.']];
+    }
+
+    db()->prepare('UPDATE lesson_posts SET body = ? WHERE id = ?')->execute([$body, $postId]);
+    return ['ok' => true, 'errors' => []];
 }
 
 /** May this user delete other people's posts in this course's lesson threads?

@@ -55,10 +55,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 }
 
 $list = course_announcements($courseId);
+$reactionSummaries = content_reaction_summaries('announcement', array_column($list, 'id'), $userId);
 $page_title = 'Announcements — ' . (string) $course['title'];
 require __DIR__ . '/header.php';
 $back = lh_url_clean('course.php?id=' . $courseId);
 ?>
+<style>
+  .announcement-author-avatar .lh-avatar-img,
+  .announcement-author-avatar .lh-avatar-initial {
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+    min-width: 1.25rem !important;
+    min-height: 1.25rem !important;
+  }
+</style>
 <div class="mx-auto max-w-3xl">
   <div class="reveal flex flex-wrap items-center justify-between gap-3">
     <div>
@@ -94,11 +104,12 @@ $back = lh_url_clean('course.php?id=' . $courseId);
         <p class="mb-1 text-[11px] font-bold uppercase tracking-wide text-amber-600">📌 Pinned</p>
       <?php endif; ?>
       <h2 class="text-base font-bold text-slate-900"><?= e((string) $a['title']) ?></h2>
-      <div class="mt-1.5 flex items-center gap-2">
+      <div class="announcement-author-avatar mt-1.5 flex items-center gap-2">
         <?= user_peer_avatar_html($who, 'h-6 w-6') ?>
         <span class="text-[11px] text-slate-400"><?= e((string) $a['teacher_name']) ?> · <?= e(assignment_when((int) $a['created_at'])) ?></span>
       </div>
       <p class="mt-3 whitespace-pre-line text-sm leading-6 text-slate-700"><?= e((string) $a['body']) ?></p>
+      <?= content_reaction_html('announcement', (int) $a['id'], $reactionSummaries[(int) $a['id']] ?? []) ?>
       <?php if ($isOwner): ?>
       <form method="post" class="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
         <?= csrf_field() ?>
@@ -116,4 +127,3 @@ $back = lh_url_clean('course.php?id=' . $courseId);
   <?php endif; ?>
 </div>
 <?php require __DIR__ . '/footer.php';
-

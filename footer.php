@@ -47,6 +47,31 @@
       </nav>
 
       <p class="mt-8 border-t border-slate-100 pt-4 text-center text-xs text-slate-400">© <?= date('Y') ?> LearnHub LMS · v.1.0.0</p>
+      <div class="mt-2 flex flex-col items-center gap-2 text-center" data-developer-credit>
+        <p class="text-xs text-slate-400">Developed by Mark allan Latosa Mingao</p>
+        <nav class="flex flex-row items-center justify-center gap-4" aria-label="Developer social accounts">
+          <a href="https://www.facebook.com/markallanlatosa.mingao.3" target="_blank" rel="noopener noreferrer"
+             aria-label="Facebook" title="Facebook" class="text-slate-500 transition hover:text-blue-700">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.4 21v-8h2.7l.4-3.1h-3.1v-2c0-.9.3-1.5 1.6-1.5h1.7V3.6c-.3 0-1.3-.1-2.5-.1-2.5 0-4.2 1.5-4.2 4.3v2.1H7.2V13H10v8h3.4Z"/></svg>
+          </a>
+          <a href="https://www.instagram.com/just_m4rklando" target="_blank" rel="noopener noreferrer"
+             aria-label="Instagram" title="Instagram" class="text-slate-500 transition hover:text-pink-700">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.7" cy="6.6" r=".8" fill="currentColor" stroke="none"/>
+            </svg>
+          </a>
+          <a href="https://wa.me/639302348700" target="_blank" rel="noopener noreferrer"
+             aria-label="WhatsApp" title="WhatsApp" class="text-slate-500 transition hover:text-emerald-700">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 2.5a9.4 9.4 0 0 0-8 14.3L2.8 21l4.3-1.1A9.5 9.5 0 1 0 12 2.5Zm0 17.1a7.6 7.6 0 0 1-3.9-1.1l-.3-.2-2.5.7.7-2.4-.2-.4A7.6 7.6 0 1 1 12 19.6Zm4.2-5.7c-.2-.1-1.3-.7-1.5-.7s-.4-.1-.5.1-.6.7-.7.8-.3.2-.5.1a6.2 6.2 0 0 1-1.8-1.1 6.7 6.7 0 0 1-1.2-1.5c-.1-.2 0-.3.1-.4l.4-.5c.1-.1.2-.3.2-.4s0-.3 0-.4-.5-1.2-.7-1.6-.4-.3-.5-.3h-.4c-.2 0-.4.1-.6.3s-.8.8-.8 1.9.8 2.2.9 2.3a9.1 9.1 0 0 0 3.5 3.1c.5.2.8.3 1.1.4.5.2 1 .1 1.4.1.4-.1 1.3-.5 1.5-1s.2-.9.2-1-.1-.1-.3-.2Z"/>
+            </svg>
+          </a>
+          <a href="https://www.linkedin.com/in/mark-allan-latosa-mingao-842b2a36a" target="_blank" rel="noopener noreferrer"
+             aria-label="LinkedIn" title="LinkedIn" class="text-slate-500 transition hover:text-sky-700">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5.2 8.3a1.9 1.9 0 1 0 0-3.8 1.9 1.9 0 0 0 0 3.8ZM3.6 9.7h3.2v10.7H3.6V9.7Zm5.2 0h3.1v1.5h.1a3.4 3.4 0 0 1 3.1-1.7c3.3 0 3.9 2.2 3.9 5v5.9h-3.2v-5.2c0-1.2 0-2.8-1.7-2.8s-2 1.3-2 2.7v5.3H8.8V9.7Z"/></svg>
+          </a>
+        </nav>
+      </div>
     </div>
   </div>
 </footer>
@@ -200,7 +225,7 @@
 })();
 </script>
 
-<script src="assets/app.js?v=44"></script>
+<script src="assets/app.js?v=47"></script>
 <script>
 /* Self-healing fallback for the invite-link buttons. If the browser served a
    stale (or the host a missing) app.js — i.e. window.lhWireShare never appeared

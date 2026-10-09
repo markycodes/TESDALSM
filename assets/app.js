@@ -104,6 +104,81 @@ document.querySelectorAll('[data-toast]').forEach((t) => setTimeout(() => t.remo
   ).forEach((el) => el.classList.add('reveal'));
 })();
 
+/* Facebook-style reactions on lesson posts/replies and announcements. */
+document.addEventListener('click', function (event) {
+  var button = event.target.closest('[data-reaction]');
+  if (!button) return;
+  var control = button.closest('[data-reaction-control]');
+  if (!control || control.dataset.reactionBusy === '1') return;
+
+  var csrf = document.querySelector('meta[name="csrf"]');
+  var status = control.querySelector('[data-reaction-status]');
+  if (!csrf) {
+    if (status) status.textContent = 'Please reload the page and try again.';
+    return;
+  }
+
+  control.dataset.reactionBusy = '1';
+  if (status) status.textContent = '';
+  control.querySelectorAll('[data-reaction]').forEach(function (item) { item.disabled = true; });
+  var body = new URLSearchParams({
+    type: control.dataset.reactionType || '',
+    target: control.dataset.reactionTarget || '',
+    reaction: button.dataset.reaction || '',
+    csrf: csrf.content
+  });
+
+  fetch('reaction.php', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'fetch' },
+    body: body.toString()
+  }).then(function (response) {
+    return response.json().then(function (data) {
+      if (!response.ok || !data.ok) throw new Error(data.error || 'Could not save your reaction.');
+      return data;
+    });
+  }).then(function (data) {
+    var total = 0;
+    control.querySelectorAll('[data-reaction]').forEach(function (item) {
+      var name = item.dataset.reaction;
+      var count = Number(data.counts[name] || 0);
+      var selected = data.mine === name;
+      total += count;
+      item.setAttribute('aria-pressed', selected ? 'true' : 'false');
+      item.title = name.charAt(0).toUpperCase() + name.slice(1) + (count ? ' (' + count + ')' : '');
+      item.classList.toggle('bg-indigo-50', selected);
+      item.classList.toggle('hover:bg-slate-100', !selected);
+    });
+    var primary = control.querySelector('[data-reaction-primary]');
+    var primaryIcon = control.querySelector('[data-primary-icon]');
+    var primaryLabel = control.querySelector('[data-primary-label]');
+    var totalNode = control.querySelector('[data-reaction-total]');
+    var peopleRow = control.querySelector('[data-reaction-people-row]');
+    var activeName = data.mine || 'like';
+    var iconButton = control.querySelector('[data-reaction-menu] [data-reaction="' + activeName + '"]');
+    var icon = iconButton ? iconButton.querySelector('[aria-hidden="true"]') : null;
+    if (primary && primaryIcon && primaryLabel && icon) {
+      primaryIcon.textContent = icon.textContent;
+      primaryLabel.textContent = activeName === 'like' ? 'Like' : activeName.charAt(0).toUpperCase() + activeName.slice(1);
+      primary.setAttribute('aria-pressed', data.mine === 'like' ? 'true' : 'false');
+      primary.classList.toggle('bg-indigo-50', !!data.mine);
+      primary.classList.toggle('text-indigo-700', !!data.mine);
+      primary.classList.toggle('text-slate-500', !data.mine);
+    }
+    if (totalNode) totalNode.textContent = total ? '+' + total : '';
+    if (peopleRow && typeof data.reactors_html === 'string') {
+      var existingTotal = totalNode ? totalNode.outerHTML : '';
+      peopleRow.innerHTML = data.reactors_html + existingTotal;
+    }
+  }).catch(function (error) {
+    if (status) status.textContent = error.message || 'Could not save your reaction.';
+  }).finally(function () {
+    control.dataset.reactionBusy = '0';
+    control.querySelectorAll('[data-reaction]').forEach(function (item) { item.disabled = false; });
+  });
+});
+
 /* ---------- Scroll reveal ---------- */
 (function () {
   const els = document.querySelectorAll('.reveal');

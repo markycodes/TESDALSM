@@ -103,6 +103,10 @@ if (is_file($absFile)) {
   <div class="h-1 w-full bg-slate-200"><div id="read-bar" class="h-full bg-indigo-600 transition-all duration-300" style="width: <?= $depth ?>%"></div></div>
 </header>
 <main class="mx-auto max-w-4xl px-0 py-8 sm:px-4">
+  <div class="mb-4 flex justify-end px-4 sm:px-0">
+    <a href="discussion.php?c=<?= (int) $courseId ?>&amp;m=<?= (int) $materialId ?>"
+       class="inline-flex items-center rounded-lg border border-indigo-200 bg-white px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-50">💬 Lesson discussion</a>
+  </div>
 <?php if ($kind === 'missing'): ?>
   <div class="rounded-2xl bg-white p-8 text-center ring-1 ring-slate-200">
     <p class="text-4xl">🕳️</p>

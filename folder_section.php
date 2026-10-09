@@ -100,7 +100,12 @@ $defaultFolderTab = $folderVideos ? 'videos' : 'materials';
                 <input type="hidden" name="material_id" value="<?= $folderLessonId ?>">
                 <button class="rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50">Delete video</button>
               </form>
-            <?php elseif ($lessonQuiz && ($enrolled || $isAdmin)): ?>
+            <?php endif; ?>
+            <?php if ($isOwner || $enrolled || $isAdmin): ?>
+              <a href="discussion.php?c=<?= (int) $course['id'] ?>&amp;m=<?= $folderLessonId ?>"
+                 class="rounded-lg border border-indigo-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-50">💬 Discussion</a>
+            <?php endif; ?>
+            <?php if (!$isOwner && $lessonQuiz && ($enrolled || $isAdmin)): ?>
               <?php if ($isAdmin || $folderLessonDone): ?>
                 <a data-lesson-quiz-link="<?= $folderLessonId ?>" href="quiz.php?c=<?= $courseId ?>&amp;m=<?= $folderLessonId ?>" class="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">🧪 Lesson quiz (<?= $lessonQuizCount ?>)</a>
               <?php else: ?>
@@ -162,7 +167,12 @@ $defaultFolderTab = $folderVideos ? 'videos' : 'materials';
                   <input type="hidden" name="material_id" value="<?= $folderLessonId ?>">
                   <button class="rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50">Delete material</button>
                 </form>
-              <?php elseif ($lessonQuiz && ($enrolled || $isAdmin)): ?>
+              <?php endif; ?>
+              <?php if ($isOwner || $enrolled || $isAdmin): ?>
+                <a href="discussion.php?c=<?= (int) $course['id'] ?>&amp;m=<?= $folderLessonId ?>"
+                   class="rounded-lg border border-indigo-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-50">💬 Discussion</a>
+              <?php endif; ?>
+              <?php if (!$isOwner && $lessonQuiz && ($enrolled || $isAdmin)): ?>
                 <?php if ($isAdmin || $folderLessonDone): ?>
                   <a data-lesson-quiz-link="<?= $folderLessonId ?>" href="quiz.php?c=<?= $courseId ?>&amp;m=<?= $folderLessonId ?>" class="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">🧪 Lesson quiz (<?= $lessonQuizCount ?>)</a>
                 <?php else: ?>

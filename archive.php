@@ -34,6 +34,21 @@ if ($role === 'admin') {
     $st->execute([(int) $user['id']]);
 }
 $trainees = $st->fetchAll();
+$archiveGroups = [];
+foreach ($trainees as $trainee) {
+    $groupName = trim((string) ($trainee['archive_group'] ?? ''));
+    if ($groupName === '') $groupName = (string) $trainee['saved_name'];
+    $groupKey = (int) $trainee['course_id'] . ':' . $groupName;
+    if (!isset($archiveGroups[$groupKey])) {
+        $archiveGroups[$groupKey] = [
+            'name' => $groupName,
+            'course_id' => (int) $trainee['course_id'],
+            'course_title' => (string) $trainee['course_title'],
+            'entries' => [],
+        ];
+    }
+    $archiveGroups[$groupKey]['entries'][] = $trainee;
+}
 
 $page_title = 'Trainee archive';
 $nav_active = 'archive';
@@ -50,7 +65,7 @@ require __DIR__ . '/header.php';
     <label for="archive-search" class="sr-only">Search archived trainees</label>
     <input id="archive-search" type="search" placeholder="Search by trainee, account, group, course, or staff name…"
            class="mt-5 w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
-    <p id="archive-search-count" class="mt-2 text-xs text-slate-500" aria-live="polite"><?= count($trainees) ?> archived entr<?= count($trainees) === 1 ? 'y' : 'ies' ?></p>
+    <p id="archive-search-count" class="mt-2 text-xs text-slate-500" aria-live="polite"><?= count($archiveGroups) ?> archive group<?= count($archiveGroups) === 1 ? '' : 's' ?> · <?= count($trainees) ?> trainee<?= count($trainees) === 1 ? '' : 's' ?></p>
   <?php endif; ?>
 
   <?php if (!$trainees): ?>
@@ -60,68 +75,93 @@ require __DIR__ . '/header.php';
       <p class="mt-1 text-sm text-slate-500">When a student is removed from a course, their saved trainee entry will appear here.</p>
     </div>
   <?php else: ?>
-    <div class="mt-6 overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
-      <table class="w-full min-w-[760px] text-left text-sm">
-        <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-          <tr>
-            <th class="px-4 py-3">Saved trainee name</th>
-            <th class="px-4 py-3">Archive group</th>
-            <th class="px-4 py-3">Student account</th>
-            <th class="px-4 py-3">Course</th>
-            <th class="px-4 py-3">Removed by</th>
-            <th class="px-4 py-3">Removed on</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100">
-          <?php foreach ($trainees as $trainee): ?>
-            <?php
-              $archiveSearch = implode(' ', [
-                  (string) $trainee['saved_name'],
-                  (string) ($trainee['archive_group'] ?: $trainee['saved_name']),
-                  (string) $trainee['account_name'],
-                  (string) $trainee['email'],
-                  (string) $trainee['course_title'],
-                  (string) $trainee['removed_by_name'],
-                  date('M j, Y g:i A', (int) $trainee['removed_at']),
-              ]);
-            ?>
-            <tr data-archive-entry data-search="<?= e(function_exists('mb_strtolower') ? mb_strtolower($archiveSearch, 'UTF-8') : strtolower($archiveSearch)) ?>">
-              <td class="px-4 py-3 font-semibold text-slate-900"><?= e((string) $trainee['saved_name']) ?></td>
-              <td class="px-4 py-3 text-slate-700"><?= e((string) ($trainee['archive_group'] ?: $trainee['saved_name'])) ?></td>
-              <td class="px-4 py-3 text-slate-600">
-                <?= e((string) $trainee['account_name']) ?>
-                <span class="block text-xs text-slate-400"><?= e((string) $trainee['email']) ?></span>
-              </td>
-              <td class="px-4 py-3">
-                <a href="trainees.php?course=<?= (int) $trainee['course_id'] ?>" class="font-medium text-indigo-600 hover:text-indigo-800"><?= e((string) $trainee['course_title']) ?></a>
-              </td>
-              <td class="px-4 py-3 text-slate-600"><?= e((string) $trainee['removed_by_name']) ?></td>
-              <td class="px-4 py-3 whitespace-nowrap text-slate-600"><?= date('M j, Y g:i A', (int) $trainee['removed_at']) ?></td>
-            </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
-      <p id="archive-search-empty" class="hidden border-t border-slate-100 px-4 py-8 text-center text-sm text-slate-500">No archived trainees match your search.</p>
+    <div id="archive-groups" class="mt-6 space-y-4">
+      <?php foreach ($archiveGroups as $group): ?>
+        <?php
+          $groupSearch = implode(' ', [$group['name'], $group['course_title']]);
+          $groupSearch = function_exists('mb_strtolower') ? mb_strtolower($groupSearch, 'UTF-8') : strtolower($groupSearch);
+        ?>
+        <section data-archive-group data-search="<?= e($groupSearch) ?>" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <header class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 px-4 py-3">
+            <div>
+              <h2 class="font-bold text-slate-900"><?= e($group['name']) ?></h2>
+              <a href="trainees.php?course=<?= $group['course_id'] ?>" class="mt-0.5 inline-block text-xs font-medium text-indigo-600 hover:text-indigo-800"><?= e($group['course_title']) ?></a>
+            </div>
+            <span data-group-count class="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700"><?= count($group['entries']) ?> trainee<?= count($group['entries']) === 1 ? '' : 's' ?></span>
+          </header>
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[620px] text-left text-sm">
+              <thead class="text-xs uppercase tracking-wide text-slate-400">
+                <tr>
+                  <th class="px-4 py-2.5">Student account</th>
+                  <th class="px-4 py-2.5">Removed by</th>
+                  <th class="px-4 py-2.5">Removed on</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                <?php foreach ($group['entries'] as $trainee): ?>
+                  <?php
+                    $entrySearch = implode(' ', [
+                        (string) $trainee['saved_name'],
+                        (string) $trainee['account_name'],
+                        (string) $trainee['email'],
+                        (string) $trainee['course_title'],
+                        (string) $trainee['removed_by_name'],
+                        date('M j, Y g:i A', (int) $trainee['removed_at']),
+                    ]);
+                    $entrySearch = function_exists('mb_strtolower') ? mb_strtolower($entrySearch, 'UTF-8') : strtolower($entrySearch);
+                  ?>
+                  <tr data-archive-entry data-search="<?= e($entrySearch) ?>">
+                    <td class="px-4 py-3 text-slate-700">
+                      <span class="font-semibold text-slate-900"><?= e((string) $trainee['saved_name']) ?></span>
+                      <?php if ((string) $trainee['saved_name'] !== (string) $trainee['account_name']): ?>
+                        <span class="block text-xs text-slate-400">Account: <?= e((string) $trainee['account_name']) ?></span>
+                      <?php endif; ?>
+                      <span class="block text-xs text-slate-400"><?= e((string) $trainee['email']) ?></span>
+                    </td>
+                    <td class="px-4 py-3 text-slate-600"><?= e((string) $trainee['removed_by_name']) ?></td>
+                    <td class="px-4 py-3 whitespace-nowrap text-slate-600"><?= date('M j, Y g:i A', (int) $trainee['removed_at']) ?></td>
+                  </tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      <?php endforeach; ?>
     </div>
+    <p id="archive-search-empty" class="hidden mt-6 rounded-xl border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">No archived trainees match your search.</p>
   <?php endif; ?>
 </main>
 <?php if ($trainees): ?>
 <script>
 (function () {
   var search = document.getElementById('archive-search');
-  var rows = Array.prototype.slice.call(document.querySelectorAll('[data-archive-entry]'));
+  var groups = Array.prototype.slice.call(document.querySelectorAll('[data-archive-group]'));
   var count = document.getElementById('archive-search-count');
   var empty = document.getElementById('archive-search-empty');
   if (!search) return;
   search.addEventListener('input', function () {
     var query = search.value.trim().toLocaleLowerCase();
     var visible = 0;
-    rows.forEach(function (row) {
-      var matches = !query || (row.getAttribute('data-search') || '').indexOf(query) !== -1;
-      row.classList.toggle('hidden', !matches);
-      if (matches) visible++;
+    var visibleGroups = 0;
+    groups.forEach(function (group) {
+      var groupMatches = !query || (group.getAttribute('data-search') || '').indexOf(query) !== -1;
+      var entries = Array.prototype.slice.call(group.querySelectorAll('[data-archive-entry]'));
+      var groupVisible = 0;
+      entries.forEach(function (entry) {
+        var matches = groupMatches || !query || (entry.getAttribute('data-search') || '').indexOf(query) !== -1;
+        entry.classList.toggle('hidden', !matches);
+        if (matches) groupVisible++;
+      });
+      group.classList.toggle('hidden', groupVisible === 0);
+      if (groupVisible > 0) {
+        visibleGroups++;
+        visible += groupVisible;
+        var badge = group.querySelector('[data-group-count]');
+        if (badge) badge.textContent = groupVisible + ' trainee' + (groupVisible === 1 ? '' : 's');
+      }
     });
-    if (count) count.textContent = visible + ' archived entr' + (visible === 1 ? 'y' : 'ies');
+    if (count) count.textContent = visibleGroups + ' archive group' + (visibleGroups === 1 ? '' : 's') + ' · ' + visible + ' trainee' + (visible === 1 ? '' : 's');
     if (empty) empty.classList.toggle('hidden', visible !== 0);
   });
 })();

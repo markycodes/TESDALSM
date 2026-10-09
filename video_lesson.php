@@ -115,6 +115,8 @@ require __DIR__ . '/header.php';
           <span data-lesson-quiz-lock="<?= $materialId ?>" class="<?= $done ? 'hidden' : '' ?> text-sm font-semibold text-slate-500">🔒 Complete this video to unlock its quiz.</span>
         </div>
       <?php endif; ?>
+      <a href="discussion.php?c=<?= $courseId ?>&amp;m=<?= $materialId ?>"
+         class="mt-4 inline-flex items-center rounded-lg border border-indigo-200 px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-50">💬 Lesson discussion</a>
     </div>
   </article>
 </main>
