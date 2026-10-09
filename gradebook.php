@@ -130,10 +130,14 @@ function gradebook_badge(?float $v): string
           <td class="px-4 py-3">
             <?php if (empty($r['removed'])): ?>
             <form method="post" action="kick.php"
-                  data-confirm="Remove <?= e((string) $who['name']) ?> from this course? Their grades and attendance stay on record — they can rejoin later with a new invitation code.">
+                  data-confirm="Remove <?= e((string) $who['name']) ?> and save the entered trainee name? Their grades and attendance stay on record — they can rejoin later with a new invitation code.">
               <?= csrf_field() ?>
               <input type="hidden" name="course_id" value="<?= (int) $courseId ?>">
               <input type="hidden" name="student_id" value="<?= (int) $r['student_id'] ?>">
+              <label class="sr-only" for="gradebook-trainee-<?= (int) $r['student_id'] ?>">Name to save this trainee as</label>
+              <input id="gradebook-trainee-<?= (int) $r['student_id'] ?>" type="text" name="trainee_names[<?= (int) $r['student_id'] ?>]" value="<?= e((string) $who['name']) ?>"
+                     maxlength="120" required aria-label="Name to save trainee <?= e((string) $who['name']) ?> as" placeholder="Save trainee as"
+                     class="mb-1 w-32 rounded-lg border border-slate-200 px-2 py-1 text-[10px] text-slate-700">
               <input type="hidden" name="back" value="gradebook">
               <button class="rounded-lg border border-rose-200 px-3 py-1.5 text-[11px] font-semibold text-rose-600 hover:bg-rose-50">Remove</button>
             </form>
@@ -175,4 +179,3 @@ function gradebook_badge(?float $v): string
   <?php endif; ?>
 </div>
 <?php require __DIR__ . '/footer.php';
-

@@ -682,15 +682,21 @@ document.addEventListener('submit', (e) => {
 });
 
 document.addEventListener('change', (event) => {
+  const syncArchiveGroup = () => {
+    const groupName = document.querySelector('[data-course-archive-group]');
+    if (groupName) groupName.disabled = !Array.from(document.querySelectorAll('[data-course-student-select]')).some((checkbox) => checkbox.checked);
+  };
   const master = event.target.closest('[data-course-select-all]');
   if (master) {
     document.querySelectorAll('[data-course-student-select]').forEach((checkbox) => {
       checkbox.checked = master.checked;
     });
+    syncArchiveGroup();
     return;
   }
   const studentCheckbox = event.target.closest('[data-course-student-select]');
   if (!studentCheckbox) return;
+  syncArchiveGroup();
   const masterCheckbox = document.querySelector('[data-course-select-all]');
   if (!masterCheckbox) return;
   const all = Array.from(document.querySelectorAll('[data-course-student-select]'));

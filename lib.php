@@ -912,6 +912,19 @@ function db_ensure_schema(PDO $pdo): void
             CONSTRAINT fk_enrollments_course FOREIGN KEY (course_id) REFERENCES courses (id) ON DELETE CASCADE,
             CONSTRAINT fk_enrollments_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        "CREATE TABLE IF NOT EXISTS course_trainees (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            course_id INT UNSIGNED NOT NULL,
+            user_id INT UNSIGNED NOT NULL,
+            saved_name VARCHAR(120) NOT NULL,
+            archive_group VARCHAR(120) NOT NULL DEFAULT '',
+            removed_by INT UNSIGNED NOT NULL,
+            removed_at INT UNSIGNED NOT NULL DEFAULT 0,
+            INDEX idx_course_trainees_course (course_id, removed_at),
+            CONSTRAINT fk_course_trainees_course FOREIGN KEY (course_id) REFERENCES courses (id) ON DELETE CASCADE,
+            CONSTRAINT fk_course_trainees_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+            CONSTRAINT fk_course_trainees_removed_by FOREIGN KEY (removed_by) REFERENCES users (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
         /* The class timetable. One row is one slot and it is one of two things:
            a weekly rule (repeat_mode 'weekly' + weekday, 0 = Sunday … 6 =
            Saturday, as PHP's date('w')) or a one-off entry on an exact date
@@ -1240,6 +1253,7 @@ function db_schema_post_migrate(PDO $pdo): void
        sort_order lets a teacher move a batch (bulk.php) without renumbering rows;
        NULL means "just keep the id order", so existing courses are untouched. */
     db_ensure_column($pdo, 'materials', 'sort_order', 'ALTER TABLE materials ADD COLUMN sort_order INT NULL DEFAULT NULL AFTER size');
+    db_ensure_column($pdo, 'course_trainees', 'archive_group', "ALTER TABLE course_trainees ADD COLUMN archive_group VARCHAR(120) NOT NULL DEFAULT '' AFTER saved_name");
     db_ensure_column($pdo, 'quiz_questions', 'option_explanations', 'ALTER TABLE quiz_questions ADD COLUMN option_explanations TEXT NULL AFTER correct');
     db_drop_column_if_exists($pdo, 'quiz_questions', 'explanation');
     admin_ensure($pdo);
@@ -6214,17 +6228,20 @@ function course_former_student_ids(int $courseId): array
     return array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN));
 }
 
-/** Take one student out of a course — the "Remove" action on the roster and
+/** Take one student out of a course and save the teacher-provided trainee name.
+ *  The "Remove" action on the roster and
  *  gradebook. ONLY the enrollments row goes: the account, their lesson
  *  progress, hand-ins, grades, quiz results and visits all stay exactly where
  *  they are, so the teacher keeps the full record, a later re-enrolment puts
  *  everything back in place, and no other table even notices. Any visit still
  *  open is closed so the attendance log never holds a phantom session.
  *  Returns ['ok' => bool, 'msg' => string] — the message is flash-ready. */
-function kick_student_from_course(array $actor, int $courseId, int $studentId): array
+function kick_student_from_course(array $actor, int $courseId, int $studentId, string $savedName, string $archiveGroup = ''): array
 {
     $courseId = (int) $courseId;
     $studentId = (int) $studentId;
+    $savedName = cut(trim($savedName), 120);
+    $archiveGroup = cut(trim($archiveGroup), 120);
     $course = course_row($courseId);
     if (!$course) return ['ok' => false, 'msg' => 'Course not found.'];
     if (!schedule_can_manage($actor, $courseId)) {
@@ -6238,12 +6255,25 @@ function kick_student_from_course(array $actor, int $courseId, int $studentId): 
     if (!$student || (string) $student['role'] !== 'student') {
         return ['ok' => false, 'msg' => 'That account is not a student.'];
     }
+    if ($savedName === '') $savedName = cut(trim((string) ($student['name'] ?? '')), 120);
+    if ($savedName === '') return ['ok' => false, 'msg' => 'The student account has no name to save.'];
+    if ($archiveGroup === '') $archiveGroup = $savedName;
     if (!is_enrolled_id($courseId, $studentId)) {
         return ['ok' => false, 'msg' => 'That student is not enrolled in this course.'];
     }
 
-    db()->prepare('DELETE FROM enrollments WHERE course_id = ? AND user_id = ?')
-        ->execute([$courseId, $studentId]);
+    $db = db();
+    $db->beginTransaction();
+    try {
+        $db->prepare('INSERT INTO course_trainees (course_id, user_id, saved_name, archive_group, removed_by, removed_at) VALUES (?,?,?,?,?,?)')
+            ->execute([$courseId, $studentId, $savedName, $archiveGroup, (int) $actor['id'], time()]);
+        $db->prepare('DELETE FROM enrollments WHERE course_id = ? AND user_id = ?')
+            ->execute([$courseId, $studentId]);
+        $db->commit();
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) $db->rollBack();
+        throw $e;
+    }
     close_attendance($studentId, $courseId);
 
     add_notification($studentId, 'enrollment',
@@ -6253,7 +6283,7 @@ function kick_student_from_course(array $actor, int $courseId, int $studentId): 
         lh_enc_url('course.php?id=' . $courseId));
 
     return ['ok' => true,
-        'msg' => '"' . cut((string) $student['name'], 60) . '" removed from the course. Their records stay on file.'];
+        'msg' => '"' . cut((string) $student['name'], 60) . '" removed and saved as "' . $savedName . '".'];
 }
 
 /** '2 days ago', 'in 3 hours' — how a deadline or a hand-in reads. */

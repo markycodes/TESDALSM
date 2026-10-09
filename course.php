@@ -157,12 +157,19 @@ require __DIR__ . '/header.php';
             <summary class="cursor-pointer px-3 py-2 text-xs font-semibold text-slate-700">
               👥 Enrolled students (<?= count($courseStudents) ?>)
             </summary>
+            <a href="trainees.php?course=<?= $courseId ?>" class="block border-t border-slate-100 px-3 py-2 text-xs font-semibold text-indigo-600 hover:bg-indigo-50">View saved trainees</a>
             <?php if ($courseStudents): ?>
               <form id="course-bulk-remove-form" method="post" action="kick.php"
-                    data-confirm="Remove all selected students from this course? Their progress, grades, quizzes, and attendance stay on record.">
+                    data-confirm="Remove the selected students as one named trainee group? Their progress, grades, quizzes, and attendance stay on record.">
                 <?= csrf_field() ?>
                 <input type="hidden" name="course_id" value="<?= $courseId ?>">
                 <input type="hidden" name="back" value="course">
+                <label class="block border-t border-slate-100 px-3 py-2 text-[11px] font-semibold text-slate-600">
+                  Archive group name
+                  <input type="text" name="archive_group" maxlength="120" required disabled data-course-archive-group
+                         placeholder="Name this group of removed trainees"
+                         class="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-normal text-slate-800">
+                </label>
                 <div class="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-3 py-2">
                   <label class="flex items-center gap-2 text-[11px] font-semibold text-slate-600">
                     <input type="checkbox" data-course-select-all class="rounded border-slate-300 text-indigo-600">
@@ -183,10 +190,14 @@ require __DIR__ . '/header.php';
                       <span class="block truncate text-[10px] text-slate-400"><?= e((string) $student['email']) ?></span>
                     </span>
                     <form method="post" action="kick.php"
-                          data-confirm="Remove <?= e((string) $student['name']) ?> from this course? Their progress, grades, quizzes, and attendance stay on record.">
+                          data-confirm="Remove <?= e((string) $student['name']) ?> and save the entered trainee name? Their progress, grades, quizzes, and attendance stay on record.">
                       <?= csrf_field() ?>
                       <input type="hidden" name="course_id" value="<?= $courseId ?>">
                       <input type="hidden" name="student_id" value="<?= (int) $student['id'] ?>">
+                      <label for="trainee-name-<?= (int) $student['id'] ?>" class="sr-only">Name to save this trainee as</label>
+                      <input id="trainee-name-<?= (int) $student['id'] ?>" type="text" name="trainee_names[<?= (int) $student['id'] ?>]" value="<?= e((string) $student['name']) ?>"
+                             maxlength="120" required aria-label="Name to save trainee <?= e((string) $student['name']) ?> as" placeholder="Save trainee as"
+                             class="mb-1 w-28 rounded-lg border border-slate-200 px-2 py-1 text-[10px] text-slate-700">
                       <input type="hidden" name="back" value="course">
                       <button class="shrink-0 rounded-lg border border-rose-200 px-2 py-1 text-[10px] font-semibold text-rose-600 hover:bg-rose-50">Remove</button>
                     </form>

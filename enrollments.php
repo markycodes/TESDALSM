@@ -288,10 +288,14 @@ require __DIR__ . '/header.php';
           <td class="px-4 py-3">
             <?php if (!(int) ($u['removed'] ?? 0)): ?>
             <form method="post" action="kick.php"
-                  data-confirm="Remove <?= e((string) $u['name']) ?> from this course? Their grades and attendance stay on record — they can rejoin later with a new invitation code.">
+                  data-confirm="Remove <?= e((string) $u['name']) ?> and save the entered trainee name? Their grades and attendance stay on record — they can rejoin later with a new invitation code.">
               <?= csrf_field() ?>
               <input type="hidden" name="course_id" value="<?= (int) $kickCourse ?>">
               <input type="hidden" name="student_id" value="<?= $sid ?>">
+              <label class="sr-only" for="enroll-trainee-<?= $sid ?>">Name to save this trainee as</label>
+              <input id="enroll-trainee-<?= $sid ?>" type="text" name="trainee_names[<?= $sid ?>]" value="<?= e((string) $u['name']) ?>"
+                     maxlength="120" required aria-label="Name to save trainee <?= e((string) $u['name']) ?> as" placeholder="Save trainee as"
+                     class="mb-1 w-32 rounded-lg border border-slate-200 px-2 py-1 text-[10px] text-slate-700">
               <input type="hidden" name="back" value="enrollments">
               <button class="rounded-lg border border-rose-200 px-3 py-1.5 text-[11px] font-semibold text-rose-600 hover:bg-rose-50">Remove</button>
             </form>

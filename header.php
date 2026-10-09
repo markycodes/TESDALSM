@@ -122,6 +122,13 @@ if ($user) {
                 <circle cx="8.25" cy="8.25" r="3" />
                 <path d="M16 11.25a3 3 0 1 0-1.35 5.64" />
               </svg></span><span class="lh-side-label">Enrollments</span></a>
+          <?php if (($user['role'] ?? '') === 'teacher'): ?>
+            <a href="archive.php" class="lh-side-link <?= $nav_active === 'archive' ? 'active' : '' ?>"
+              data-tip="Archive"><span class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 5h18v4H3zM5 9v11h14V9M10 13h4" />
+                </svg></span><span class="lh-side-label">Archive</span></a>
+          <?php endif; ?>
           <a href="attendance_day.php" class="lh-side-link <?= $nav_active === 'attendance' ? 'active' : '' ?>"
             data-tip="Attendance"><span class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
@@ -164,6 +171,11 @@ if ($user) {
                 <path d="m7 15 4-4 3 2 5-6" />
                 <path d="M16 7h3v3" />
               </svg></span><span class="lh-side-label">Student progress</span></a>
+          <a href="archive.php" class="lh-side-link <?= $nav_active === 'archive' ? 'active' : '' ?>"
+            data-tip="Archive"><span class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 5h18v4H3zM5 9v11h14V9M10 13h4" />
+              </svg></span><span class="lh-side-label">Archive</span></a>
           <a href="codes.php" class="lh-side-link <?= $nav_active === 'codes' ? 'active' : '' ?>"
             data-tip="Invite codes"><span class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">

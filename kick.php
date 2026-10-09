@@ -24,14 +24,33 @@ if (!$studentIds && isset($_POST['student_id'])) {
 }
 $back = (string) ($_POST['back'] ?? '');
 $back = in_array($back, ['course', 'gradebook'], true) ? $back : 'enrollments';
+$traineeNames = (array) ($_POST['trainee_names'] ?? []);
+$isBulkRemoval = isset($_POST['student_ids']);
+$postedGroup = $_POST['archive_group'] ?? '';
+$archiveGroup = is_string($postedGroup) ? trim($postedGroup) : '';
+$groupError = false;
 
-if (!$studentIds) {
+if ($isBulkRemoval && $archiveGroup === '') {
+    set_flash('error', 'Enter a name for this trainee group before removing the selected students.');
+    $groupError = true;
+} elseif ($isBulkRemoval && $archiveGroup !== '') {
+    $groupCheck = db()->prepare('SELECT COUNT(*) FROM course_trainees WHERE course_id = ? AND archive_group = ?');
+    $groupCheck->execute([$courseId, cut($archiveGroup, 120)]);
+    if ((int) $groupCheck->fetchColumn() > 0) {
+        set_flash('error', 'That archive group name is already used in this course. Choose a different name so each archive stays separate.');
+        $groupError = true;
+    }
+}
+
+if (!$groupError && !$studentIds) {
     set_flash('error', 'Select at least one student to remove.');
-} else {
+} elseif (!$groupError) {
     $removed = 0;
     $errors = [];
     foreach ($studentIds as $studentId) {
-        $res = kick_student_from_course($user, $courseId, $studentId);
+        $postedName = $traineeNames[$studentId] ?? '';
+        $savedName = is_string($postedName) ? trim($postedName) : '';
+        $res = kick_student_from_course($user, $courseId, $studentId, $savedName, $archiveGroup);
         if ($res['ok']) {
             $removed++;
         } else {
@@ -42,6 +61,8 @@ if (!$studentIds) {
         $message = $removed . ' student(s) removed.';
         $message .= ' Could not remove ' . count($errors) . ' selection(s): ' . implode(' ', array_unique($errors));
         set_flash('error', $message);
+    } elseif ($archiveGroup !== '') {
+        set_flash('success', $removed . ' student(s) removed and saved in archive group "' . cut($archiveGroup, 120) . '". Their records stay on file.');
     } else {
         set_flash('success', $removed . ' student(s) removed from the course. Their records stay on file.');
     }

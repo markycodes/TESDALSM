@@ -179,8 +179,19 @@ $passed = $result && $result['status'] === 'PASSED';
   </div>
 <?php elseif ($current): ?>
   <!-- In progress / fresh: one question at a time, no backtracking -->
+  <?php if ($answeredCount === 0): ?>
+  <div id="quiz-start-reminder" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4" role="alertdialog" aria-modal="true" aria-labelledby="quiz-start-title" aria-describedby="quiz-start-copy">
+    <div class="w-full max-w-lg rounded-2xl border-2 border-amber-300 bg-white p-6 shadow-2xl">
+      <p class="text-xs font-bold uppercase tracking-widest text-amber-600">Before you begin</p>
+      <h2 id="quiz-start-title" class="mt-2 text-xl font-extrabold text-slate-900">Switching apps submits your quiz</h2>
+      <p id="quiz-start-copy" class="mt-3 text-sm leading-6 text-slate-600">If your browser detects that you switch apps or use Alt+Tab, it will automatically submit your current answers. Any unanswered questions will count as incorrect, and you cannot retake the quiz.</p>
+      <button type="button" id="quiz-start-confirm" class="mt-5 w-full rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-indigo-700">I understand — start quiz</button>
+    </div>
+  </div>
+  <?php endif; ?>
+  <div id="quiz-attempt-content"<?= $answeredCount === 0 ? ' class="hidden"' : '' ?> data-quiz-started="<?= $answeredCount > 0 ? '1' : '0' ?>">
   <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-indigo-100 bg-indigo-50/70 px-4 py-3">
-    <p class="text-xs leading-5 text-indigo-900">For a focused quiz, enter fullscreen. Your browser still lets you switch apps, but leaving the quiz will show a reminder.</p>
+    <p class="text-xs leading-5 text-indigo-900">For a focused quiz, enter fullscreen. Leaving the quiz will submit your attempt if the browser detects it.</p>
     <button type="button" id="quiz-fullscreen-button" class="shrink-0 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700">
       Enter fullscreen
     </button>
@@ -226,6 +237,7 @@ $passed = $result && $result['status'] === 'PASSED';
     <?php endforeach; ?>
   </div>
   <?php endif; ?>
+  </div>
 <?php else: ?>
   <div class="rounded-2xl bg-white p-6 text-center shadow-sm ring-1 ring-slate-200">
     <p class="text-sm text-slate-500">This quiz has no questions assigned.</p>
@@ -266,17 +278,76 @@ $passed = $result && $result['status'] === 'PASSED';
   var quizWarning = document.getElementById('quiz-tab-warning');
   if (quizWarning) {
     var quizWasHidden = false;
+    var attemptContent = document.getElementById('quiz-attempt-content');
+    var quizStarted = attemptContent && attemptContent.getAttribute('data-quiz-started') === '1';
+    var quizSubmitting = false;
+    var startReminder = document.getElementById('quiz-start-reminder');
+    var startButton = document.getElementById('quiz-start-confirm');
+    var quizSubmitUrl = new URL('quiz_auto_submit.php', window.location.href);
+    var submitData = new URLSearchParams({
+      csrf: csrf,
+      course: '<?= (int) $courseId ?>',
+      material: '<?= (int) $materialId ?>',
+      folder: '<?= (int) $folderId ?>'
+    });
+    function submitQuizOnLeave() {
+      if (!quizStarted || quizSubmitting) return;
+      quizSubmitting = true;
+      fetch(quizSubmitUrl, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+        body: submitData.toString(),
+        keepalive: true
+      }).then(function (response) {
+        if (!response.ok) throw new Error('Automatic quiz submission was rejected.');
+        window.location.reload();
+      }).catch(function () {
+        var beaconQueued = navigator.sendBeacon && navigator.sendBeacon(quizSubmitUrl, new Blob([submitData.toString()], { type: 'application/x-www-form-urlencoded; charset=UTF-8' }));
+        if (beaconQueued) {
+          if (warningMessage) warningMessage.textContent = 'Your attempt is being submitted. Please wait for your result.';
+          quizWarning.classList.remove('hidden');
+          if (document.visibilityState === 'visible') window.setTimeout(function () { window.location.reload(); }, 600);
+        } else {
+          quizSubmitting = false;
+          if (warningMessage) warningMessage.textContent = 'Automatic submission could not be confirmed. Stay on this page and check your connection before continuing.';
+          quizWarning.classList.remove('hidden');
+        }
+      });
+    }
+    if (startButton) {
+      startButton.addEventListener('click', function () {
+        quizStarted = true;
+        if (startReminder) startReminder.classList.add('hidden');
+        if (attemptContent) attemptContent.classList.remove('hidden');
+      });
+    }
+    var answerForm = document.querySelector('form[action="quiz_answer.php"]');
+    if (answerForm) {
+      answerForm.addEventListener('submit', function () {
+        quizStarted = false;
+      });
+    }
     var dismissWarning = quizWarning.querySelector('[data-dismiss-quiz-warning]');
     var warningMessage = quizWarning.querySelector('[data-quiz-warning-message]');
     document.addEventListener('visibilitychange', function () {
       if (document.visibilityState === 'hidden') {
         quizWasHidden = true;
+        submitQuizOnLeave();
       } else if (quizWasHidden) {
         quizWasHidden = false;
-        if (warningMessage) warningMessage.textContent = 'You switched away from the quiz. Your attempt is still in progress. Please return your attention to the quiz before continuing.';
+        if (quizSubmitting) {
+          if (warningMessage) warningMessage.textContent = 'Your attempt is being submitted. Please wait for your result.';
+          quizWarning.classList.remove('hidden');
+          window.setTimeout(function () { window.location.reload(); }, 600);
+          return;
+        }
+        if (!quizSubmitting && !quizWarning.classList.contains('hidden')) return;
+        if (warningMessage) warningMessage.textContent = 'You switched away from the quiz. Your attempt was submitted.';
         quizWarning.classList.remove('hidden');
       }
     });
+    window.addEventListener('blur', submitQuizOnLeave);
     var fullscreenButton = document.getElementById('quiz-fullscreen-button');
     var fullscreenError = document.getElementById('quiz-fullscreen-error');
     var fullscreenWasActive = false;
