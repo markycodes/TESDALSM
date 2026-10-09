@@ -1,17 +1,21 @@
 <?php
 /**
- * Enrollment codes — teachers pick a course and generate a unique invitation code.
+ * Enrollment codes — pick a course and generate a unique invitation code.
+ * Teachers do it for their own courses; the main admin may do it for ANY
+ * course, i.e. hand a student of one of the teachers a code for that class.
  * Students use the code when registering; it redeems into exactly that course
  * (no self-enrollment anywhere else in the app).
  */
 require_once __DIR__ . '/lib.php';
 $user = require_login();
-if (!in_array(($user['role'] ?? ''), ['teacher', 'admin'], true)) {
+$role = (string) ($user['role'] ?? '');
+if (!in_array($role, ['teacher', 'admin'], true)) {
     http_response_code(403);
-    exit('This page is for teachers only.');
+    exit('This page is for teachers and the administrator only.');
 }
 $nav_active = 'codes';
-$teacherId = (int) $user['id'];
+$isAdmin    = $role === 'admin';
+$teacherId  = (int) $user['id'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
@@ -19,75 +23,92 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'generate') {
         $courseId = (int) ($_POST['course_id'] ?? 0);
         $course = course_row($courseId);
-        if (!$course || (int) $course['teacher_id'] !== $teacherId) {
-            set_flash('error', 'Choose one of your own courses to generate a code for.');
+        /* Teacher: own courses only. Admin: any course — the code is filed under
+           that course's teacher, so it still shows up in their own code list. */
+        if (!$course || (!$isAdmin && (int) $course['teacher_id'] !== $teacherId)) {
+            set_flash('error', $isAdmin
+                ? 'Choose an existing course to generate a code for.'
+                : 'Choose one of your own courses to generate a code for.');
         } else {
-            $code = generate_enroll_code($teacherId, $courseId);
+            $code = generate_enroll_code((int) $course['teacher_id'], $courseId);
             if ($code === null) {
                 set_flash('error', 'This course already has 25 unused codes — revoke one or reuse an existing code.');
             } else {
-                set_flash('success', 'Invitation code generated: ' . $code . ' — send it to your student (one-time use).');
+                set_flash('success', 'Invitation code generated: ' . $code . ' — send it to '
+                    . ($isAdmin ? 'the student' : 'your student') . ' (one-time use).');
             }
         }
     } elseif ($action === 'revoke') {
-        delete_enroll_code($teacherId, (int) ($_POST['code_id'] ?? 0));
-        set_flash('success', 'Invitation code revoked.');
+        $codeId  = (int) ($_POST['code_id'] ?? 0);
+        $revoked = $isAdmin ? delete_enroll_code_admin($codeId) : delete_enroll_code($teacherId, $codeId);
+        set_flash($revoked ? 'success' : 'error',
+            $revoked ? 'Invitation code revoked.' : 'That code could not be revoked — it may already be used.');
     }
     header('Location: codes.php');
     exit;
 }
 
-$st = db()->prepare('SELECT id, title, category FROM courses WHERE teacher_id = ? ORDER BY id');
-$st->execute([$teacherId]);
-$myCourses = $st->fetchAll();
-$codes = teacher_enroll_codes($teacherId);
+if ($isAdmin) {
+    $courses = admin_course_overview();   /* every course on the site, with its teacher */
+} else {
+    $st = db()->prepare('SELECT id, title, category FROM courses WHERE teacher_id = ? ORDER BY id');
+    $st->execute([$teacherId]);
+    $courses = $st->fetchAll();
+}
+$codes = $isAdmin ? admin_enroll_codes() : teacher_enroll_codes($teacherId);
 
 $page_title = 'Invitation codes';
 require __DIR__ . '/header.php';
 ?>
 
-<div class="mx-auto max-w-4xl">
-  <div class="reveal">
-    <h1 class="text-2xl font-bold text-slate-900">🔑 Invitation codes</h1>
-    <p class="mt-1 text-sm text-slate-500">Generate a one-time code for the course a student should join. When they register with it, they are enrolled in that exact course.</p>
+<div class="<?= $isAdmin ? 'lh-admin-page' : '' ?> mx-auto max-w-6xl">
+  <div class="<?= $isAdmin ? 'lh-admin-hero' : '' ?> reveal">
+    <?php if ($isAdmin): ?><p class="lh-admin-eyebrow">Access management</p><?php endif; ?>
+    <h1 class="<?= $isAdmin ? 'lh-admin-title' : 'text-2xl font-bold text-slate-900' ?>">🔑 Invitation codes</h1>
+    <p class="<?= $isAdmin ? 'lh-admin-description' : 'mt-1 text-sm text-slate-500' ?>"><?php if ($isAdmin): ?>
+      Generate a one-time code for <b>any</b> course on the site. A student who signs up with it is enrolled in that exact course — that is how a place in one of the teachers' classes is handed out.
+    <?php else: ?>
+      Generate a one-time code for the course a student should join. When they register with it, they are enrolled in that exact course.
+    <?php endif; ?></p>
   </div>
 
   <!-- Generate -->
-  <div class="reveal mt-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+  <div class="<?= $isAdmin ? 'lh-admin-card' : 'rounded-2xl bg-white shadow-sm ring-1 ring-slate-200' ?> reveal mt-6 p-6">
     <h2 class="text-base font-bold text-slate-900">Generate a code</h2>
-    <?php if ($myCourses): ?>
+    <?php if ($courses): ?>
     <form method="post" action="codes.php" class="mt-3 flex flex-wrap items-center gap-2">
       <?= csrf_field() ?>
       <input type="hidden" name="action" value="generate">
       <select name="course_id" required
               class="min-w-[220px] flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500">
-        <?php foreach ($myCourses as $mc): ?>
-        <option value="<?= (int) $mc['id'] ?>"><?= e((string) $mc['title']) ?></option>
+        <?php foreach ($courses as $mc): ?>
+        <option value="<?= (int) $mc['id'] ?>"><?= e((string) $mc['title']) ?><?= $isAdmin ? ' — ' . e((string) ($mc['teacher_name'] ?? '')) : '' ?></option>
         <?php endforeach; ?>
       </select>
       <button class="rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Generate</button>
     </form>
     <?php else: ?>
-    <p class="mt-3 text-sm text-slate-500">Create a course first — then generate codes for it.</p>
+    <p class="mt-3 text-sm text-slate-500"><?= $isAdmin ? 'No courses exist yet — create one first, then generate codes for it.' : 'Create a course first — then generate codes for it.' ?></p>
     <?php endif; ?>
   </div>
 
 <!-- List -->
-  <div class="reveal lh-plain mt-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+  <div class="<?= $isAdmin ? 'lh-admin-card' : 'rounded-2xl bg-white shadow-sm ring-1 ring-slate-200' ?> reveal lh-plain mt-6 p-6">
     <div class="flex items-center justify-between">
-      <h2 class="text-base font-bold text-slate-900">Your codes</h2>
+      <h2 class="text-base font-bold text-slate-900"><?= $isAdmin ? 'All invitation codes' : 'Your codes' ?></h2>
       <span class="text-xs text-slate-400"><?= count($codes) ?> total</span>
     </div>
 
     <?php if (!$codes): ?>
       <p class="mt-4 rounded-xl border-2 border-dashed border-slate-300 p-6 text-center text-sm text-slate-400">No codes yet — generate your first one above.</p>
     <?php else: ?>
-    <div class="mt-4 overflow-x-auto">
-      <table class="w-full min-w-[560px] text-left text-sm">
+    <div class="<?= $isAdmin ? 'lh-admin-table-wrap' : '' ?> mt-4 overflow-x-auto">
+      <table class="<?= $isAdmin ? 'lh-admin-table' : '' ?> w-full min-w-[560px] text-left text-sm">
         <thead>
           <tr class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-400">
             <th class="px-2 py-2">Code</th>
             <th class="px-2 py-2">Course</th>
+            <?php if ($isAdmin): ?><th class="px-2 py-2">Teacher</th><?php endif; ?>
             <th class="px-2 py-2">Created</th>
             <th class="px-2 py-2">Status</th>
             <th class="px-2 py-2 text-right">Action</th>
@@ -101,6 +122,7 @@ require __DIR__ . '/header.php';
               <button type="button" data-lh-copy="<?= e((string) $c['code']) ?>" data-lh-label="copy" class="ml-2 rounded-lg border border-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-500 hover:bg-slate-50" title="Copy code">copy</button>
             </td>
             <td class="px-2 py-3 text-slate-700"><?= e((string) $c['course_title']) ?></td>
+            <?php if ($isAdmin): ?><td class="px-2 py-3 text-slate-500"><?= e((string) ($c['teacher_name'] ?? '—')) ?></td><?php endif; ?>
             <td class="px-2 py-3 text-slate-400"><?= date('M j, g:i a', (int) $c['created_at']) ?></td>
             <td class="px-2 py-3">
               <?php if ($used): ?>
@@ -136,24 +158,4 @@ require __DIR__ . '/header.php';
    or missing. The local handler that used to live here could only ever say
    "copied!": when writeText was refused it said nothing at all. */ ?>
 
-    <p class="mt-1 text-sm text-slate-500">Choose the course — the code enrolls the student into that course only.</p>
-    <form method="post" class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-      <?= csrf_field() ?>
-      <input type="hidden" name="action" value="generate">
-      <div class="flex-1">
-        <label for="course_id" class="block text-sm font-medium text-slate-700">Course</label>
-        <select id="course_id" name="course_id" required
-                class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
-          <option value="">— choose a course —</option>
-          <?php foreach ($myCourses as $mc): ?>
-          <option value="<?= (int) $mc['id'] ?>"><?= e((string) $mc['title']) ?> (<?= e((string) ($mc['category'] ?? 'General')) ?>)</option>
-          <?php endforeach; ?>
-        </select>
-      </div>
-      <button class="rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700">＋ Generate</button>
-    </form>
-    <?php if (!$myCourses): ?>
-      <p class="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-700">You need a course first — create one from your dashboard before generating codes.</p>
-    <?php endif; ?>
-  </div>
 <?php require __DIR__ . '/footer.php'; ?>

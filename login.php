@@ -56,8 +56,13 @@ require __DIR__ . '/header.php';
       </div>
       <div>
         <label class="block text-sm font-medium text-slate-700" for="password">Password</label>
-        <input id="password" name="password" type="password" required placeholder="••••••••"
-               class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
+        <?php /* .lh-pw buys the input room on the right and gives the eye a
+                 box to sit in; the toggle is wired once in footer.php. */ ?>
+        <div class="lh-pw mt-1">
+          <input id="password" name="password" type="password" required placeholder="••••••••"
+                 class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
+          <?= password_toggle_btn('password') ?>
+        </div>
       </div>
       <?= turnstile_field() ?>
       <button class="w-full rounded-xl bg-indigo-600 py-2.5 font-semibold text-white shadow-sm hover:bg-indigo-700">Log in</button>

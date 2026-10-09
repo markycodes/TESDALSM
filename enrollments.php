@@ -2,7 +2,7 @@
 /**
  * Enrollments & attendance page.
  * Shows: all students enrolled together with you (classmates), filterable by
- * category and by course, who is online right now, and full attendance records
+ * category and by course, who is online right now, and recent attendance
  * (every visit to a course with entered/left time, IP and duration).
  */
 require_once __DIR__ . '/lib.php';
@@ -10,6 +10,7 @@ $user = require_login();
 $nav_active = 'enrollments';
 $me = (int) $user['id'];
 $isTeacher = ($user['role'] ?? '') === 'teacher';
+$isStaff = $isTeacher || (($user['role'] ?? '') === 'admin');   /* staff keep removed students on the lists; see the roster query below */
 
 $courses = load_courses();
 $myCourses = array_values(array_filter($courses, $isTeacher
@@ -62,14 +63,31 @@ if ($selCategory !== '' && in_array($selCategory, $allCategories, true)) {
     $courseOptions = array_values(array_filter($myCourses, fn ($c) => trim((string) ($c['category'] ?? '')) === $selCategory));
 }
 
-/* ---- classmates (students enrolled in the filtered courses) ---- */
+/* ---- classmates (students in the filtered courses) ----
+   For a teacher (and the admin) the list ALSO keeps students who were removed
+   or left but still have records in this selection — their row stays, flagged
+   'Removed', so work and visits never vanish from view. Students see their
+   current classmates only. realtime.php (v=roster) runs this same query, so
+   the live refresh agrees with the page down to the row. */
 $students = [];
 $shareCourses = [];
 if ($scopeIds) {
     $in = implode(',', array_fill(0, count($scopeIds), '?'));
-    $sql = "SELECT u.id, u.name, u.email, u.avatar FROM users u JOIN enrollments e ON e.user_id = u.id
-            WHERE u.role = 'student' AND e.course_id IN ($in)";
-    $params = array_values($scopeIds);
+    $sql = "SELECT u.id, u.name, u.email, u.avatar,
+                   MAX(CASE WHEN e.user_id IS NULL THEN 1 ELSE 0 END) AS removed
+            FROM users u
+            LEFT JOIN enrollments e ON e.user_id = u.id AND e.course_id IN ($in)
+            WHERE u.role = 'student' AND (e.user_id IS NOT NULL";
+    $scopeParams = array_values($scopeIds);
+    $params = $scopeParams;   /* one batch of scope ids for the LEFT JOIN above */
+    if ($isStaff) {
+        $sql .= " OR EXISTS (SELECT 1 FROM attendance a WHERE a.user_id = u.id AND a.course_id IN ($in))"
+              . " OR EXISTS (SELECT 1 FROM progress p JOIN materials m ON m.id = p.material_id WHERE p.user_id = u.id AND m.course_id IN ($in))"
+              . " OR EXISTS (SELECT 1 FROM quiz_results qr JOIN quizzes q ON q.id = qr.quiz_id LEFT JOIN materials m2 ON m2.id = q.material_id LEFT JOIN course_folders qf ON qf.id = q.folder_id WHERE qr.user_id = u.id AND COALESCE(m2.course_id, qf.course_id) IN ($in))"
+              . " OR EXISTS (SELECT 1 FROM submissions s JOIN assignments a2 ON a2.id = s.assignment_id WHERE s.user_id = u.id AND a2.course_id IN ($in))";
+        $params = array_merge($params, $scopeParams, $scopeParams, $scopeParams, $scopeParams);
+    }
+    $sql .= ')';
     if (!$isTeacher) { $sql .= ' AND u.id <> ?'; $params[] = $me; }
     $sql .= ' GROUP BY u.id ORDER BY u.name';
     $stmt = db()->prepare($sql);
@@ -96,7 +114,7 @@ if ($scopeIds) {
    often a classmate turned up, when they last came, and the machine they came
    from are theirs, not yours. realtime.php (v=roster) applies the same rule to
    the live refresh, so a figure never appears and then disappears. */
-$mayReadAttendance = $isTeacher || (($user['role'] ?? '') === 'admin');
+$mayReadAttendance = $isStaff;
 
 /* ---- attendance summaries across the scope ---- */
 $attSummary = [];
@@ -122,17 +140,26 @@ $onlineNow = count(array_filter($studentIds, fn ($id) => isset($online[$id])));
 $attLog = [];
 $logShow = '';
 if ($selCourse > 0) {
-    /* the log of one course: the teacher's whole record, a student's own rows —
-       never a classmate's entry, and never a classmate's address */
-    $stmt = db()->prepare('SELECT a.id, a.user_id, a.entered_at, a.left_at, a.ip, u.name
-                           FROM attendance a JOIN users u ON u.id = a.user_id
+    /* Teachers see each student's latest course visit. Students still see their
+       own full history, and removed students remain visible to the teacher. */
+    $stmt = db()->prepare('SELECT a.id, a.user_id, a.entered_at, a.left_at, a.ip, u.name,
+                                   CASE WHEN u.role = \'student\' AND e.user_id IS NULL THEN 1 ELSE 0 END AS removed
+                            FROM attendance a JOIN users u ON u.id = a.user_id
+                            LEFT JOIN enrollments e ON e.course_id = a.course_id AND e.user_id = a.user_id
                            WHERE a.course_id = ?'
-        . ($mayReadAttendance ? '' : ' AND a.user_id = ?') .
-        ' ORDER BY a.id DESC LIMIT 200');
+        . ($mayReadAttendance
+            ? ' AND a.id = (SELECT MAX(a2.id) FROM attendance a2 WHERE a2.course_id = a.course_id AND a2.user_id = a.user_id)'
+            : ' AND a.user_id = ?') .
+        ' ORDER BY a.id DESC' . ($mayReadAttendance ? '' : ' LIMIT 200'));
     $stmt->execute($mayReadAttendance ? [$selCourse] : [$selCourse, $me]);
     $attLog = $stmt->fetchAll();
     $logShow = (string) ($scopeCourses[0]['title'] ?? 'this course');
 }
+
+/* The Remove action needs one unambiguous course: shown only when a single
+   course is selected and this viewer manages it — the same gate kick.php
+   re-checks server-side. */
+$kickCourse = ($mayReadAttendance && $selCourse > 0 && schedule_can_manage($user, $selCourse)) ? $selCourse : 0;
 
 $page_title = 'Enrollments & attendance';
 require __DIR__ . '/header.php';
@@ -140,7 +167,7 @@ require __DIR__ . '/header.php';
 <div class="flex flex-wrap items-end justify-between gap-4">
   <div>
     <h1 class="text-2xl font-bold text-slate-900">👥 Enrollments &amp; attendance</h1>
-    <p class="mt-1 text-sm text-slate-500">Everyone learning with you — who's online, and a full record of course visits.</p>
+    <p class="mt-1 text-sm text-slate-500">Everyone learning with you — who's online, and the latest attendance record per student in the selected course.</p>
   </div>
   <a href="enrollments.php" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100">Reset filters</a>
 </div>
@@ -211,6 +238,7 @@ require __DIR__ . '/header.php';
           <th class="hidden px-4 py-3 font-semibold lg:table-cell">Course(s)</th>
           <th class="px-4 py-3 font-semibold">Status</th>
           <th class="px-4 py-3 font-semibold"><?= $mayReadAttendance ? 'Attendance' : 'Your attendance' ?></th>
+          <?php if ($kickCourse): ?><th class="px-4 py-3 font-semibold">Actions</th><?php endif; ?>
         </tr>
       </thead>
       <tbody class="divide-y divide-slate-100">
@@ -225,14 +253,16 @@ require __DIR__ . '/header.php';
                      both are decided by who is looking rather than by this list:
                      user_peer_avatar_html() and profile_hover_html() in lib.php */
                 $who = '<div class="flex items-center gap-3">' . user_peer_avatar_html($u, 'h-9 w-9')
-                     . '<span class="font-semibold text-slate-900">' . e((string) $u['name']) . '</span></div>'; ?>
+                     . '<span class="font-semibold text-slate-900">' . e((string) $u['name'])
+                     . ((int) ($u['removed'] ?? 0) ? ' <span class="inline-block rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-600">Removed</span>' : '')
+                     . '</span></div>'; ?>
             <?= profile_hover_html($who, $u, ['block' => true, 'self' => false]) ?>
           </td>
           <td class="hidden px-4 py-3 text-slate-500 md:table-cell" title="Partially hidden for privacy"><?= e(mask_email((string) $u['email'])) ?></td>
           <td class="hidden px-4 py-3 lg:table-cell">
             <?php foreach ($coursesFor as $cn): ?>
               <span class="mr-1 mb-1 inline-block rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700"><?= e($cn['title']) ?></span>
-            <?php endforeach; if (count($shareCourses[$sid] ?? []) > 3): ?>
+            <?php endforeach; if (!$coursesFor): ?><span class="text-xs text-slate-400">—</span><?php endif; if (count($shareCourses[$sid] ?? []) > 3): ?>
               <span data-more class="text-xs text-slate-400">+<?= count($shareCourses[$sid]) - 3 ?> more</span>
             <?php endif; ?>
           </td>
@@ -254,6 +284,22 @@ require __DIR__ . '/header.php';
               <span class="text-xs text-slate-400">private</span>
             <?php endif; ?>
           </td>
+          <?php if ($kickCourse): ?>
+          <td class="px-4 py-3">
+            <?php if (!(int) ($u['removed'] ?? 0)): ?>
+            <form method="post" action="kick.php"
+                  data-confirm="Remove <?= e((string) $u['name']) ?> from this course? Their grades and attendance stay on record — they can rejoin later with a new invitation code.">
+              <?= csrf_field() ?>
+              <input type="hidden" name="course_id" value="<?= (int) $kickCourse ?>">
+              <input type="hidden" name="student_id" value="<?= $sid ?>">
+              <input type="hidden" name="back" value="enrollments">
+              <button class="rounded-lg border border-rose-200 px-3 py-1.5 text-[11px] font-semibold text-rose-600 hover:bg-rose-50">Remove</button>
+            </form>
+            <?php else: ?>
+            <span class="text-xs text-slate-400">—</span>
+            <?php endif; ?>
+          </td>
+          <?php endif; ?>
         </tr>
       <?php endforeach; ?>
       </tbody>
@@ -266,7 +312,7 @@ require __DIR__ . '/header.php';
   <h2 class="flex flex-wrap items-center gap-2 text-lg font-bold text-slate-900">📋
     <?= $mayReadAttendance ? 'Attendance' : 'Your attendance' ?> — <?= e($logShow) ?>
     <?= course_teacher_chip($selCourse, 'h-7 w-7') ?></h2>
-  <p class="mt-1 text-sm text-slate-500"><?= $mayReadAttendance ? 'Every recorded entry into the course' : 'Your own entries into the course — when a classmate came is theirs to know' ?> (<span id="att-log-count"><?= count($attLog) ?></span> recorded).</p>
+  <p class="mt-1 text-sm text-slate-500"><?= $mayReadAttendance ? 'Latest recorded entry per student in this course' : 'Your own entries into the course — when a classmate came is theirs to know' ?> (<span id="att-log-count"><?= count($attLog) ?></span> shown).</p>
   <?php if (!$attLog): ?>
     <p class="mt-4 rounded-2xl border-2 border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">No attendance recorded for this course yet.</p>
   <?php else: ?>
@@ -287,10 +333,10 @@ require __DIR__ . '/header.php';
       <?php foreach ($attLog as $a):
         $left = $a['left_at'] ? (int) $a['left_at'] : null; ?>
         <tr>
-          <td class="px-4 py-3 font-semibold text-slate-900"><?= profile_hover_html(e((string) $a['name']), (int) $a['user_id'], ['self' => false]) ?></td>
+          <td class="px-4 py-3 font-semibold text-slate-900"><?= profile_hover_html(e((string) $a['name']), (int) $a['user_id'], ['self' => false]) ?><?= (int) ($a['removed'] ?? 0) ? ' <span class="inline-block rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-600">Removed</span>' : '' ?></td>
           <td class="px-4 py-3 text-slate-600"><?= date('M j, Y g:i A', (int) $a['entered_at']) ?></td>
           <td class="px-4 py-3 text-slate-600"><?php if ($left): ?><?= date('g:i A', $left) ?><?php elseif (isset($online[(int) $a['user_id']])): ?><span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">🟢 Online</span><?php else: ?><span class="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">⏳ In course</span><?php endif; ?></td>
-          <td class="px-4 py-3 text-slate-600"><?php if ($left): ?><?= duration_between((int) $a['entered_at'], $left) ?><?php else: ?><span data-open-seconds="<?= max(0, time() - (int) $a['entered_at']) ?>" data-mark="d<?= (int) $a['id'] ?>" class="font-semibold text-emerald-700"><?= duration_between((int) $a['entered_at'], null) ?></span><?php endif; ?></td>
+          <td class="px-4 py-3 text-slate-600"><?php if ($left): ?><?= duration_between((int) $a['entered_at'], $left) ?><?php else: ?><span data-open-seconds="<?= max(0, time() - (int) $a['entered_at']) ?>" data-start-at="<?= (int) $a['entered_at'] ?>" data-mark="d<?= (int) $a['id'] ?>" class="font-semibold text-emerald-700"><?= duration_between((int) $a['entered_at'], null) ?></span><?php endif; ?></td>
           <?php if ($mayReadAttendance): ?>
             <td class="hidden px-4 py-3 text-slate-400 md:table-cell"><?= e((string) ($a['ip'] ?? '')) ?></td>
           <?php endif; ?>

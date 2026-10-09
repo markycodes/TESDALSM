@@ -17,13 +17,22 @@
       <button type="button" data-tab-btn="link" aria-selected="false" class="flex-1 rounded-lg px-2 py-2 text-xs font-semibold text-slate-600 aria-selected:bg-white aria-selected:text-indigo-700">🔗 Links</button>
     </div>
 
-    <?php $inp = 'mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200'; ?>
+    <?php
+      $inp = 'mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200';
+      $folderOptions = '';
+      foreach ($folders as $folder) {
+          $folderOptions .= '<option value="' . (int) $folder['id'] . '">📁 ' . e((string) $folder['name']) . '</option>';
+      }
+    ?>
 
     <!-- → 1 · Document upload (opens directly in the browser, no extraction) -->
     <form data-tab-pane="doc" method="post" action="upload.php" enctype="multipart/form-data" class="mt-5 space-y-4">
       <?= csrf_field() ?>
       <input type="hidden" name="course_id" value="<?= e((string) $course['id']) ?>">
       <input type="hidden" name="lesson_type" value="document">
+      <label class="block text-sm font-medium text-slate-700">Folder
+        <select name="folder_id" required class="<?= $inp ?>"><?= $folderOptions ?></select>
+      </label>
       <p class="rounded-xl bg-indigo-50 px-3 py-2 text-xs leading-5 text-indigo-800 ring-1 ring-indigo-100">📄 <b>Upload a document here.</b> Students open it directly on the website — no download, no text extraction.</p>
       <div>
         <label class="block text-sm font-medium text-slate-700">Lesson title *</label>
@@ -50,6 +59,9 @@
       <?= csrf_field() ?>
       <input type="hidden" name="course_id" value="<?= e((string) $course['id']) ?>">
       <input type="hidden" name="lesson_type" value="text">
+      <label class="block text-sm font-medium text-slate-700">Folder
+        <select name="folder_id" required class="<?= $inp ?>"><?= $folderOptions ?></select>
+      </label>
       <p class="rounded-xl bg-indigo-50 px-3 py-2 text-xs leading-5 text-indigo-800 ring-1 ring-indigo-100">✍️ <b>Paste the whole material here.</b> No file needed — text and Markdown formatting are kept.</p>
       <div>
         <label class="block text-sm font-medium text-slate-700">Lesson title *</label>
@@ -72,6 +84,9 @@
       <?= csrf_field() ?>
       <input type="hidden" name="course_id" value="<?= e((string) $course['id']) ?>">
       <input type="hidden" name="lesson_type" value="video">
+      <label class="block text-sm font-medium text-slate-700">Folder
+        <select name="folder_id" required class="<?= $inp ?>"><?= $folderOptions ?></select>
+      </label>
       <p class="rounded-xl bg-indigo-50 px-3 py-2 text-xs leading-5 text-indigo-800 ring-1 ring-indigo-100">🎬 <b>Upload your videos here.</b> You can select several files at once — each one becomes its own lesson.</p>
       <div>
         <label class="block text-sm font-medium text-slate-700">Lesson title *</label>
@@ -101,6 +116,9 @@
       <?= csrf_field() ?>
       <input type="hidden" name="course_id" value="<?= e((string) $course['id']) ?>">
       <input type="hidden" name="lesson_type" value="link">
+      <label class="block text-sm font-medium text-slate-700">Folder
+        <select name="folder_id" required class="<?= $inp ?>"><?= $folderOptions ?></select>
+      </label>
       <p class="rounded-xl bg-indigo-50 px-3 py-2 text-xs leading-5 text-indigo-800 ring-1 ring-indigo-100">🔗 <b>Add video links here.</b> Paste one YouTube / Vimeo link per line — several lessons in one go.</p>
       <div>
         <label class="block text-sm font-medium text-slate-700">Lesson title *</label>

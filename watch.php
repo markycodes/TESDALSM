@@ -31,7 +31,8 @@ $ownerId = course_owner_id($courseId);
 if ($ownerId === null) {
     json_out(['ok' => false, 'error' => 'Course not found']);
 }
-if ($ownerId !== $userId && !is_enrolled_id($courseId, $userId)) {
+/* the main admin passes this gate too (writes land in the admin's own rows) */
+if ($ownerId !== $userId && ($user['role'] ?? '') !== 'admin' && !is_enrolled_id($courseId, $userId)) {
     json_out(['ok' => false, 'error' => 'Enroll in this course first.']);
 }
 if (!course_material_exists($courseId, $materialId)) {

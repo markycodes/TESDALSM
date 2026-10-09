@@ -80,7 +80,7 @@ require __DIR__ . '/header.php';
         <tr><td colspan="7" class="px-4 py-12 text-center text-slate-400">
           <p class="text-3xl">📋</p>
           <p class="mt-2 font-medium">No quiz records<?= $filter !== 'all' ? ' with this status' : ' yet' ?>.</p>
-          <p class="mt-1 text-xs">Complete a lesson, then take its quiz — results appear here automatically.</p>
+          <p class="mt-1 text-xs">Complete the lesson or folder, then take its quiz — results appear here automatically.</p>
         </td></tr>
       <?php else: foreach ($rows as $r): $ok = $r['status'] === 'PASSED'; ?>
         <tr class="hover:bg-slate-50/60">
@@ -102,7 +102,9 @@ require __DIR__ . '/header.php';
                 <p class="font-bold uppercase tracking-wide text-slate-400">Answer review</p>
                 <?php
                   $qmap = [];
-                  $rowQuiz = lesson_quiz((int) $r['lesson_id']);
+                  $rowQuiz = !empty($r['folder_id'])
+                    ? (course_folder_quizzes((int) $r['course_id'])[(int) $r['folder_id']] ?? null)
+                    : lesson_quiz((int) $r['lesson_id']);
                   foreach (($rowQuiz['questions'] ?? []) as $qi => $qq) { $qmap[(int) $qq['id']] = $qi + 1; }
                 ?>
                 <?php if ($r['answers']): foreach ($r['answers'] as $qid => $choice): ?>
@@ -110,7 +112,7 @@ require __DIR__ . '/header.php';
                 <?php endforeach; else: ?>
                   <p class="mt-1.5 text-slate-400">Detailed answers were not stored for this record.</p>
                 <?php endif; ?>
-                <a href="quiz.php?c=<?= (int) $r['course_id'] ?>&m=<?= (int) $r['lesson_id'] ?>" class="mt-2 inline-block font-semibold text-indigo-600 hover:underline">Open the quiz review →</a>
+                <a href="quiz.php?c=<?= (int) $r['course_id'] ?><?= !empty($r['folder_id']) ? '&amp;f=' . (int) $r['folder_id'] : '&amp;m=' . (int) $r['lesson_id'] ?>" class="mt-2 inline-block font-semibold text-indigo-600 hover:underline">Open the quiz review →</a>
               </div>
             </details>
           </td>

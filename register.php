@@ -145,14 +145,22 @@ require __DIR__ . '/header.php';
       </div>
       <div>
         <label class="block text-sm font-medium text-slate-700" for="password">Password</label>
-        <input id="password" name="password" type="password" required minlength="8" placeholder="Min 8 characters — UPPER + lowercase + number"
-               class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
+        <?php /* wrapper carries the mt-1 the input used to have, so the eye
+                 centres on the input alone — the hint below stays outside. */ ?>
+        <div class="lh-pw mt-1">
+          <input id="password" name="password" type="password" required minlength="8" placeholder="Min 8 characters — UPPER + lowercase + number"
+                 class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
+          <?= password_toggle_btn('password') ?>
+        </div>
         <p class="mt-1 text-xs text-slate-400">Strong passwords: at least 8 characters with an uppercase letter, a lowercase letter and a number.</p>
       </div>
       <div>
         <label class="block text-sm font-medium text-slate-700" for="password2">Confirm password</label>
-        <input id="password2" name="password2" type="password" required minlength="8" placeholder="Retype your password"
-               class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
+        <div class="lh-pw mt-1">
+          <input id="password2" name="password2" type="password" required minlength="8" placeholder="Retype your password"
+                 class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
+          <?= password_toggle_btn('password2') ?>
+        </div>
         <p id="password2-note" class="mt-1 text-xs text-slate-400">Type the same password again to be sure.</p>
       </div>
       <div style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden" aria-hidden="true">

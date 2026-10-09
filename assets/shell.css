@@ -442,6 +442,62 @@
       box-shadow: 0 0 0 4px rgba(5, 150, 105, .14)
     }
 
+    /* password fields: the show/hide eye sits INSIDE the input box (login,
+        register). The caller wraps the input in .lh-pw — that wrapper is what
+        the button is centred against, and it also buys the input room on the
+        right so text never runs under the eye (a padding-right here beats the
+        input's own px-4: higher specificity, and shell.css loads after
+        tailwind.min.css). The toggle itself is one delegated handler in
+        footer.php, keyed off the button's aria-pressed, so the icon and the
+        input's type can never disagree. */
+    .lh-pw {
+      position: relative
+    }
+
+    .lh-pw input {
+      padding-right: 2.75rem
+    }
+
+    .lh-pw-btn {
+      position: absolute;
+      right: 4px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border: 0;
+      border-radius: 9px;
+      background: transparent;
+      color: var(--lh-mut, #94a3b8);
+      cursor: pointer
+    }
+
+    .lh-pw-btn:hover {
+      color: var(--lh-ink, #334155)
+    }
+
+    .lh-pw-btn:focus-visible {
+      outline: 2px solid #10b981;
+      outline-offset: 1px
+    }
+
+    .lh-pw-btn svg {
+      display: block;
+      width: 18px;
+      height: 18px
+    }
+
+    .lh-pw-btn .lh-pw-eye-off,
+    .lh-pw-btn[aria-pressed="true"] .lh-pw-eye {
+      display: none
+    }
+
+    .lh-pw-btn[aria-pressed="true"] .lh-pw-eye-off {
+      display: block
+    }
+
     /* floating back-to-top */
     #lh-top {
       position: fixed;

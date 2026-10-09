@@ -479,6 +479,58 @@ function ui_density(): string
     return isset(ui_density_choices()[$key]) ? $key : UI_DENSITY_DEFAULT;
 }
 
+/** Visual treatment for the dashboard activity line charts. */
+function ui_chart_style_choices(): array
+{
+    return [
+        'area' => [
+            'Soft area',
+            'Keep the visits line lightly filled for an at-a-glance view of activity volume.',
+        ],
+        'points' => [
+            'Lines & points',
+            'Use clean unfilled lines with a marker for each day to make individual values easier to compare.',
+        ],
+        'smooth' => [
+            'Smooth curves',
+            'Use flowing curved lines without area fill for a softer view of activity trends.',
+        ],
+        'thin' => [
+            'Thin lines',
+            'Use a lightweight, minimal line stroke for a quieter chart with less visual weight.',
+        ],
+    ];
+}
+
+function ui_chart_style(): string
+{
+    $style = strtolower(trim(setting_get('ui_chart_style', '')));
+    return isset(ui_chart_style_choices()[$style]) ? $style : 'area';
+}
+
+/** Convert numeric chart points to a smooth cubic Bezier path. */
+function dashboard_chart_smooth_path(array $points): string
+{
+    if (!$points) return '';
+    $first = $points[0];
+    $path = 'M ' . $first[0] . ' ' . $first[1];
+    $count = count($points);
+    for ($i = 0; $i < $count - 1; $i++) {
+        $p0 = $points[max(0, $i - 1)];
+        $p1 = $points[$i];
+        $p2 = $points[$i + 1];
+        $p3 = $points[min($count - 1, $i + 2)];
+        $c1x = $p1[0] + ($p2[0] - $p0[0]) / 6;
+        $c1y = $p1[1] + ($p2[1] - $p0[1]) / 6;
+        $c2x = $p2[0] - ($p3[0] - $p1[0]) / 6;
+        $c2y = $p2[1] - ($p3[1] - $p1[1]) / 6;
+        $path .= ' C ' . round($c1x, 1) . ' ' . round($c1y, 1)
+            . ', ' . round($c2x, 1) . ' ' . round($c2y, 1)
+            . ', ' . $p2[0] . ' ' . $p2[1];
+    }
+    return $path;
+}
+
 /** Extra stylesheet for the chosen density, or '' when none applies. */
 function ui_density_file(): string
 {
@@ -791,6 +843,7 @@ function db(): PDO
         db_ensure_schema($pdo);
         db_migrate_legacy_json($pdo);
         db_seed_if_empty($pdo);
+        db_migrate_course_folders($pdo);
     } catch (Throwable $e) {
         /* Schema/seed problems (missing DDL privileges, hosting quota, a
            partially-created database, …) must never surface as the bare
@@ -824,9 +877,21 @@ function db_ensure_schema(PDO $pdo): void
             INDEX idx_courses_teacher (teacher_id),
             CONSTRAINT fk_courses_teacher FOREIGN KEY (teacher_id) REFERENCES users (id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        "CREATE TABLE IF NOT EXISTS course_folders (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            course_id INT UNSIGNED NOT NULL,
+            parent_id INT UNSIGNED NULL,
+            name VARCHAR(120) NOT NULL,
+            created_at INT UNSIGNED NOT NULL DEFAULT 0,
+            INDEX idx_course_folders_course (course_id),
+            INDEX idx_course_folders_parent (parent_id),
+            CONSTRAINT fk_course_folders_course FOREIGN KEY (course_id) REFERENCES courses (id) ON DELETE CASCADE,
+            CONSTRAINT fk_course_folders_parent FOREIGN KEY (parent_id) REFERENCES course_folders (id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
         "CREATE TABLE IF NOT EXISTS materials (
             id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
             course_id INT UNSIGNED NOT NULL,
+            folder_id INT UNSIGNED NULL,
             type ENUM('file','video','youtube') NOT NULL DEFAULT 'file',
             title VARCHAR(120) NOT NULL,
             description VARCHAR(200) NOT NULL DEFAULT '',
@@ -976,11 +1041,13 @@ function db_ensure_schema(PDO $pdo): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
         "CREATE TABLE IF NOT EXISTS quizzes (
             id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            material_id INT UNSIGNED NOT NULL UNIQUE,
+            material_id INT UNSIGNED NULL UNIQUE,
+            folder_id INT UNSIGNED NULL,
             title VARCHAR(120) NOT NULL,
             pass_score TINYINT UNSIGNED NOT NULL DEFAULT 60,
             created_at INT UNSIGNED NOT NULL DEFAULT 0,
-            CONSTRAINT fk_quiz_material FOREIGN KEY (material_id) REFERENCES materials (id) ON DELETE CASCADE
+            CONSTRAINT fk_quiz_material FOREIGN KEY (material_id) REFERENCES materials (id) ON DELETE CASCADE,
+            CONSTRAINT fk_quiz_folder FOREIGN KEY (folder_id) REFERENCES course_folders (id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
         "CREATE TABLE IF NOT EXISTS quiz_questions (
             id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -988,6 +1055,7 @@ function db_ensure_schema(PDO $pdo): void
             prompt VARCHAR(500) NOT NULL,
             options TEXT NOT NULL,
             correct TINYINT UNSIGNED NOT NULL DEFAULT 0,
+            option_explanations TEXT NULL,
             sort_order SMALLINT UNSIGNED NOT NULL DEFAULT 0,
             INDEX idx_quiz_questions_quiz (quiz_id),
             CONSTRAINT fk_qq_quiz FOREIGN KEY (quiz_id) REFERENCES quizzes (id) ON DELETE CASCADE
@@ -1172,7 +1240,56 @@ function db_schema_post_migrate(PDO $pdo): void
        sort_order lets a teacher move a batch (bulk.php) without renumbering rows;
        NULL means "just keep the id order", so existing courses are untouched. */
     db_ensure_column($pdo, 'materials', 'sort_order', 'ALTER TABLE materials ADD COLUMN sort_order INT NULL DEFAULT NULL AFTER size');
+    db_ensure_column($pdo, 'quiz_questions', 'option_explanations', 'ALTER TABLE quiz_questions ADD COLUMN option_explanations TEXT NULL AFTER correct');
+    db_drop_column_if_exists($pdo, 'quiz_questions', 'explanation');
     admin_ensure($pdo);
+}
+
+/** Add course folders to older databases and keep all existing lessons together. */
+function db_migrate_course_folders(PDO $pdo): void
+{
+    db_ensure_column($pdo, 'materials', 'folder_id', 'ALTER TABLE materials ADD COLUMN folder_id INT UNSIGNED NULL AFTER course_id');
+    db_ensure_column($pdo, 'quizzes', 'folder_id', 'ALTER TABLE quizzes ADD COLUMN folder_id INT UNSIGNED NULL AFTER material_id');
+    $hasColumn = static function (string $table, string $column) use ($pdo): bool {
+        $st = $pdo->prepare('SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?');
+        $st->execute([$table, $column]);
+        return (int) $st->fetchColumn() > 0;
+    };
+    if (!$hasColumn('materials', 'folder_id') || !$hasColumn('quizzes', 'folder_id')) {
+        throw new RuntimeException('The course-folder database columns could not be created.');
+    }
+    $nullable = $pdo->query("SELECT IS_NULLABLE FROM information_schema.COLUMNS
+                             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'quizzes' AND COLUMN_NAME = 'material_id'")
+        ->fetchColumn();
+    if (strtoupper((string) $nullable) !== 'YES') {
+        $pdo->exec('ALTER TABLE quizzes MODIFY material_id INT UNSIGNED NULL');
+    }
+
+    $indexExists = static function (string $table, string $index) use ($pdo): bool {
+        $st = $pdo->prepare('SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?');
+        $st->execute([$table, $index]);
+        return (int) $st->fetchColumn() > 0;
+    };
+    if (!$indexExists('materials', 'idx_materials_folder')) {
+        $pdo->exec('ALTER TABLE materials ADD INDEX idx_materials_folder (folder_id)');
+    }
+    if (!$indexExists('quizzes', 'uq_quizzes_folder')) {
+        $pdo->exec('ALTER TABLE quizzes ADD UNIQUE KEY uq_quizzes_folder (folder_id)');
+    }
+
+    $addRoots = $pdo->prepare('INSERT INTO course_folders (course_id, parent_id, name, created_at)
+                               SELECT c.id, NULL, ?, ? FROM courses c
+                               WHERE NOT EXISTS (SELECT 1 FROM course_folders f WHERE f.course_id = c.id AND f.parent_id IS NULL)');
+    $addRoots->execute(['Main folder', time()]);
+    $pdo->exec('UPDATE course_folders SET parent_id = NULL WHERE parent_id IS NOT NULL');
+    $pdo->exec('UPDATE materials m
+                LEFT JOIN course_folders assigned ON assigned.id = m.folder_id AND assigned.course_id = m.course_id
+                SET m.folder_id = NULL
+                WHERE m.folder_id IS NOT NULL AND assigned.id IS NULL');
+    $pdo->exec('UPDATE materials m
+                JOIN course_folders f ON f.course_id = m.course_id AND f.parent_id IS NULL
+                SET m.folder_id = f.id
+                WHERE m.folder_id IS NULL');
 }
 
 /** Run one ADD COLUMN when that column is genuinely missing (old installs). */
@@ -1185,6 +1302,17 @@ function db_ensure_column(PDO $pdo, string $table, string $column, string $sql):
         if ((int) $st->fetchColumn() > 0) return;
         $pdo->exec($sql);
     } catch (Throwable $e) { /* best-effort; fresh installs already carry the column */ }
+}
+
+/** Remove a retired column from existing databases when it is present. */
+function db_drop_column_if_exists(PDO $pdo, string $table, string $column): void
+{
+    $st = $pdo->prepare('SELECT COUNT(*) FROM information_schema.COLUMNS
+                         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?');
+    $st->execute([$table, $column]);
+    if ((int) $st->fetchColumn() > 0) {
+        $pdo->exec('ALTER TABLE `' . str_replace('`', '``', $table) . '` DROP COLUMN `' . str_replace('`', '``', $column) . '`');
+    }
 }
 
 /** Guarantee a main-admin account exists. Credentials are written to data/admin-credentials.txt (web-blocked). */
@@ -1416,6 +1544,134 @@ function create_user(string $name, string $email, string $passwordHash, string $
 
 /* ---------------- courses (read) ---------------- */
 
+function main_course_folder(int $courseId): ?array
+{
+    $st = db()->prepare('SELECT * FROM course_folders WHERE course_id = ? AND parent_id IS NULL ORDER BY id LIMIT 1');
+    $st->execute([$courseId]);
+    return $st->fetch() ?: null;
+}
+
+function course_folder_row(int $courseId, int $folderId): ?array
+{
+    $st = db()->prepare('SELECT * FROM course_folders WHERE id = ? AND course_id = ? LIMIT 1');
+    $st->execute([$folderId, $courseId]);
+    return $st->fetch() ?: null;
+}
+
+function course_folders(int $courseId): array
+{
+    $st = db()->prepare('SELECT * FROM course_folders WHERE course_id = ? ORDER BY parent_id IS NOT NULL, name, id');
+    $st->execute([$courseId]);
+    return $st->fetchAll();
+}
+
+/** Ensure a course has its main folder and put any unassigned lessons inside it. */
+function ensure_course_main_folder(int $courseId): int
+{
+    $st = db()->prepare('SELECT id FROM course_folders WHERE course_id = ? AND parent_id IS NULL ORDER BY id LIMIT 1');
+    $st->execute([$courseId]);
+    $folderId = (int) ($st->fetchColumn() ?: 0);
+    if ($folderId <= 0) {
+        db()->prepare('INSERT INTO course_folders (course_id, parent_id, name, created_at) VALUES (?,NULL,?,?)')
+            ->execute([$courseId, 'Main folder', time()]);
+        $folderId = (int) db()->lastInsertId();
+    }
+    db()->prepare('UPDATE materials m
+                   LEFT JOIN course_folders assigned ON assigned.id = m.folder_id AND assigned.course_id = m.course_id
+                   SET m.folder_id = ?
+                   WHERE m.course_id = ? AND (m.folder_id IS NULL OR assigned.id IS NULL)')
+        ->execute([$folderId, $courseId]);
+    return $folderId;
+}
+
+function create_course_folder(int $courseId, string $name): int
+{
+    $name = cut(trim($name), 120);
+    if ($name === '') throw new RuntimeException('Give the folder a name.');
+    db()->prepare('INSERT INTO course_folders (course_id, parent_id, name, created_at) VALUES (?,NULL,?,?)')
+        ->execute([$courseId, $name, time()]);
+    return (int) db()->lastInsertId();
+}
+
+function rename_course_folder(int $courseId, int $folderId, string $name): bool
+{
+    if (!course_folder_row($courseId, $folderId)) return false;
+    $name = cut(trim($name), 120);
+    if ($name === '') throw new RuntimeException('Give the folder a name.');
+    db()->prepare('UPDATE course_folders SET name = ? WHERE id = ? AND course_id = ?')
+        ->execute([$name, $folderId, $courseId]);
+    return true;
+}
+
+/** Delete a course folder, its lessons, quizzes, and return uploaded files for cleanup. */
+function delete_course_folder(int $courseId, int $folderId): ?array
+{
+    if (!course_folder_row($courseId, $folderId)) return null;
+
+    $children = db()->prepare('SELECT id FROM course_folders WHERE course_id = ? AND parent_id = ?');
+    $children->execute([$courseId, $folderId]);
+    $folderIds = array_merge([$folderId], array_map('intval', $children->fetchAll(PDO::FETCH_COLUMN)));
+    $in = implode(',', array_fill(0, count($folderIds), '?'));
+    $params = array_merge([$courseId], $folderIds);
+    $pdo = db();
+    $pdo->beginTransaction();
+    try {
+        $files = $pdo->prepare("SELECT filename FROM materials
+                                WHERE course_id = ? AND folder_id IN ($in)
+                                  AND type IN ('file','video') AND filename IS NOT NULL");
+        $files->execute($params);
+        $filenames = array_values(array_filter(array_map('strval', $files->fetchAll(PDO::FETCH_COLUMN))));
+
+        $pdo->prepare("DELETE FROM materials WHERE course_id = ? AND folder_id IN ($in)")->execute($params);
+        $pdo->prepare("DELETE FROM course_folders WHERE course_id = ? AND id IN ($in)")->execute($params);
+        $pdo->commit();
+        return $filenames;
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $e;
+    }
+}
+
+/** Folder completion is based only on lessons assigned directly to that folder. */
+function course_folder_progress(int $folderId, int $userId): array
+{
+    $st = db()->prepare('SELECT id FROM course_folders WHERE id = ? LIMIT 1');
+    $st->execute([$folderId]);
+    $folder = $st->fetch();
+    if (!$folder) return ['total' => 0, 'done' => 0, 'pct' => 0];
+
+    $counts = db()->prepare('SELECT COUNT(*) AS total, SUM(p.material_id IS NOT NULL) AS done
+                             FROM materials m LEFT JOIN progress p ON p.material_id = m.id AND p.user_id = ?
+                             WHERE m.folder_id = ?');
+    $counts->execute([$userId, $folderId]);
+    $row = $counts->fetch() ?: ['total' => 0, 'done' => 0];
+    $total = (int) $row['total'];
+    $done = (int) $row['done'];
+    $pct = $total === 0 ? 0 : ($done >= $total ? 100 : min(99, (int) round(100 * $done / $total)));
+    return ['total' => $total, 'done' => $done, 'pct' => $pct];
+}
+
+/** Batch folder progress for the course page; each folder counts only its own lessons. */
+function course_folder_progress_map(int $courseId, int $userId): array
+{
+    $st = db()->prepare('SELECT f.id, COUNT(DISTINCT m.id) AS total,
+                                COUNT(DISTINCT CASE WHEN p.material_id IS NOT NULL THEN m.id END) AS done
+                         FROM course_folders f
+                         LEFT JOIN materials m ON m.folder_id = f.id
+                         LEFT JOIN progress p ON p.material_id = m.id AND p.user_id = ?
+                         WHERE f.course_id = ?
+                         GROUP BY f.id');
+    $st->execute([$userId, $courseId]);
+    $out = [];
+    foreach ($st->fetchAll() as $row) {
+        $total = (int) $row['total'];
+        $done = (int) $row['done'];
+        $pct = $total === 0 ? 0 : ($done >= $total ? 100 : min(99, (int) round(100 * $done / $total)));
+        $out[(int) $row['id']] = ['total' => $total, 'done' => $done, 'pct' => $pct];
+    }
+    return $out;
+}
+
 /** All courses with nested materials / enrolled ids / progress map (same shape the pages already use). */
 function load_courses(): array
 {
@@ -1425,11 +1681,16 @@ function load_courses(): array
     $byId = [];
     foreach ($courses as &$c) {
         $c['materials'] = [];
+        $c['folders'] = [];
         $c['enrolled'] = [];
         $c['progress'] = [];
         $byId[(int) $c['id']] = &$c;
     }
     unset($c);
+
+    foreach (db()->query('SELECT * FROM course_folders ORDER BY parent_id IS NOT NULL, name, id')->fetchAll() as $folder) {
+        if (isset($byId[(int) $folder['course_id']])) $byId[(int) $folder['course_id']]['folders'][] = $folder;
+    }
 
     /* Lessons a teacher has never reordered (sort_order NULL) keep the old id
        order; once any lesson in the course is ordered, that column decides. This
@@ -1810,6 +2071,28 @@ function turnstile_field(): string
         . '<div class="cf-turnstile mt-1" data-sitekey="' . e(turnstile_cfg()['site']) . '" data-theme="light"></div>'
         . '<p class="mt-1 text-xs text-slate-400">Protected by Cloudflare Turnstile — it usually checks you silently, with no puzzle to solve.</p>'
         . '</div>';
+}
+
+/** The show/hide eye for ONE password field. It sits INSIDE the input box, so
+ *  the caller wraps the input in <div class="lh-pw mt-1"> and prints this right
+ *  after the input — shell.css positions it, and footer.php's single delegated
+ *  handler does the toggling (keys off aria-pressed, so the icon and the input
+ *  type stay in step). type="button" on purpose: the eye must never submit the
+ *  form it lives in, and nothing here touches the CSRF field or the inputs. */
+function password_toggle_btn(string $inputId): string
+{
+    $eye = '<svg class="lh-pw-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+        . 'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+        . '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+    $eyeOff = '<svg class="lh-pw-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+        . 'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+        . '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>'
+        . '<path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>'
+        . '<path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/>'
+        . '<line x1="1" y1="1" x2="23" y2="23"/></svg>';
+    return '<button type="button" class="lh-pw-btn" data-lh-pw-toggle="' . e($inputId) . '"'
+        . ' aria-pressed="false" aria-label="Show password" title="Show password">'
+        . $eye . $eyeOff . '</button>';
 }
 
 /* ---------------- registration: human check ---------------- */
@@ -2781,6 +3064,7 @@ function append_upload_chunk(string $partPath, string $tmpName): int
 function receive_upload_chunk(array $user, array $in, array $file): array
 {
     $courseId  = (int) ($in['course_id'] ?? 0);
+    $folderId  = (int) ($in['folder_id'] ?? 0);
     $isVideo   = ((string) ($in['lesson_type'] ?? 'video')) !== 'document';
     $uploadId  = strtolower(trim((string) ($in['upload_id'] ?? '')));
     $index     = (int) ($in['index'] ?? -1);
@@ -2799,6 +3083,7 @@ function receive_upload_chunk(array $user, array $in, array $file): array
     if ((int) $course['teacher_id'] !== (int) $user['id']) {
         throw new RuntimeException('You can only add lessons to your own courses.');
     }
+    if (!course_folder_row($courseId, $folderId)) throw new RuntimeException('Choose a folder in this course.');
 
     /* --- shape of the request ------------------------------------------- */
     if (!preg_match('/^[a-f0-9]{32}$/', $uploadId)) throw new RuntimeException('Invalid upload id — please reload the page and try again.');
@@ -2821,7 +3106,7 @@ function receive_upload_chunk(array $user, array $in, array $file): array
     if ($pieceBytes > $chunkSize) throw new RuntimeException('Invalid upload (piece too large).');
 
     return receive_upload_chunk_store($uploadId, $index, $total, $size, $chunkSize, $fileIndex, $fileCount,
-        $title, $desc, $name, $ext, $isVideo, $courseId, $file);
+        $title, $desc, $name, $ext, $isVideo, $courseId, $folderId, $file);
 }
 
 /** Assemble a chunked upload: append the piece, and on the last one publish the lesson. */
@@ -2839,6 +3124,7 @@ function receive_upload_chunk_store(
     string $ext,
     bool $isVideo,
     int $courseId,
+    int $folderId,
     array $file
 ): array {
     $parts = upload_parts_dir();
@@ -2898,7 +3184,7 @@ function receive_upload_chunk_store(
         'orig'   => $name,
         'mime'   => mime_for_ext($ext),
         'size'   => $size,
-    ]);
+    ], null, $folderId);
 
     /* real event -> notification for every enrolled student (same copy as
        upload.php). The chunked path publishes documents & videos and used to
@@ -3052,9 +3338,20 @@ function ensure_storage(): void
 
 function create_course(int $teacherId, string $title, string $category, string $description): int
 {
-    db()->prepare('INSERT INTO courses (teacher_id, title, category, description, created_at) VALUES (?,?,?,?,?)')
-        ->execute([$teacherId, $title, $category !== '' ? $category : 'General', $description, time()]);
-    return (int) db()->lastInsertId();
+    $pdo = db();
+    $pdo->beginTransaction();
+    try {
+        $pdo->prepare('INSERT INTO courses (teacher_id, title, category, description, created_at) VALUES (?,?,?,?,?)')
+            ->execute([$teacherId, $title, $category !== '' ? $category : 'General', $description, time()]);
+        $courseId = (int) $pdo->lastInsertId();
+        $pdo->prepare('INSERT INTO course_folders (course_id, parent_id, name, created_at) VALUES (?,NULL,?,?)')
+            ->execute([$courseId, 'Main folder', time()]);
+        $pdo->commit();
+        return $courseId;
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $e;
+    }
 }
 
 /** Delete a course (cascades to materials, enrollments, progress) and return its stored file names for cleanup. */
@@ -3083,11 +3380,17 @@ function delete_uploaded_file(string $filename): bool
     return !is_file($path);
 }
 
-function add_material(int $courseId, string $type, string $title, string $description, ?array $file = null, ?string $url = null): int
+function add_material(int $courseId, string $type, string $title, string $description, ?array $file = null, ?string $url = null, ?int $folderId = null): int
 {
-    db()->prepare('INSERT INTO materials (course_id, type, title, description, filename, orig_name, mime, size, url, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)')
+    if ($folderId === null) {
+        $folder = main_course_folder($courseId);
+        if (!$folder) throw new RuntimeException('This course does not have a main folder yet.');
+        $folderId = (int) $folder['id'];
+    }
+    if (!course_folder_row($courseId, $folderId)) throw new RuntimeException('Choose a folder in this course.');
+    db()->prepare('INSERT INTO materials (course_id, folder_id, type, title, description, filename, orig_name, mime, size, url, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
         ->execute([
-            $courseId, $type, $title, $description,
+            $courseId, $folderId, $type, $title, $description,
             $file['stored'] ?? null, $file['orig'] ?? null, $file['mime'] ?? null, $file['size'] ?? null,
             $url, time(),
         ]);
@@ -3616,6 +3919,26 @@ function delete_enroll_code(int $teacherId, int $codeId): bool
     return $st->rowCount() > 0;
 }
 
+/** Every invitation code on the site, newest first, with course + that course's teacher (main admin). */
+function admin_enroll_codes(): array
+{
+    return db()->query('SELECT ec.id, ec.code, ec.course_id, ec.created_at, ec.used_at, ec.used_by,
+                        c.title AS course_title, u.name AS teacher_name, u2.name AS used_by_name
+                        FROM enroll_codes ec
+                        JOIN courses c ON c.id = ec.course_id
+                        LEFT JOIN users u ON u.id = ec.teacher_id
+                        LEFT JOIN users u2 ON u2.id = ec.used_by
+                        ORDER BY ec.id DESC LIMIT 100')->fetchAll();
+}
+
+/** Revoke any unused code — the admin is not limited to one teacher's codes. */
+function delete_enroll_code_admin(int $codeId): bool
+{
+    $st = db()->prepare('DELETE FROM enroll_codes WHERE id = ? AND used_by IS NULL');
+    $st->execute([$codeId]);
+    return $st->rowCount() > 0;
+}
+
 /* ---------------- teacher access codes (main admin) ---------------- */
 
 function teacher_code_lookup(string $code): ?array
@@ -3825,6 +4148,42 @@ function admin_course_overview(): array
                         LIMIT 200')->fetchAll();
 }
 
+/** Every teacher with their courses and ALL their lessons nested — the admin's
+ *  "lessons by teacher" page (admin_lessons.php). Three things shape it:
+ *  - the course/lesson lists come from load_courses(), so the lesson ORDER is
+ *    the same one the course page, the offline bundle and bulk.php use (the
+ *    sort_order rule lives in that one function, on purpose);
+ *  - teachers who have not created a course yet still appear with an empty
+ *    list, because "every teacher" is the whole point of this view;
+ *  - a non-teacher account that owns a course is included too (the WHERE keeps
+ *    any course owner), so no lesson can hide behind a role label.
+ *  Read-only: it reports what exists — opening lesson CONTENT stays where the
+ *  app has always put it (the owning teacher and the enrolled students). */
+function admin_lessons_by_teacher(): array
+{
+    $byId = [];
+    $st = db()->query("SELECT u.id, u.name, u.avatar FROM users u
+                       WHERE u.role = 'teacher'
+                          OR EXISTS (SELECT 1 FROM courses c WHERE c.teacher_id = u.id)
+                       ORDER BY u.name ASC, u.id ASC");
+    foreach ($st->fetchAll() as $t) {
+        $byId[(int) $t['id']] = [
+            'id'      => (int) $t['id'],
+            'name'    => (string) $t['name'],
+            'avatar'  => (string) ($t['avatar'] ?? ''),
+            'courses' => [],
+            'lessons' => 0,
+        ];
+    }
+    foreach (load_courses() as $c) {
+        $tid = (int) ($c['teacher_id'] ?? 0);
+        if (!isset($byId[$tid])) continue;      /* orphaned owner: nothing to attach to */
+        $byId[$tid]['courses'][] = $c;
+        $byId[$tid]['lessons'] += count($c['materials'] ?? []);
+    }
+    return array_values($byId);
+}
+
 /** Users currently online (heartbeat within PRESENCE_TIMEOUT), newest heartbeat first.
  *  u.avatar comes along so an online list can print a real circle through
  *  user_peer_avatar_html() instead of drawing the initial itself. */
@@ -3893,7 +4252,10 @@ function lesson_quiz(int $materialId, bool $withAnswers = false): ?array
     $questions = [];
     foreach ($q->fetchAll() as $row) {
         $item = ['id' => (int) $row['id'], 'prompt' => (string) $row['prompt'], 'options' => json_decode((string) $row['options'], true) ?: []];
-        if ($withAnswers) $item['correct'] = (int) $row['correct'];
+        if ($withAnswers) {
+            $item['correct'] = (int) $row['correct'];
+            $item['option_explanations'] = json_decode((string) ($row['option_explanations'] ?? ''), true) ?: [];
+        }
         $questions[] = $item;
     }
     $quiz['id'] = (int) $quiz['id'];
@@ -3916,7 +4278,10 @@ function course_quizzes(int $courseId, bool $withAnswers = false): array
     $q->execute(array_keys($quizzes));
     foreach ($q->fetchAll() as $row) {
         $item = ['id' => (int) $row['id'], 'prompt' => (string) $row['prompt'], 'options' => json_decode((string) $row['options'], true) ?: []];
-        if ($withAnswers) $item['correct'] = (int) $row['correct'];
+        if ($withAnswers) {
+            $item['correct'] = (int) $row['correct'];
+            $item['option_explanations'] = json_decode((string) ($row['option_explanations'] ?? ''), true) ?: [];
+        }
         $quizzes[(int) $row['quiz_id']]['questions'][] = $item;
     }
     $out = [];
@@ -3930,9 +4295,50 @@ function course_quizzes(int $courseId, bool $withAnswers = false): array
     return $out;
 }
 
-/** Create or fully replace the quiz of a lesson. $questions: [['prompt','options'=>[...],'correct'=>int],...] */
+/** Folder quizzes keyed by folder id. */
+function course_folder_quizzes(int $courseId, bool $withAnswers = false): array
+{
+    $st = db()->prepare('SELECT q.* FROM quizzes q JOIN course_folders f ON f.id = q.folder_id WHERE f.course_id = ? ORDER BY q.id');
+    $st->execute([$courseId]);
+    $quizzes = [];
+    foreach ($st->fetchAll() as $quiz) $quizzes[(int) $quiz['folder_id']] = $quiz;
+    if (!$quizzes) return [];
+    $in = implode(',', array_fill(0, count($quizzes), '?'));
+    $q = db()->prepare("SELECT * FROM quiz_questions WHERE quiz_id IN ($in) ORDER BY sort_order, id");
+    $q->execute(array_keys($quizzes));
+    foreach ($q->fetchAll() as $row) {
+        $item = ['id' => (int) $row['id'], 'prompt' => (string) $row['prompt'], 'options' => json_decode((string) $row['options'], true) ?: []];
+        if ($withAnswers) {
+            $item['correct'] = (int) $row['correct'];
+            $item['option_explanations'] = json_decode((string) ($row['option_explanations'] ?? ''), true) ?: [];
+        }
+        $quizzes[(int) $row['quiz_id']]['questions'][] = $item;
+    }
+    foreach ($quizzes as &$quiz) {
+        $quiz['id'] = (int) $quiz['id'];
+        $quiz['folder_id'] = (int) $quiz['folder_id'];
+        $quiz['pass_score'] = (int) $quiz['pass_score'];
+        $quiz['questions'] = $quiz['questions'] ?? [];
+    }
+    unset($quiz);
+    return $quizzes;
+}
+
+/** Create or fully replace the quiz of a lesson. $questions include prompt, options, correct and optional answer explanations. */
 function save_quiz(int $materialId, string $title, int $passScore, array $questions): int
 {
+    return save_quiz_for('material_id', $materialId, $title, $passScore, $questions);
+}
+
+function save_folder_quiz(int $folderId, string $title, int $passScore, array $questions): int
+{
+    return save_quiz_for('folder_id', $folderId, $title, $passScore, $questions);
+}
+
+/** Shared validator and persistence for the two supported quiz owners. */
+function save_quiz_for(string $ownerColumn, int $ownerId, string $title, int $passScore, array $questions): int
+{
+    if (!in_array($ownerColumn, ['material_id', 'folder_id'], true)) throw new InvalidArgumentException('Invalid quiz owner.');
     $title = cut(trim($title), 120);
     if ($title === '') throw new RuntimeException('Give the quiz a title.');
     $passScore = max(10, min(100, $passScore));
@@ -3943,32 +4349,39 @@ function save_quiz(int $materialId, string $title, int $passScore, array $questi
         $prompt = cut(trim((string) ($q['prompt'] ?? '')), 500);
         if ($prompt === '') throw new RuntimeException('Question #' . ($i + 1) . ' has no text.');
         $opts = [];
-        foreach ((array) ($q['options'] ?? []) as $opt) {
+        $optionExplanations = [];
+        $rawCorrect = (int) ($q['correct'] ?? 0);
+        $correct = -1;
+        $rawOptions = array_values((array) ($q['options'] ?? []));
+        $rawOptionExplanations = array_values((array) ($q['option_explanations'] ?? []));
+        foreach (array_slice($rawOptions, 0, 4) as $rawIndex => $opt) {
             $opt = cut(trim((string) $opt), 200);
-            if ($opt !== '') $opts[] = $opt;
+            if ($opt !== '') {
+                if ($rawIndex === $rawCorrect) $correct = count($opts);
+                $opts[] = $opt;
+                $optionExplanations[] = cut(trim((string) ($rawOptionExplanations[$rawIndex] ?? '')), 1000);
+            }
         }
         if (count($opts) < 2) throw new RuntimeException('Question #' . ($i + 1) . ' needs at least two answer options.');
-        if (count($opts) > 4) $opts = array_slice($opts, 0, 4);
-        $correct = (int) ($q['correct'] ?? 0);
         if ($correct < 0 || $correct >= count($opts)) throw new RuntimeException('Question #' . ($i + 1) . ': mark which option is the correct one.');
-        $clean[] = ['prompt' => $prompt, 'options' => $opts, 'correct' => $correct];
+        $clean[] = ['prompt' => $prompt, 'options' => $opts, 'correct' => $correct, 'option_explanations' => $optionExplanations];
     }
     $db = db();
     $db->beginTransaction();
     try {
         // fresh quiz = fresh single attempt: wipe any abandoned in-progress answers
-        $q = $db->prepare('SELECT id FROM quizzes WHERE material_id = ? LIMIT 1');
-        $q->execute([$materialId]);
+        $q = $db->prepare("SELECT id FROM quizzes WHERE $ownerColumn = ? LIMIT 1");
+        $q->execute([$ownerId]);
         foreach ($q->fetchAll(PDO::FETCH_COLUMN) as $oldQuizId) {
             $db->prepare('DELETE FROM quiz_progress WHERE quiz_id = ?')->execute([(int) $oldQuizId]);
         }
-        delete_quiz($materialId);
-        $db->prepare('INSERT INTO quizzes (material_id, title, pass_score, created_at) VALUES (?,?,?,?)')
-            ->execute([$materialId, $title, $passScore, time()]);
+        $db->prepare("DELETE FROM quizzes WHERE $ownerColumn = ?")->execute([$ownerId]);
+        $db->prepare("INSERT INTO quizzes ($ownerColumn, title, pass_score, created_at) VALUES (?,?,?,?)")
+            ->execute([$ownerId, $title, $passScore, time()]);
         $quizId = (int) $db->lastInsertId();
-        $ins = $db->prepare('INSERT INTO quiz_questions (quiz_id, prompt, options, correct, sort_order) VALUES (?,?,?,?,?)');
+        $ins = $db->prepare('INSERT INTO quiz_questions (quiz_id, prompt, options, correct, option_explanations, sort_order) VALUES (?,?,?,?,?,?)');
         foreach ($clean as $i => $q) {
-            $ins->execute([$quizId, $q['prompt'], json_encode($q['options'], JSON_UNESCAPED_UNICODE), $q['correct'], $i]);
+            $ins->execute([$quizId, $q['prompt'], json_encode($q['options'], JSON_UNESCAPED_UNICODE), $q['correct'], json_encode($q['option_explanations'], JSON_UNESCAPED_UNICODE), $i]);
         }
         $db->commit();
     } catch (Throwable $e) {
@@ -3983,6 +4396,13 @@ function delete_quiz(int $materialId): bool
 {
     $st = db()->prepare('DELETE FROM quizzes WHERE material_id = ?');
     $st->execute([$materialId]);
+    return $st->rowCount() > 0;
+}
+
+function delete_folder_quiz(int $folderId): bool
+{
+    $st = db()->prepare('DELETE FROM quizzes WHERE folder_id = ?');
+    $st->execute([$folderId]);
     return $st->rowCount() > 0;
 }
 
@@ -4065,8 +4485,11 @@ function finalize_quiz(int $quizId, int $userId): ?array
 
     // lock titles at completion time; UNIQUE(quiz_id,user_id) makes double-finalization harmless
     db()->prepare('INSERT INTO quiz_results (quiz_id, user_id, lesson_id, quiz_title, lesson_title, correct, total, percentage, status, answers, created_at)
-                   SELECT q.id, ?, q.material_id, q.title, m.title, ?, ?, ?, ?, ?, ?
-                   FROM quizzes q JOIN materials m ON m.id = q.material_id WHERE q.id = ?
+                   SELECT q.id, ?, q.material_id, q.title, COALESCE(m.title, f.name), ?, ?, ?, ?, ?, ?
+                   FROM quizzes q
+                   LEFT JOIN materials m ON m.id = q.material_id
+                   LEFT JOIN course_folders f ON f.id = q.folder_id
+                   WHERE q.id = ?
                    ON DUPLICATE KEY UPDATE correct = VALUES(correct), total = VALUES(total), percentage = VALUES(percentage), status = VALUES(status), answers = VALUES(answers), created_at = VALUES(created_at)')
         ->execute([$userId, $correct, $total, $percentage, $status, json_encode($answers, JSON_UNESCAPED_UNICODE), time(), $quizId]);
     clear_quiz_progress($quizId, $userId);
@@ -4077,18 +4500,20 @@ function finalize_quiz(int $quizId, int $userId): ?array
         $status === 'PASSED' ? '🏆 Quiz passed: ' . (string) $quiz['title'] : '📝 Quiz result: ' . (string) $quiz['title'],
         "You scored {$correct}/{$total} ({$pctTxt}%) — " . ($status === 'PASSED' ? 'passed!' : 'not passed yet.'),
         'my_records.php');
-    send_quiz_result_email($userId, (string) ($quiz['title'] ?? 'the quiz'), $result); // e-mail the student their result
-    return quiz_result_for($quizId, $userId);
+    $result = quiz_result_for($quizId, $userId);
+    if ($result !== null) send_quiz_result_email($userId, (string) ($quiz['title'] ?? 'the quiz'), $result);
+    return $result;
 }
 
 /** All quiz results of one student, newest first (course + lesson titles joined). */
 function student_quiz_records(int $userId): array
 {
-    $st = db()->prepare('SELECT qr.*, c.title AS course_title, c.id AS course_id
+    $st = db()->prepare('SELECT qr.*, c.title AS course_title, c.id AS course_id, q.folder_id AS folder_id
                          FROM quiz_results qr
                          JOIN quizzes q ON q.id = qr.quiz_id
-                         JOIN materials m ON m.id = q.material_id
-                         JOIN courses c ON c.id = m.course_id
+                         LEFT JOIN materials m ON m.id = q.material_id
+                         LEFT JOIN course_folders f ON f.id = q.folder_id
+                         JOIN courses c ON c.id = COALESCE(m.course_id, f.course_id)
                          WHERE qr.user_id = ?
                          ORDER BY qr.created_at DESC, qr.id DESC');
     $st->execute([$userId]);
@@ -4098,6 +4523,7 @@ function student_quiz_records(int $userId): array
         $r['quiz_id'] = (int) $r['quiz_id'];
         $r['lesson_id'] = (int) $r['lesson_id'];
         $r['course_id'] = (int) $r['course_id'];
+        $r['folder_id'] = $r['folder_id'] === null ? null : (int) $r['folder_id'];
         $r['correct'] = (int) $r['correct'];
         $r['total'] = (int) $r['total'];
         $r['percentage'] = (float) $r['percentage'];
@@ -4111,11 +4537,12 @@ function student_quiz_records(int $userId): array
 /** All quiz results for the quizzes a teacher owns, newest first (student names joined). */
 function teacher_quiz_records(int $teacherId): array
 {
-    $st = db()->prepare('SELECT qr.*, u.name AS student_name, c.title AS course_title, c.id AS course_id, q.material_id AS material_id
+    $st = db()->prepare('SELECT qr.*, u.name AS student_name, c.title AS course_title, c.id AS course_id, q.material_id AS material_id, q.folder_id AS folder_id
                          FROM quiz_results qr
                          JOIN quizzes q ON q.id = qr.quiz_id
-                         JOIN materials m ON m.id = q.material_id
-                         JOIN courses c ON c.id = m.course_id
+                         LEFT JOIN materials m ON m.id = q.material_id
+                         LEFT JOIN course_folders f ON f.id = q.folder_id
+                         JOIN courses c ON c.id = COALESCE(m.course_id, f.course_id)
                          JOIN users u ON u.id = qr.user_id
                          WHERE c.teacher_id = ?
                          ORDER BY qr.created_at DESC, qr.id DESC');
@@ -4126,7 +4553,8 @@ function teacher_quiz_records(int $teacherId): array
         $r['quiz_id'] = (int) $r['quiz_id'];
         $r['lesson_id'] = (int) $r['lesson_id'];
         $r['course_id'] = (int) $r['course_id'];
-        $r['material_id'] = (int) $r['material_id'];
+        $r['material_id'] = $r['material_id'] === null ? null : (int) $r['material_id'];
+        $r['folder_id'] = $r['folder_id'] === null ? null : (int) $r['folder_id'];
         $r['correct'] = (int) $r['correct'];
         $r['total'] = (int) $r['total'];
         $r['percentage'] = (float) $r['percentage'];
@@ -4154,30 +4582,53 @@ function quiz_records_summary(array $rows): array
 /**
  * THE quiz gate — one rule for every quiz endpoint:
  * the owning teacher may always open a quiz (preview); everyone else must be
- * enrolled AND have completed the lesson before the quiz is accessible.
- * Returns [course, quiz (with answers), isOwner]; exits with a friendly page otherwise.
+ * enrolled AND have completed the lesson or folder the quiz is attached to.
+ * The main admin passes this gate too — treated exactly like the owner, i.e. a
+ * read-only preview (answers highlighted) that quiz_answer.php refuses to
+ * record, same split as every other teacher gate in the app.
+ * Returns [course, quiz (with answers), isOwner, folder]; exits with a friendly page otherwise.
  */
-function require_quiz_access(int $userId, int $courseId, int $materialId): array
+function require_quiz_access(int $userId, int $courseId, int $materialId, int $folderId = 0): array
 {
     $course = course_row($courseId);
     if (!$course) {
         quiz_gate_page(404, '📘', 'Course not found', 'This course does not exist (or was deleted).', 'courses.php', 'Back to courses');
     }
     $isOwner = (int) $course['teacher_id'] === $userId;
+    if (!$isOwner) {
+        $me = current_user();
+        if ($me !== null && (int) ($me['id'] ?? 0) === $userId && ($me['role'] ?? '') === 'admin') {
+            $isOwner = true;
+        }
+    }
     if (!$isOwner && !is_enrolled_id($courseId, $userId)) {
-        quiz_gate_page(403, '🔒', 'Not enrolled', 'Enroll in this course to open its lesson quizzes.', 'course.php?id=' . $courseId, 'Back to the course');
+        quiz_gate_page(403, '🔒', 'Not enrolled', 'Enroll in this course to open its folder and lesson quizzes.', 'course.php?id=' . $courseId, 'Back to the course');
     }
-    if (!course_material_exists($courseId, $materialId)) {
-        quiz_gate_page(404, '🧪', 'Lesson not found', 'This lesson does not exist (or was deleted).', 'course.php?id=' . $courseId, 'Back to the course');
+    $folder = null;
+    if ($folderId > 0 && $materialId === 0) {
+        $folder = course_folder_row($courseId, $folderId);
+        if (!$folder) quiz_gate_page(404, '📁', 'Folder not found', 'This folder does not exist (or was deleted).', 'course.php?id=' . $courseId, 'Back to the course');
+        $folderQuizzes = course_folder_quizzes($courseId, true);
+        $quiz = $folderQuizzes[$folderId] ?? null;
+    } elseif ($materialId > 0 && $folderId === 0 && course_material_exists($courseId, $materialId)) {
+        $quiz = lesson_quiz($materialId, true);
+    } else {
+        quiz_gate_page(404, '🧪', 'Quiz not found', 'This quiz does not exist (or was deleted).', 'course.php?id=' . $courseId, 'Back to the course');
     }
-    $quiz = lesson_quiz($materialId, true);
     if (!$quiz || !$quiz['questions']) {
-        quiz_gate_page(404, '🧪', 'No quiz assigned', 'The teacher has not assigned a quiz to this lesson yet.', 'course.php?id=' . $courseId, 'Back to the course');
+        quiz_gate_page(404, '🧪', 'No quiz assigned', 'The teacher has not assigned a quiz to this folder or lesson yet.', 'course.php?id=' . $courseId, 'Back to the course');
     }
-    if (!$isOwner && !material_completed($userId, $materialId)) {
-        quiz_gate_page(403, '🔒', 'Quiz locked', 'Finish the lesson first — the quiz unlocks as soon as the lesson is marked completed.', 'course.php?id=' . $courseId, 'Back to the course');
+    if (!$isOwner && $folderId > 0) {
+        $folderProgress = course_folder_progress($folderId, $userId);
+        if ($folderProgress['total'] === 0 || $folderProgress['pct'] < 100) {
+            quiz_gate_page(403, '🔒', 'Quiz locked', 'Complete every lesson in this folder (100%) to unlock its quiz.', 'course.php?id=' . $courseId, 'Back to the course');
+        }
+    } elseif (!$isOwner) {
+        if (!material_completed($userId, $materialId)) {
+            quiz_gate_page(403, '🔒', 'Quiz locked', 'Complete this lesson to unlock its quiz.', 'course.php?id=' . $courseId, 'Back to the course');
+        }
     }
-    return ['course' => $course, 'quiz' => $quiz, 'isOwner' => $isOwner];
+    return ['course' => $course, 'quiz' => $quiz, 'isOwner' => $isOwner, 'folder' => $folder];
 }
 
 /** Friendly blocked/missing page used by the quiz gate. */
@@ -4201,6 +4652,7 @@ function quiz_gate_page(int $code, string $icon, string $title, string $msg, str
 function quiz_question_row_html(?array $q, int $num): string
 {
     $opts = (array) ($q['options'] ?? []);
+    $optionExplanations = (array) ($q['option_explanations'] ?? []);
     $correct = (int) ($q['correct'] ?? 0);
     $inp = 'mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200';
     $h = '<div data-q-row class="rounded-xl border border-slate-200 bg-slate-50/60 p-3">';
@@ -4211,14 +4663,20 @@ function quiz_question_row_html(?array $q, int $num): string
     for ($i = 0; $i < 4; $i++) {
         $req = $i < 2 ? ' required' : '';
         $ph = $i < 2 ? 'Option ' . ($i + 1) : 'Option ' . ($i + 1) . ' (optional)';
-        $h .= '<div class="flex items-center gap-1.5"><span class="w-4 shrink-0 text-center text-[11px] font-bold text-slate-400">' . ($i + 1) . '</span>'
-            . '<input name="o' . ($i + 1) . '[]" maxlength="200" placeholder="' . $ph . '" value="' . e((string) ($opts[$i] ?? '')) . '"' . $req . ' class="' . $inp . '"></div>';
+        $optionExplanation = (string) ($optionExplanations[$i] ?? '');
+        $hasOptionExplanation = trim($optionExplanation) !== '';
+        $h .= '<div><div class="flex items-center gap-1.5"><span class="w-4 shrink-0 text-center text-[11px] font-bold text-slate-400">' . ($i + 1) . '</span>'
+            . '<input name="o' . ($i + 1) . '[]" maxlength="200" placeholder="' . $ph . '" value="' . e((string) ($opts[$i] ?? '')) . '"' . $req . ' class="' . $inp . '"></div>'
+            . '<button type="button" data-explanation-toggle aria-expanded="' . ($hasOptionExplanation ? 'true' : 'false') . '" class="mt-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800">' . ($hasOptionExplanation ? '− Hide explanation' : '+ Add explanation') . '</button>'
+            . '<label data-explanation-input' . ($hasOptionExplanation ? ' class="mt-1 block"' : ' class="mt-1 block hidden"') . '><span class="sr-only">Explanation for option ' . ($i + 1) . '</span>'
+            . '<textarea name="option_explanation_' . ($i + 1) . '[]" maxlength="1000" rows="1" placeholder="Explain this answer" class="' . $inp . '">' . e($optionExplanation) . '</textarea></label></div>';
     }
     $h .= '</div>';
     $h .= '<label class="mt-2 flex items-center gap-2 text-xs font-medium text-slate-500">✔ Correct answer '
         . '<select name="correct[]" class="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs outline-none focus:border-indigo-500">';
     for ($i = 0; $i < 4; $i++) $h .= '<option value="' . $i . '"' . ($correct === $i ? ' selected' : '') . '>Option ' . ($i + 1) . '</option>';
-    $h .= '</select></label></div>';
+    $h .= '</select></label>';
+    $h .= '</div>';
     return $h;
 }
 
@@ -5032,7 +5490,7 @@ function sparkline_svg(array $vals, string $stroke = '#4f46e5', string $fill = '
     return $svg;
 }
 
-/** Zigzag sparkline — sharp mountain-peak style used on the student stat cards.
+/** Zigzag sparkline for the teacher enrollment trend.
  *  Carries per-day hover strips (day label + value) for app.js's tooltip. */
 function zigzag_svg(array $vals, string $stroke = '#4f46e5', string $fill = 'rgba(79,70,229,0.16)', ?array $labels = null, string $metricName = 'Enrollments'): string
 {
@@ -5062,10 +5520,23 @@ function zigzag_svg(array $vals, string $stroke = '#4f46e5', string $fill = 'rgb
     }
     $line = trim($line);
     $last = $peaks[$n - 1];
-    $svg  = '<svg viewBox="0 0 100 30" preserveAspectRatio="none" class="lh-chart h-full w-full" aria-hidden="true">';
-    $svg .= '<polygon points="2,' . $base . ' ' . $line . ' ' . $w . ',' . $base . '" fill="' . $fill . '"></polygon>';
+    $style = ui_chart_style();
+    $svg  = '<svg viewBox="0 0 100 30" preserveAspectRatio="none" class="lh-chart lh-chart-style-' . e($style) . ' h-full w-full" aria-hidden="true">';
+    if ($style === 'area') {
+        $svg .= '<polygon points="2,' . $base . ' ' . $line . ' ' . $w . ',' . $base . '" fill="' . $fill . '"></polygon>';
+    }
     $svg .= '<line x1="0" y1="' . $base . '" x2="' . $w . '" y2="' . $base . '" stroke="#cbd5e1" stroke-width="1" vector-effect="non-scaling-stroke"></line>';
-    $svg .= '<polyline points="' . $line . '" fill="none" stroke="' . $stroke . '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>';
+    if ($style === 'smooth') {
+        $svg .= '<path d="' . dashboard_chart_smooth_path($peaks) . '" fill="none" stroke="' . $stroke . '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>';
+    } else {
+        $lineWidth = $style === 'thin' ? '1.1' : '2';
+        $svg .= '<polyline points="' . $line . '" fill="none" stroke="' . $stroke . '" stroke-width="' . $lineWidth . '" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>';
+    }
+    if ($style === 'points') {
+        foreach ($peaks as $point) {
+            $svg .= '<circle cx="' . $point[0] . '" cy="' . $point[1] . '" r="1.8" fill="' . $stroke . '"></circle>';
+        }
+    }
     $svg .= '<circle cx="' . $last[0] . '" cy="' . $last[1] . '" r="2.6" fill="' . $stroke . '"></circle>';
     /* hover layer: guide + highlight dot, hidden until a day strip is hovered */
     $svg .= '<g class="js-chart-hover">'
@@ -5084,9 +5555,11 @@ function zigzag_svg(array $vals, string $stroke = '#4f46e5', string $fill = 'rgb
     return $svg;
 }
 
-/** Dual-series area/line chart (14-day activity) as inline SVG.
+/** Dual-series activity chart (14-day activity) as inline SVG.
  *  Every day gets an invisible hover strip (js-chart-col) carrying the day label
- *  and both series values — app.js shows a tooltip + guide line + dots on hover. */
+ *  and both series values — app.js shows a tooltip + guide line + dots on hover.
+ *  The site-wide ui_chart_style setting switches between the filled area and
+ *  unfilled lines with daily markers. */
 function activity_chart_svg(array $visits, array $completions, ?array $labels = null): string
 {
     $visits = array_values(array_map('intval', $visits));
@@ -5115,10 +5588,27 @@ function activity_chart_svg(array $visits, array $completions, ?array $labels = 
         $y = round($padT + $g * ($h - $padT - $padB), 1);
         $grid .= '<line x1="0" y1="' . $y . '" x2="' . $w . '" y2="' . $y . '" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"></line>';
     }
-    $svg = '<svg viewBox="0 0 300 90" preserveAspectRatio="none" class="lh-chart h-40 w-full sm:h-44" aria-hidden="true">' . $grid;
-    $svg .= '<polygon points="' . $toLine($vPts) . ' ' . $w . ',' . $h . ' 0,' . $h . '" fill="rgba(79,70,229,0.10)"></polygon>';
-    $svg .= '<polyline points="' . $toLine($vPts) . '" fill="none" stroke="#4f46e5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>';
-    $svg .= '<polyline points="' . $toLine($cPts) . '" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>';
+    $style = ui_chart_style();
+    $svg = '<svg viewBox="0 0 300 90" preserveAspectRatio="none" class="lh-chart lh-chart-style-' . e($style) . ' h-40 w-full sm:h-44" aria-hidden="true">' . $grid;
+    if ($style === 'area') {
+        $svg .= '<polygon points="' . $toLine($vPts) . ' ' . $w . ',' . $h . ' 0,' . $h . '" fill="rgba(79,70,229,0.10)"></polygon>';
+    }
+    if ($style === 'smooth') {
+        $svg .= '<path d="' . dashboard_chart_smooth_path($vPts) . '" fill="none" stroke="#4f46e5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>';
+        $svg .= '<path d="' . dashboard_chart_smooth_path($cPts) . '" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>';
+    } else {
+        $lineWidth = $style === 'thin' ? '1.3' : '2.5';
+        $svg .= '<polyline points="' . $toLine($vPts) . '" fill="none" stroke="#4f46e5" stroke-width="' . $lineWidth . '" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>';
+        $svg .= '<polyline points="' . $toLine($cPts) . '" fill="none" stroke="#10b981" stroke-width="' . $lineWidth . '" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>';
+    }
+    if ($style === 'points') {
+        foreach ($vPts as $point) {
+            $svg .= '<circle cx="' . $point[0] . '" cy="' . $point[1] . '" r="1.8" fill="#4f46e5"></circle>';
+        }
+        foreach ($cPts as $point) {
+            $svg .= '<circle cx="' . $point[0] . '" cy="' . $point[1] . '" r="1.8" fill="#10b981"></circle>';
+        }
+    }
     $lv = $vPts[$n - 1]; $lc = $cPts[$n - 1];
     $svg .= '<circle cx="' . $lv[0] . '" cy="' . $lv[1] . '" r="3" fill="#4f46e5"></circle>';
     $svg .= '<circle cx="' . $lc[0] . '" cy="' . $lc[1] . '" r="3" fill="#10b981"></circle>';
@@ -5698,6 +6188,74 @@ function course_student_ids(int $courseId): array
     return array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN));
 }
 
+/** Students who are NOT enrolled in a course any more but still have work,
+ *  visits or results there — the trace a kick (or a voluntary leave) leaves
+ *  behind. The roster, the gradebook and the attendance log print these rows
+ *  flagged as "Removed", so nothing the teacher has already seen disappears
+ *  the moment the enrolment row goes. */
+function course_former_student_ids(int $courseId): array
+{
+    $cid = (int) $courseId;
+    $st = db()->prepare(
+        "SELECT u.id FROM users u
+         WHERE u.role = 'student'
+           AND NOT EXISTS (SELECT 1 FROM enrollments e WHERE e.course_id = ? AND e.user_id = u.id)
+           AND (EXISTS (SELECT 1 FROM attendance a WHERE a.course_id = ? AND a.user_id = u.id)
+             OR EXISTS (SELECT 1 FROM progress p JOIN materials m ON m.id = p.material_id
+                        WHERE m.course_id = ? AND p.user_id = u.id)
+             OR EXISTS (SELECT 1 FROM quiz_results qr JOIN quizzes q ON q.id = qr.quiz_id
+                        LEFT JOIN materials m2 ON m2.id = q.material_id
+                        LEFT JOIN course_folders qf ON qf.id = q.folder_id
+                        WHERE COALESCE(m2.course_id, qf.course_id) = ? AND qr.user_id = u.id)
+             OR EXISTS (SELECT 1 FROM submissions s JOIN assignments a2 ON a2.id = s.assignment_id
+                        WHERE a2.course_id = ? AND s.user_id = u.id))
+         ORDER BY u.name");
+    $st->execute([$cid, $cid, $cid, $cid, $cid]);
+    return array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN));
+}
+
+/** Take one student out of a course — the "Remove" action on the roster and
+ *  gradebook. ONLY the enrollments row goes: the account, their lesson
+ *  progress, hand-ins, grades, quiz results and visits all stay exactly where
+ *  they are, so the teacher keeps the full record, a later re-enrolment puts
+ *  everything back in place, and no other table even notices. Any visit still
+ *  open is closed so the attendance log never holds a phantom session.
+ *  Returns ['ok' => bool, 'msg' => string] — the message is flash-ready. */
+function kick_student_from_course(array $actor, int $courseId, int $studentId): array
+{
+    $courseId = (int) $courseId;
+    $studentId = (int) $studentId;
+    $course = course_row($courseId);
+    if (!$course) return ['ok' => false, 'msg' => 'Course not found.'];
+    if (!schedule_can_manage($actor, $courseId)) {
+        return ['ok' => false, 'msg' => 'You can only remove students from your own courses.'];
+    }
+    if ($studentId <= 0) return ['ok' => false, 'msg' => 'No student selected.'];
+    if ($studentId === (int) ($actor['id'] ?? 0)) {
+        return ['ok' => false, 'msg' => 'You cannot remove yourself from the course.'];
+    }
+    $student = find_user_by_id($studentId);
+    if (!$student || (string) $student['role'] !== 'student') {
+        return ['ok' => false, 'msg' => 'That account is not a student.'];
+    }
+    if (!is_enrolled_id($courseId, $studentId)) {
+        return ['ok' => false, 'msg' => 'That student is not enrolled in this course.'];
+    }
+
+    db()->prepare('DELETE FROM enrollments WHERE course_id = ? AND user_id = ?')
+        ->execute([$courseId, $studentId]);
+    close_attendance($studentId, $courseId);
+
+    add_notification($studentId, 'enrollment',
+        'Removed from "' . cut((string) $course['title'], 120) . '"',
+        'Your teacher took you out of this course. Everything you did there — lessons, hand-ins and grades — stays on record. Ask '
+            . cut((string) $course['teacher_name'], 120) . ' for a new invitation code if you should rejoin.',
+        lh_enc_url('course.php?id=' . $courseId));
+
+    return ['ok' => true,
+        'msg' => '"' . cut((string) $student['name'], 60) . '" removed from the course. Their records stay on file.'];
+}
+
 /** '2 days ago', 'in 3 hours' — how a deadline or a hand-in reads. */
 function assignment_when(int $ts): string
 {
@@ -6266,15 +6824,25 @@ function course_gradebook_row(int $courseId, int $studentId): ?array
     ];
 }
 
-/** The whole class's gradebook, one row per enrolled student, best first. */
+/** The whole class's gradebook: every enrolled student, best first — plus any
+ *  student who was removed (or left) but still has work or results in the
+ *  course, kept visible at the bottom with 'removed' set, so a kick never
+ *  erases a grade the teacher has already marked. */
 function course_gradebook(int $courseId): array
 {
     $rows = [];
-    foreach (course_student_ids($courseId) as $sid) {
+    $enrolled = array_flip(course_student_ids($courseId));
+    $ids = array_merge(array_keys($enrolled), course_former_student_ids($courseId));
+    foreach ($ids as $sid) {
         $r = course_gradebook_row($courseId, $sid);
-        if ($r !== null) $rows[] = $r;
+        if ($r === null) continue;
+        $r['removed'] = !isset($enrolled[$sid]);
+        $rows[] = $r;
     }
     usort($rows, function ($a, $b) {
+        if (!empty($a['removed']) !== !empty($b['removed'])) {
+            return !empty($a['removed']) ? 1 : -1;   /* removed students sink below the class */
+        }
         if ($a['overall'] === null && $b['overall'] === null) return $a['student_id'] <=> $b['student_id'];
         if ($a['overall'] === null) return 1;    /* anyone still ungraded sits last */
         if ($b['overall'] === null) return -1;
@@ -6789,11 +7357,17 @@ function maybe_send_digest(int $userId): void
         $st->execute([$userId]);
         $lessons = (int) $st->fetchColumn();
 
-        $st = db()->prepare('SELECT COUNT(*) FROM enrollments e'
-            . ' JOIN materials m ON m.course_id = e.course_id'
-            . ' JOIN quizzes q ON q.material_id = m.id'
+        $st = db()->prepare('SELECT COUNT(*) FROM quizzes q'
+            . ' LEFT JOIN materials qm ON qm.id = q.material_id'
+            . ' JOIN course_folders f ON f.id = COALESCE(q.folder_id, qm.folder_id)'
+            . ' JOIN enrollments e ON e.course_id = f.course_id'
             . ' LEFT JOIN quiz_results r ON r.quiz_id = q.id AND r.user_id = e.user_id'
-            . ' WHERE e.user_id = ? AND r.quiz_id IS NULL');
+            . ' WHERE e.user_id = ? AND r.quiz_id IS NULL'
+            . ' AND EXISTS (SELECT 1 FROM materials fm WHERE fm.folder_id = f.id'
+            . ' OR (f.parent_id IS NULL AND fm.folder_id IN (SELECT sf.id FROM course_folders sf WHERE sf.parent_id = f.id)))'
+            . ' AND NOT EXISTS (SELECT 1 FROM materials fm WHERE (fm.folder_id = f.id'
+            . ' OR (f.parent_id IS NULL AND fm.folder_id IN (SELECT sf.id FROM course_folders sf WHERE sf.parent_id = f.id)))'
+            . ' AND NOT EXISTS (SELECT 1 FROM progress fp WHERE fp.user_id = e.user_id AND fp.material_id = fm.id))');
         $st->execute([$userId]);
         $quizzes = (int) $st->fetchColumn();
     } catch (Throwable $e) {

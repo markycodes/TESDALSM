@@ -14,20 +14,49 @@ $courseId = (int) $course['id'];
 $userId = (int) $user['id'];
 $isOwner = ($user['role'] ?? '') === 'teacher' && (int) ($course['teacher_id'] ?? 0) === $userId;
 $enrolled = is_enrolled($course, $userId);
-$canView = $isOwner || $enrolled;
+$isAdmin = ($user['role'] ?? '') === 'admin';
+$courseStudents = [];
+if ($isOwner) {
+  $studentStmt = db()->prepare("SELECT u.id, u.name, u.email
+                                FROM enrollments e
+                                JOIN users u ON u.id = e.user_id
+                                WHERE e.course_id = ? AND u.role = 'student'
+                                ORDER BY u.name, u.id");
+  $studentStmt->execute([$courseId]);
+  $courseStudents = $studentStmt->fetchAll();
+}
+/* The main admin passes this gate as well — like every other teacher gate in
+   the app — but read-only: $isOwner stays false, so no manage controls appear. */
+$canView = $isOwner || $enrolled || $isAdmin;
 $progress = course_progress($course, $userId);
 $lessonW = $progress['total'] > 0 ? (int) round(100 / $progress['total']) : 0;
 
 // attendance recording: log student entries only (with timestamp + IP, page-load side)
 $attendance_entered = 0;                       /* unix time this visit started (students only) */
 if ($canView && ($user['role'] ?? '') === 'student') {
-  $attendance_entered = record_attendance($userId, (int) $course['id']);
+  $attendance_entered = resume_attendance($userId, (int) $course['id']);
   $attendance_course = (int) $course['id']; // lets the footer send a "leave" beacon
 }
 
 /* lesson contents are private: only the owning teacher and enrolled students
    get the real lists (and even the counts) — other teachers see "private" */
 $canLessons = can_view_lessons($course, $user);
+$mainFolderId = 0;
+if ($canLessons) {
+  $mainFolderId = ensure_course_main_folder($courseId);
+}
+$folders = $canLessons ? course_folders($courseId) : [];
+$validFolderIds = [];
+foreach ($folders as $courseFolder) {
+  $validFolderIds[(int) $courseFolder['id']] = true;
+}
+if ($canLessons && $mainFolderId > 0) {
+  foreach ($course['materials'] as &$courseMaterial) {
+    $materialFolderId = (int) ($courseMaterial['folder_id'] ?? 0);
+    if (!isset($validFolderIds[$materialFolderId])) $courseMaterial['folder_id'] = $mainFolderId;
+  }
+  unset($courseMaterial);
+}
 $videos = $canLessons ? array_values(array_filter($course['materials'] ?? [], fn($m) => in_array($m['type'] ?? '', ['video', 'youtube'], true))) : [];
 $docs = $canLessons ? array_values(array_filter($course['materials'] ?? [], fn($m) => ($m['type'] ?? '') === 'file')) : [];
 
@@ -115,12 +144,59 @@ require __DIR__ . '/header.php';
       <?php if ($isOwner): ?>
         <div class="rounded-xl bg-amber-50 p-4 ring-1 ring-amber-100">
           <p class="text-xs font-semibold uppercase tracking-wide text-amber-700">You teach this course</p>
-          <button data-modal-open="lesson-modal"
-            class="mt-3 w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">＋
-            Add lesson</button>
+          <button data-modal-open="course-edit-modal"
+            class="mt-3 w-full rounded-xl border border-indigo-200 bg-white px-4 py-2.5 text-sm font-semibold text-indigo-700 hover:bg-indigo-50">✏️
+            Edit course details</button>
+          <button data-modal-open="folder-create-modal"
+            class="mt-2 w-full rounded-xl border border-indigo-200 bg-white px-4 py-2.5 text-sm font-semibold text-indigo-700 hover:bg-indigo-50">＋
+            Add folder</button>
           <button id="lc-start"
             class="mt-2 w-full rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-700">🔴
             Start live class</button>
+          <details class="mt-3 rounded-xl border border-amber-200 bg-white">
+            <summary class="cursor-pointer px-3 py-2 text-xs font-semibold text-slate-700">
+              👥 Enrolled students (<?= count($courseStudents) ?>)
+            </summary>
+            <?php if ($courseStudents): ?>
+              <form id="course-bulk-remove-form" method="post" action="kick.php"
+                    data-confirm="Remove all selected students from this course? Their progress, grades, quizzes, and attendance stay on record.">
+                <?= csrf_field() ?>
+                <input type="hidden" name="course_id" value="<?= $courseId ?>">
+                <input type="hidden" name="back" value="course">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-3 py-2">
+                  <label class="flex items-center gap-2 text-[11px] font-semibold text-slate-600">
+                    <input type="checkbox" data-course-select-all class="rounded border-slate-300 text-indigo-600">
+                    Select all
+                  </label>
+                  <button class="rounded-lg border border-rose-200 px-2.5 py-1 text-[10px] font-semibold text-rose-600 hover:bg-rose-50">Remove selected</button>
+                </div>
+              </form>
+              <ul class="divide-y divide-slate-100 border-t border-slate-100">
+                <?php foreach ($courseStudents as $student): ?>
+                  <li class="flex items-center justify-between gap-2 px-3 py-2">
+                    <span class="min-w-0">
+                      <input type="checkbox" name="student_ids[]" value="<?= (int) $student['id'] ?>"
+                             form="course-bulk-remove-form" data-course-student-select
+                             aria-label="Select <?= e((string) $student['name']) ?> for removal"
+                             class="mr-1 rounded border-slate-300 text-indigo-600">
+                      <span class="block truncate text-xs font-semibold text-slate-800"><?= e((string) $student['name']) ?></span>
+                      <span class="block truncate text-[10px] text-slate-400"><?= e((string) $student['email']) ?></span>
+                    </span>
+                    <form method="post" action="kick.php"
+                          data-confirm="Remove <?= e((string) $student['name']) ?> from this course? Their progress, grades, quizzes, and attendance stay on record.">
+                      <?= csrf_field() ?>
+                      <input type="hidden" name="course_id" value="<?= $courseId ?>">
+                      <input type="hidden" name="student_id" value="<?= (int) $student['id'] ?>">
+                      <input type="hidden" name="back" value="course">
+                      <button class="shrink-0 rounded-lg border border-rose-200 px-2 py-1 text-[10px] font-semibold text-rose-600 hover:bg-rose-50">Remove</button>
+                    </form>
+                  </li>
+                <?php endforeach; ?>
+              </ul>
+            <?php else: ?>
+              <p class="border-t border-slate-100 px-3 py-3 text-xs text-slate-500">No students are enrolled yet.</p>
+            <?php endif; ?>
+          </details>
           <form method="post" action="course_delete.php" data-confirm="Delete this course and all of its lessons?"
             class="mt-2">
             <?= csrf_field() ?><input type="hidden" name="course_id" value="<?= e((string) $course['id']) ?>">
@@ -170,6 +246,9 @@ require __DIR__ . '/header.php';
             <button class="text-xs font-medium text-slate-400 hover:text-rose-500">Leave course</button>
           </form>
         </div>
+      <?php elseif ($isAdmin): ?>
+        <div class="rounded-xl bg-slate-50 p-4 text-sm text-slate-500 ring-1 ring-slate-200">🛡️ You are viewing as the
+          administrator — read-only.</div>
       <?php else: ?>
         <div class="rounded-xl bg-slate-50 p-4 text-sm text-slate-500 ring-1 ring-slate-200">👩‍🏫 You are viewing as a
           teacher — only student accounts can enroll.</div>
@@ -210,6 +289,8 @@ require __DIR__ . '/header.php';
   </div>
   <?php require __DIR__ . '/lessons_section.php'; ?>
   <?php if ($isOwner) {
+    require __DIR__ . '/course_edit_modal.php';
+    require __DIR__ . '/folder_create_modal.php';
     require __DIR__ . '/lesson_modal.php';
     require __DIR__ . '/quiz_modal.php';
   } ?>

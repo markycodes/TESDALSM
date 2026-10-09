@@ -3,7 +3,8 @@
  * Gradebook — where a student stands in a course, and the teacher's view of the
  * whole class. Two faces on one page:
  *
- *  • Teacher (and the admin)  every enrolled student, best first
+ *  • Teacher (and the admin)  every enrolled student, best first — plus students
+ *                               removed from the course, flagged below the class
  *  • Student                 only their own row
  *
  * The number is deliberately simple and stated on the page: quizzes and graded
@@ -36,8 +37,13 @@ $all = course_gradebook($courseId);
 $rows = $isOwner ? $all : array_values(array_filter($all, fn ($r) => (int) $r['student_id'] === $userId));
 $assignments = $isOwner ? course_assignments($courseId) : [];
 
+/* The tiles describe the class as it stands: a removed student keeps their row
+   (flagged, below the class) but no longer counts in the headcount or the
+   average — the record stays, the current picture does not bend. */
+$active = array_values(array_filter($all, fn ($r) => empty($r['removed'])));
+$removedCount = count($all) - count($active);
 $sum = 0.0; $gradedCount = 0; $passed = 0;
-foreach ($all as $r) {
+foreach ($active as $r) {
     if ($r['overall'] !== null) { $sum += (float) $r['overall']; $gradedCount++; $passed += $r['passed'] ? 1 : 0; }
 }
 $classAverage = $gradedCount > 0 ? round($sum / $gradedCount, 1) : null;
@@ -65,7 +71,7 @@ function gradebook_badge(?float $v): string
   <?php if ($isOwner): ?>
   <div class="reveal mt-5 grid gap-3 sm:grid-cols-3">
     <div class="rounded-2xl bg-white p-4 text-center ring-1 ring-slate-200">
-      <div class="text-xl font-extrabold text-slate-900"><?= count($rows) ?></div>
+      <div class="text-xl font-extrabold text-slate-900"><?= count($active) ?></div>
       <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Students</div>
     </div>
     <div class="rounded-2xl bg-white p-4 text-center ring-1 ring-slate-200">
@@ -83,7 +89,7 @@ function gradebook_badge(?float $v): string
     <p class="mt-6 rounded-2xl border-2 border-dashed border-slate-300 p-10 text-center text-sm text-slate-400">Nobody is enrolled yet.</p>
   <?php else: ?>
   <div class="reveal mt-6 overflow-x-auto rounded-2xl bg-white ring-1 ring-slate-200">
-    <table class="w-full min-w-[540px] text-left text-sm">
+    <table class="w-full min-w-[660px] text-left text-sm">
       <thead>
         <tr class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-400">
           <th class="px-4 py-3">Student</th>
@@ -91,6 +97,7 @@ function gradebook_badge(?float $v): string
           <th class="px-4 py-3">Quizzes</th>
           <th class="px-4 py-3">Work</th>
           <th class="px-4 py-3 text-right">Overall</th>
+          <?php if ($isOwner): ?><th class="px-4 py-3">Actions</th><?php endif; ?>
         </tr>
       </thead>
       <tbody>
@@ -101,7 +108,7 @@ function gradebook_badge(?float $v): string
           <td class="px-4 py-3">
             <span class="flex items-center gap-2">
               <?= user_peer_avatar_html($who, 'h-7 w-7') ?>
-              <span class="font-semibold text-slate-800"><?= e((string) $who['name']) ?></span>
+              <span class="font-semibold text-slate-800"><?= e((string) $who['name']) ?><?= !empty($r['removed']) ? ' <span class="inline-block rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-600">Removed</span>' : '' ?></span>
             </span>
           </td>
           <td class="px-4 py-3 text-slate-600">
@@ -119,11 +126,34 @@ function gradebook_badge(?float $v): string
               <span class="mt-1 block text-[11px] font-semibold <?= $r['passed'] ? 'text-emerald-600' : 'text-slate-400' ?>"><?= $r['passed'] ? 'Pass' : 'Below 75%' ?></span>
             <?php endif; ?>
           </td>
+          <?php if ($isOwner): ?>
+          <td class="px-4 py-3">
+            <?php if (empty($r['removed'])): ?>
+            <form method="post" action="kick.php"
+                  data-confirm="Remove <?= e((string) $who['name']) ?> from this course? Their grades and attendance stay on record — they can rejoin later with a new invitation code.">
+              <?= csrf_field() ?>
+              <input type="hidden" name="course_id" value="<?= (int) $courseId ?>">
+              <input type="hidden" name="student_id" value="<?= (int) $r['student_id'] ?>">
+              <input type="hidden" name="back" value="gradebook">
+              <button class="rounded-lg border border-rose-200 px-3 py-1.5 text-[11px] font-semibold text-rose-600 hover:bg-rose-50">Remove</button>
+            </form>
+            <?php else: ?>
+            <span class="text-xs text-slate-400">—</span>
+            <?php endif; ?>
+          </td>
+          <?php endif; ?>
         </tr>
         <?php endforeach; ?>
       </tbody>
     </table>
   </div>
+  <?php endif; ?>
+
+  <?php if ($isOwner && $removedCount > 0): ?>
+  <p class="mt-4 rounded-xl bg-rose-50 px-4 py-3 text-xs leading-5 text-rose-700 ring-1 ring-rose-100">
+    <?= $removedCount ?> student<?= $removedCount === 1 ? ' has' : 's have' ?> been removed from this course.
+    Their rows stay in the table, marked <b>Removed</b>, so the record is kept — but they no longer count in the figures above.
+  </p>
   <?php endif; ?>
 
   <p class="mt-4 text-[11px] leading-5 text-slate-400">

@@ -159,9 +159,24 @@ if ($v === 'roster') {
     $shareCourses = [];
     if ($scopeIds) {
         $in = implode(',', array_fill(0, count($scopeIds), '?'));
-        $sql = "SELECT u.id, u.name, u.email FROM users u JOIN enrollments e ON e.user_id = u.id
-                WHERE u.role = 'student' AND e.course_id IN ($in)";
-        $params = array_values($scopeIds);
+        /* the page's roster query again, byte for byte: enrolled students plus
+           (for staff) students with records here but no enrolment — flagged
+           'Removed' — so the live refresh never drops a row first paint drew */
+        $sql = "SELECT u.id, u.name, u.email,
+                       MAX(CASE WHEN e.user_id IS NULL THEN 1 ELSE 0 END) AS removed
+                FROM users u
+                LEFT JOIN enrollments e ON e.user_id = u.id AND e.course_id IN ($in)
+                WHERE u.role = 'student' AND (e.user_id IS NOT NULL";
+        $scopeParams = array_values($scopeIds);
+        $params = $scopeParams;
+        if ($isTeacher || ($user['role'] ?? '') === 'admin') {
+            $sql .= " OR EXISTS (SELECT 1 FROM attendance a WHERE a.user_id = u.id AND a.course_id IN ($in))"
+                  . " OR EXISTS (SELECT 1 FROM progress p JOIN materials m ON m.id = p.material_id WHERE p.user_id = u.id AND m.course_id IN ($in))"
+                  . " OR EXISTS (SELECT 1 FROM quiz_results qr JOIN quizzes q ON q.id = qr.quiz_id LEFT JOIN materials m2 ON m2.id = q.material_id LEFT JOIN course_folders qf ON qf.id = q.folder_id WHERE qr.user_id = u.id AND COALESCE(m2.course_id, qf.course_id) IN ($in))"
+                  . " OR EXISTS (SELECT 1 FROM submissions s JOIN assignments a2 ON a2.id = s.assignment_id WHERE s.user_id = u.id AND a2.course_id IN ($in))";
+            $params = array_merge($params, $scopeParams, $scopeParams, $scopeParams, $scopeParams);
+        }
+        $sql .= ')';
         if (!$isTeacher) { $sql .= ' AND u.id <> ?'; $params[] = $me; }
         $sql .= ' GROUP BY u.id ORDER BY u.name';
         $st = db()->prepare($sql);
@@ -213,6 +228,8 @@ if ($v === 'roster') {
             /* the address travels masked too, so the live payload can never leak it */
             'id' => $sid, 'name' => (string) $u['name'], 'email' => mask_email((string) ($u['email'] ?? '')),
             'online' => isset($online[$sid]),
+            /* true for a row the page drew with a 'Removed' badge */
+            'removed' => !empty($u['removed']),
             'courses' => array_slice(array_map('strval', $coursesFor), 0, 3),
             'more_courses' => max(0, count($coursesFor) - 3),
         ];
@@ -232,16 +249,22 @@ if ($v === 'roster') {
        further than the teacher. */
     $attLogArr = [];
     if ($selCourse > 0) {
-        $st = db()->prepare("SELECT a.id, a.user_id, a.entered_at, a.left_at, a.ip, u.name
-                             FROM attendance a JOIN users u ON u.id = a.user_id
-                             WHERE a.course_id = ?" . ($mayReadAttendance ? '' : ' AND a.user_id = ?') .
-                             ' ORDER BY a.entered_at DESC LIMIT 200');
+        $st = db()->prepare("SELECT a.id, a.user_id, a.entered_at, a.left_at, a.ip, u.name,
+                                     CASE WHEN u.role = 'student' AND e.user_id IS NULL THEN 1 ELSE 0 END AS removed
+                              FROM attendance a JOIN users u ON u.id = a.user_id
+                              LEFT JOIN enrollments e ON e.course_id = a.course_id AND e.user_id = a.user_id
+                              WHERE a.course_id = ?" . ($mayReadAttendance
+                                  ? ' AND a.id = (SELECT MAX(a2.id) FROM attendance a2 WHERE a2.course_id = a.course_id AND a2.user_id = a.user_id)'
+                                  : ' AND a.user_id = ?') .
+                              ' ORDER BY a.entered_at DESC LIMIT 200');
         $st->execute($mayReadAttendance ? [$selCourse] : [$selCourse, $me]);
         foreach ($st->fetchAll() as $r) {
             $attLogArr[] = [
                 'id' => (int) $r['id'],
                 'name' => (string) $r['name'], 'entered_at' => (int) $r['entered_at'],
                 'left_at' => $r['left_at'] ? (int) $r['left_at'] : null,
+                /* the badge the page's first paint drew beside the name */
+                'removed' => (bool) ((int) ($r['removed'] ?? 0)),
                 'ip' => $mayReadAttendance ? (string) ($r['ip'] ?? '') : '',
                 'online' => isset($online[(int) $r['user_id']]),
             ];
@@ -296,14 +319,18 @@ if ($v === 'day') {
     if ($scopeIds) {
         $in = implode(',', array_fill(0, count($scopeIds), '?'));
         $st = db()->prepare("SELECT a.id, a.user_id, a.entered_at, a.left_at, a.ip, u.name, u.avatar,
+                                    CASE WHEN u.role = 'student' AND e.user_id IS NULL THEN 1 ELSE 0 END AS removed,
                                     c.title AS course_title, c.category AS course_category
                              FROM attendance a
                              JOIN users u ON u.id = a.user_id
                              JOIN courses c ON c.id = a.course_id
+                             LEFT JOIN enrollments e ON e.course_id = a.course_id AND e.user_id = a.user_id
                              WHERE a.entered_at >= ? AND a.entered_at < ? AND a.course_id IN ($in)"
-                             . ($mayReadAttendance ? '' : ' AND a.user_id = ?') .
+                             . ($mayReadAttendance
+                                ? ' AND a.id = (SELECT MAX(a2.id) FROM attendance a2 WHERE a2.user_id = a.user_id AND a2.course_id = a.course_id AND a2.entered_at >= ? AND a2.entered_at < ?)'
+                                : ' AND a.user_id = ?') .
                              ' ORDER BY a.entered_at DESC');
-        $st->execute(array_merge([$dayStart, $dayStart + 86400], $scopeIds, $mayReadAttendance ? [] : [$me]));
+        $st->execute(array_merge([$dayStart, $dayStart + 86400], $scopeIds, $mayReadAttendance ? [$dayStart, $dayStart + 86400] : [$me]));
         $records = $st->fetchAll();
     }
     $recIds = array_values(array_unique(array_map('intval', array_column($records, 'user_id'))));
@@ -335,6 +362,8 @@ if ($v === 'day') {
             'course_title' => (string) $r['course_title'], 'course_category' => (string) ($r['course_category'] ?? ''),
             'entered_at' => (int) $r['entered_at'], 'left_at' => $r['left_at'] ? (int) $r['left_at'] : null,
             'open' => $open, 'duration' => $dur, 'online' => isset($online[$uid]),
+            /* the 'Removed' badge the page drew beside the name, redrawn too */
+            'removed' => (bool) ((int) ($r['removed'] ?? 0)),
             /* the address belongs to the teacher of the course, and nobody else */
             'ip' => $mayReadAttendance ? (string) ($r['ip'] ?? '') : '',
         ];

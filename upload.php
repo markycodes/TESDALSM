@@ -44,13 +44,18 @@ if ($title === '') {
 }
 
 $courseIdInt = (int) $courseId;
+$folderId = (int) ($_POST['folder_id'] ?? 0);
+if (!course_folder_row($courseIdInt, $folderId)) {
+    set_flash('error', 'Choose a folder in this course before adding the lesson.');
+    header('Location: ' . lh_enc_url($back)); exit;
+}
 try {
     if ($type === 'document') {
         $up = handle_upload('file', DOC_EXTS);
         add_material($courseIdInt, 'file', cut($title, 120), cut($desc, 200), [
             'stored' => $up['stored'], 'orig' => $up['orig'],
             'mime' => guess_mime($up['stored']), 'size' => $up['size'],
-        ]);
+        ], null, $folderId);
         $ok = 'Material "' . $title . '" uploaded — students open it directly in the browser (no download).';
     } elseif ($type === 'text') {
         $content = (string) ($_POST['content'] ?? '');
@@ -60,7 +65,7 @@ try {
         add_material($courseIdInt, 'file', cut($title, 120), cut($desc, 200), [
             'stored' => $stored, 'orig' => 'pasted-material.md',
             'mime' => 'text/markdown', 'size' => strlen($content),
-        ]);
+        ], null, $folderId);
         $ok = 'Pasted material "' . $title . '" added — ' . strlen($content) . ' characters of content.';
     } elseif ($type === 'video') {
         $ups = handle_uploads('file', VIDEO_EXTS);
@@ -69,7 +74,7 @@ try {
             add_material($courseIdInt, 'video', cut($t, 120), cut($desc, 200), [
                 'stored' => $up['stored'], 'orig' => $up['orig'],
                 'mime' => guess_mime($up['stored']), 'size' => $up['size'],
-            ]);
+            ], null, $folderId);
         }
         $ok = count($ups) > 1
             ? count($ups) . ' video lessons added ("' . $title . '" + ' . (count($ups) - 1) . ' more).'
@@ -87,7 +92,7 @@ try {
         }
         foreach ($urls as $i => $u) {
             $t = $i === 0 ? $title : cut($title, 115) . ' (' . ($i + 1) . ')';
-            add_material($courseIdInt, 'youtube', cut($t, 120), cut($desc, 200), null, $u);
+            add_material($courseIdInt, 'youtube', cut($t, 120), cut($desc, 200), null, $u, $folderId);
         }
         $ok = count($urls) > 1
             ? count($urls) . ' video links added ("' . $title . '" + ' . (count($urls) - 1) . ' more).'

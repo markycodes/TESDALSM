@@ -17,6 +17,9 @@ if (!assignment_can_manage($user, $courseId)) {
     exit;
 }
 
+ensure_course_main_folder($courseId);
+$folders = course_folders($courseId);
+
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     verify_csrf();
     $action = (string) ($_POST['action'] ?? '');
@@ -25,7 +28,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     $ids = array_values(array_filter(array_map('intval', (array) ($_POST['ids'] ?? [])),
         function ($id) use ($courseId) { return $id > 0 && course_material_exists($courseId, $id); }));
 
-    if (($action === 'move_end' || $action === 'move_start' || $action === 'delete') && $ids) {
+    if ($action === 'move_folder' && $ids) {
+        $targetFolderId = (int) ($_POST['target_folder_id'] ?? 0);
+        $targetFolder = course_folder_row($courseId, $targetFolderId);
+        if (!$targetFolder) {
+            set_flash('error', 'Choose a folder in this course.');
+        } else {
+            $move = db()->prepare('UPDATE materials SET folder_id = ? WHERE course_id = ? AND id = ?');
+            foreach ($ids as $id) $move->execute([$targetFolderId, $courseId, $id]);
+            set_flash('success', count($ids) . ' lesson(s) moved to ' . (string) $targetFolder['name'] . '.');
+        }
+    } elseif (($action === 'move_end' || $action === 'move_start' || $action === 'delete') && $ids) {
         if ($action === 'delete') {
             $n = 0;
             foreach ($ids as $id) {
@@ -67,8 +80,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 /* The quizzes table keys on material_id, like every other table that hangs off a
    lesson. It said lesson_id here, which is not a column — the page died with
    "Unknown column" every time it was opened. */
-$st = db()->prepare('SELECT m.*, (SELECT COUNT(*) FROM quizzes q WHERE q.material_id = m.id) AS has_quiz
-                     FROM materials m WHERE m.course_id = ? ORDER BY m.sort_order ASC, m.id ASC');
+$st = db()->prepare('SELECT m.*, f.name AS folder_name,
+                            (SELECT COUNT(*) FROM quizzes q WHERE q.material_id = m.id) AS has_quiz
+                     FROM materials m
+                     LEFT JOIN course_folders f ON f.id = m.folder_id AND f.course_id = m.course_id
+                     WHERE m.course_id = ? ORDER BY m.sort_order ASC, m.id ASC');
 $st->execute([$courseId]);
 $lessons = $st->fetchAll();
 
@@ -92,7 +108,7 @@ $typeIcon = ['file' => '📄', 'video' => '🎬', 'youtube' => '▶️', 'text' 
   <form method="post" class="reveal mt-5 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
     <?= csrf_field() ?>
     <input type="hidden" name="course" value="<?= $courseId ?>">
-    <p class="text-xs text-slate-500">Tick the lessons you want to act on, then choose what to do. Deleting a lesson also removes its quiz and its discussion.</p>
+    <p class="text-xs text-slate-500">Tick the lessons you want to act on, then choose what to do. You can move selected lessons into any folder in this course. Deleting a lesson also removes its quiz and its discussion.</p>
 
     <ul class="mt-4 space-y-2">
       <?php foreach ($lessons as $l): ?>
@@ -102,6 +118,7 @@ $typeIcon = ['file' => '📄', 'video' => '🎬', 'youtube' => '▶️', 'text' 
         <span class="min-w-0 flex-1 leading-tight">
           <span class="block truncate text-sm font-semibold text-slate-800"><?= e((string) $l['title']) ?></span>
           <span class="block text-[11px] text-slate-400">
+            <?= e((string) ($l['folder_name'] ?? 'Main folder')) ?> ·
             <?php if ((int) ($l['has_quiz'] ?? 0) > 0): ?>has a quiz · <?php endif; ?>
             <?= lesson_post_count((int) $l['id']) ?> discussion post(s)
           </span>
@@ -111,6 +128,13 @@ $typeIcon = ['file' => '📄', 'video' => '🎬', 'youtube' => '▶️', 'text' 
     </ul>
 
     <div class="mt-5 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+      <label class="sr-only" for="target-folder-id">Move selected lessons to folder</label>
+      <select id="target-folder-id" name="target_folder_id" class="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600">
+        <?php foreach ($folders as $folder): ?>
+          <option value="<?= (int) $folder['id'] ?>">📁 <?= e((string) $folder['name']) ?></option>
+        <?php endforeach; ?>
+      </select>
+      <button name="action" value="move_folder" class="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700">Move to folder</button>
       <button name="action" value="move_start" class="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100">Move to top</button>
       <button name="action" value="move_end" class="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100">Move to end</button>
       <button name="action" value="delete" data-confirm="Delete the selected lessons, their quizzes and their discussions? This cannot be undone."

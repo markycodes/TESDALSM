@@ -75,6 +75,12 @@ if ($user) {
          promote themselves with !important. Its script does nothing but animate
          the class toggle, so it is deferred and cannot hold up the paint. */ ?>
   <link rel="stylesheet" href="assets/dark.css?v=<?= (int) @filemtime(lh_path('assets/dark.css')) ?>">
+  <?php if (($user['role'] ?? '') === 'admin'): ?>
+    <link rel="stylesheet" href="assets/admin.css?v=<?= (int) @filemtime(lh_path('assets/admin.css')) ?>">
+  <?php endif; ?>
+  <?php if ($nav_active === 'settings'): ?>
+    <link rel="stylesheet" href="assets/appearance-picker.css?v=<?= (int) @filemtime(lh_path('assets/appearance-picker.css')) ?>">
+  <?php endif; ?>
   <script src="assets/dark.js?v=<?= (int) @filemtime(lh_path('assets/dark.js')) ?>" defer></script>
   <?php lh_skeleton_css(); ?>
 </head>
@@ -145,6 +151,25 @@ if ($user) {
                 <path d="M12 3l7.5 3v5.4c0 4.6-3.1 8.2-7.5 9.6-4.4-1.4-7.5-5-7.5-9.6V6z" />
                 <path d="M9.2 12.1l2 2 3.6-3.9" />
               </svg></span><span class="lh-side-label">Admin</span></a>
+          <a href="admin_lessons.php" class="lh-side-link <?= $nav_active === 'admin_lessons' ? 'active' : '' ?>"
+            data-tip="Lessons by teacher"><span class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+              </svg></span><span class="lh-side-label">Lessons</span></a>
+          <a href="admin_progress.php" class="lh-side-link <?= $nav_active === 'admin_progress' ? 'active' : '' ?>"
+            data-tip="Student progress"><span class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 19V5m0 14h16" />
+                <path d="m7 15 4-4 3 2 5-6" />
+                <path d="M16 7h3v3" />
+              </svg></span><span class="lh-side-label">Student progress</span></a>
+          <a href="codes.php" class="lh-side-link <?= $nav_active === 'codes' ? 'active' : '' ?>"
+            data-tip="Invite codes"><span class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14.5 3.5a7 7 0 0 0-6.7 9.3L3.5 17v3.5H7L15 12.5a7 7 0 1 0-.5-9z" />
+                <circle cx="16.5" cy="7.5" r="1.8" />
+              </svg></span><span class="lh-side-label">Invite codes</span></a>
           <a href="settings.php" class="lh-side-link <?= $nav_active === 'settings' ? 'active' : '' ?>"
             data-tip="Settings"><span class="lh-side-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">

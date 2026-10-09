@@ -1,0 +1,216 @@
+.lh-admin-page {
+  --lh-admin-ink: #172554;
+  --lh-admin-muted: #64748b;
+  --lh-admin-line: #e2e8f0;
+  --lh-admin-surface: #fff;
+  --lh-admin-soft: #f8fafc;
+  color: var(--lh-admin-ink);
+}
+
+.lh-admin-page .lh-admin-hero {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #dbeafe;
+  border-radius: 1.5rem;
+  background:
+    radial-gradient(ellipse at 100% 0%, rgb(99 102 241 / 18%), transparent 40%),
+    linear-gradient(135deg, #fff 0%, #f5f8ff 58%, #eef2ff 100%);
+  padding: clamp(1.25rem, 3vw, 2rem);
+  box-shadow: 0 14px 36px rgb(30 64 175 / 7%);
+}
+
+.lh-admin-page .lh-admin-eyebrow {
+  color: #4f46e5;
+  font-size: .69rem;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.lh-admin-page .lh-admin-title {
+  margin-top: .45rem;
+  color: #172554;
+  font-size: clamp(1.6rem, 3vw, 2.15rem);
+  font-weight: 800;
+  letter-spacing: -.035em;
+  line-height: 1.15;
+}
+
+.lh-admin-page .lh-admin-description {
+  max-width: 48rem;
+  margin-top: .6rem;
+  color: #52627a;
+  font-size: .92rem;
+  line-height: 1.65;
+}
+
+.lh-admin-page .lh-admin-card {
+  border: 1px solid var(--lh-admin-line);
+  border-radius: 1.25rem;
+  background: var(--lh-admin-surface);
+  box-shadow: 0 8px 24px rgb(15 23 42 / 4%);
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.lh-admin-page .lh-admin-card:hover {
+  border-color: #c7d2fe;
+  box-shadow: 0 12px 30px rgb(15 23 42 / 7%);
+}
+
+.lh-admin-page .lh-admin-stat {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--lh-admin-line);
+  border-radius: 1.15rem;
+  background: var(--lh-admin-surface);
+  padding: 1rem;
+  text-align: left;
+  box-shadow: 0 6px 18px rgb(15 23 42 / 4%);
+}
+
+.lh-admin-page .lh-admin-stat::after {
+  position: absolute;
+  right: -.7rem;
+  bottom: -.9rem;
+  width: 3.6rem;
+  height: 3.6rem;
+  border-radius: 50%;
+  background: #eef2ff;
+  content: "";
+}
+
+.lh-admin-page .lh-admin-stat-value {
+  position: relative;
+  z-index: 1;
+  color: #172554;
+  font-size: 1.8rem;
+  font-weight: 800;
+  letter-spacing: -.04em;
+  line-height: 1;
+}
+
+.lh-admin-page .lh-admin-stat-label {
+  position: relative;
+  z-index: 1;
+  margin-top: .65rem;
+  color: var(--lh-admin-muted);
+  font-size: .68rem;
+  font-weight: 750;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+
+.lh-admin-page .lh-admin-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--lh-admin-line);
+  border-radius: 1rem;
+  background: var(--lh-admin-surface);
+}
+
+.lh-admin-page .lh-admin-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.lh-admin-page .lh-admin-table thead {
+  background: var(--lh-admin-soft);
+}
+
+.lh-admin-page .lh-admin-table thead th {
+  color: #64748b;
+  font-size: .67rem;
+  font-weight: 800;
+  letter-spacing: .075em;
+}
+
+.lh-admin-page .lh-admin-table tbody tr {
+  transition: background-color .15s ease;
+}
+
+.lh-admin-page .lh-admin-table tbody tr:hover {
+  background: #f8faff;
+}
+
+.lh-admin-page .lh-admin-back {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  color: #59677d;
+  font-size: .82rem;
+  font-weight: 700;
+  transition: color .15s ease;
+}
+
+.lh-admin-page .lh-admin-back:hover {
+  color: #4f46e5;
+}
+
+.lh-admin-page .lh-al {
+  border-color: var(--lh-admin-line);
+  background: var(--lh-admin-surface);
+}
+
+.lh-admin-page .lh-al > summary {
+  border-radius: 1rem;
+  transition: background-color .15s ease;
+}
+
+.lh-admin-page .lh-al > summary:hover,
+.lh-admin-page .lh-al[open] > summary {
+  background: var(--lh-admin-soft);
+}
+
+.lh-admin-page select {
+  border-color: var(--lh-admin-line);
+  background-color: var(--lh-admin-surface);
+  color: var(--lh-admin-ink);
+}
+
+.lh-admin-page :is(input, select, button, a):focus-visible {
+  outline: 3px solid rgb(99 102 241 / 35%);
+  outline-offset: 2px;
+}
+
+html.dark .lh-admin-page {
+  --lh-admin-ink: #e2e8f0;
+  --lh-admin-muted: #a3b1c6;
+  --lh-admin-line: #334155;
+  --lh-admin-surface: #172033;
+  --lh-admin-soft: #1e293b;
+}
+
+html.dark .lh-admin-page .lh-admin-hero {
+  border-color: #344568;
+  background:
+    radial-gradient(ellipse at 100% 0%, rgb(99 102 241 / 20%), transparent 40%),
+    linear-gradient(135deg, #18243b 0%, #1c2942 100%);
+}
+
+html.dark .lh-admin-page .lh-admin-title,
+html.dark .lh-admin-page .lh-admin-stat-value {
+  color: #f1f5f9;
+}
+
+html.dark .lh-admin-page .lh-admin-description {
+  color: #b3bfd2;
+}
+
+html.dark .lh-admin-page .lh-admin-stat::after {
+  background: #263653;
+}
+
+html.dark .lh-admin-page .lh-admin-table tbody tr:hover {
+  background: #202d44;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lh-admin-page .lh-admin-card,
+  .lh-admin-page .lh-admin-table tbody tr,
+  .lh-admin-page .lh-admin-back {
+    transition: none;
+  }
+
+  .lh-admin-page .lh-al > summary {
+    transition: none;
+  }
+}

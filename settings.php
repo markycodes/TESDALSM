@@ -77,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         setting_set('turnstile_secret_key', '');
         set_flash('success', 'Turnstile keys removed — registration falls back to the built-in question; log-in and the reset request run without a check.');
     } elseif ($action === 'save_theme') {
-        /* appearance — see ui_theme*() / ui_density*() / ui_layout*() in lib.php */
+        /* appearance — see ui_theme*() / ui_density*() / ui_layout*() / ui_chart_style() in lib.php */
         $theme = strtolower(trim((string) ($_POST['ui_theme'] ?? '')));
         if (!isset(ui_theme_choices()[$theme])) $theme = UI_THEME_DEFAULT;
         setting_set('ui_theme', $theme);
@@ -87,8 +87,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $lay = strtolower(trim((string) ($_POST['ui_layout'] ?? '')));
         if (!isset(ui_layout_choices()[$lay])) $lay = UI_LAYOUT_DEFAULT;
         setting_set('ui_layout', $lay);
+        $chartStyle = strtolower(trim((string) ($_POST['ui_chart_style'] ?? '')));
+        if (!isset(ui_chart_style_choices()[$chartStyle])) $chartStyle = 'area';
+        setting_set('ui_chart_style', $chartStyle);
         set_flash('success', 'Appearance saved — “' . ui_theme_choices()[$theme][0] . '” at '
-            . ui_density_choices()[$dens][0] . ' density, ' . ui_layout_choices()[$lay][0] . ' layout.');
+            . ui_density_choices()[$dens][0] . ' density, ' . ui_layout_choices()[$lay][0] . ' layout, '
+            . ui_chart_style_choices()[$chartStyle][0] . ' line graph.');
     }
     header('Location: settings.php');
     exit;
@@ -381,18 +385,30 @@ require __DIR__ . '/header.php';
       <?php endif; ?>
     </div>
   </form>
-  <form method="post" class="reveal lh-plain rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+  <form method="post" id="lh-appearance-picker" class="lh-appearance reveal lh-plain rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
     <?= csrf_field() ?>
     <input type="hidden" name="action" value="save_theme">
-    <h2 class="text-base font-bold text-slate-900">🎨 Appearance</h2>
-    <p class="mt-1 text-sm text-slate-600">
+    <div class="ap-heading">
+      <span class="ap-heading-icon" aria-hidden="true">🎨</span>
+      <div>
+        <p class="ap-eyebrow">Personalize your workspace</p>
+        <h2 class="mt-1 text-xl font-extrabold tracking-tight text-slate-900">Appearance</h2>
+        <p class="ap-intro">
       Three picks, one page: the <b>design</b> every page uses, how tightly the logged-in pages are packed, and how
       the app shell itself is arranged. All three share the same content and logic — only the look changes, and you can
-      switch back at any time. Currently in use:
-      <b><?= e(ui_theme_choices()[ui_theme()][0]) ?></b> at
-      <b><?= e(strtolower(ui_density_choices()[ui_density()][0])) ?></b> density,
-      <b><?= e(ui_layout_choices()[ui_layout()][0]) ?></b> layout.
-    </p>
+          switch back at any time.
+        </p>
+      </div>
+    </div>
+    <div class="ap-current" aria-live="polite">
+      <span class="ap-current-label">Currently in use</span>
+      <div class="ap-current-values">
+        <span>🎨 <?= e(ui_theme_choices()[ui_theme()][0]) ?></span>
+        <span>↕ <?= e(ui_density_choices()[ui_density()][0]) ?> density</span>
+        <span>▣ <?= e(ui_layout_choices()[ui_layout()][0]) ?></span>
+        <span>📈 <?= e(ui_chart_style_choices()[ui_chart_style()][0]) ?> graph</span>
+      </div>
+    </div>
     <?php if (defined('UI_THEME') && UI_THEME !== ''): ?>
       <p class="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800">
         This server's <b>config.php</b> pins <b>UI_THEME</b> to “<?= e((string) UI_THEME) ?>”, so it overrides this page.
@@ -404,54 +420,75 @@ require __DIR__ . '/header.php';
       </p>
     <?php endif; ?>
 
-    <div class="mt-4 grid gap-3 sm:grid-cols-2">
+    <fieldset class="ap-section">
+      <legend class="sr-only">Choose a design theme</legend>
+      <div class="ap-section-head">
+        <span class="ap-step">01</span>
+        <div>
+          <h3 class="ap-section-title">Design theme</h3>
+          <p class="ap-section-copy">Choose the colors, surfaces, and overall visual style used across the site.</p>
+        </div>
+      </div>
+    <div class="ap-grid ap-grid-themes">
       <?php foreach (ui_theme_choices() as $tkey => $tinfo): $tOn = ui_theme() === $tkey; ?>
-        <label class="cursor-pointer rounded-2xl border p-4 transition <?= $tOn
-            ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200'
-            : 'border-slate-200 bg-white hover:border-slate-300' ?>">
-          <span class="flex items-center gap-2">
-            <input type="radio" name="ui_theme" value="<?= e($tkey) ?>" <?= $tOn ? 'checked' : '' ?> class="h-4 w-4">
-            <span class="text-sm font-semibold text-slate-900"><?= e($tinfo[0]) ?></span>
-            <?php if ($tOn): ?><span class="rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white">in use</span><?php endif; ?>
+        <label class="ap-choice <?= $tOn ? 'is-selected' : '' ?>" data-appearance-choice>
+          <span class="ap-theme-sample" data-theme-preview="<?= e($tkey) ?>" aria-hidden="true">
+            <span class="ap-theme-rail"></span><span class="ap-theme-card"><span class="ap-theme-line"></span><span class="ap-theme-dot"></span></span>
           </span>
-          <span class="mt-1 block text-xs leading-5 text-slate-500"><?= e($tinfo[1]) ?></span>
-          <span class="mt-2 block text-[11px] font-semibold text-slate-400">assets/theme-<?= e($tkey) ?>.css</span>
+          <span class="ap-choice-head">
+            <input type="radio" name="ui_theme" value="<?= e($tkey) ?>" <?= $tOn ? 'checked' : '' ?> class="h-4 w-4">
+            <span class="ap-choice-title"><?= e($tinfo[0]) ?></span>
+            <?php if ($tOn): ?><span class="ap-badge">In use</span><?php endif; ?>
+          </span>
+          <span class="ap-copy"><?= e($tinfo[1]) ?></span>
+          <span class="ap-meta">Theme · <?= e($tkey) ?></span>
         </label>
       <?php endforeach; ?>
     </div>
+    </fieldset>
 
-    <div class="mt-5 border-t border-slate-100 pt-4">
-      <h3 class="text-sm font-bold text-slate-900">Density</h3>
-      <p class="mt-1 text-xs text-slate-500">
+    <fieldset class="ap-section">
+      <legend class="sr-only">Choose spacing density</legend>
+      <div class="ap-section-head">
+        <span class="ap-step">02</span>
+        <div>
+          <h3 class="ap-section-title">Spacing density</h3>
+          <p class="ap-section-copy">
         How tightly the logged-in pages are packed. Compact fits more rows and numbers on one screen — public pages
         (landing, log in, register) always keep their roomier spacing.
-      </p>
-      <div class="mt-3 grid gap-3 sm:grid-cols-2">
+          </p>
+        </div>
+      </div>
+      <div class="ap-grid ap-grid-two">
         <?php foreach (ui_density_choices() as $dkey => $dinfo): $dOn = ui_density() === $dkey; ?>
-          <label class="cursor-pointer rounded-2xl border p-4 transition <?= $dOn
-              ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200'
-              : 'border-slate-200 bg-white hover:border-slate-300' ?>">
-            <span class="flex items-center gap-2">
+          <label class="ap-choice <?= $dOn ? 'is-selected' : '' ?>" data-appearance-choice>
+            <span class="ap-choice-head">
               <input type="radio" name="ui_density" value="<?= e($dkey) ?>" <?= $dOn ? 'checked' : '' ?> class="h-4 w-4">
-              <span class="text-sm font-semibold text-slate-900"><?= e($dinfo[0]) ?></span>
-              <?php if ($dOn): ?><span class="rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white">in use</span><?php endif; ?>
+              <span class="ap-choice-title"><?= e($dinfo[0]) ?></span>
+              <?php if ($dOn): ?><span class="ap-badge">In use</span><?php endif; ?>
             </span>
-            <span class="mt-1 block text-xs leading-5 text-slate-500"><?= e($dinfo[1]) ?></span>
-            <span class="mt-2 block text-[11px] font-semibold text-slate-400">
-              <?= ui_density_file() === '' ? 'no extra stylesheet' : e('assets/density-' . $dkey . '.css') ?></span>
+            <span class="ap-copy"><?= e($dinfo[1]) ?></span>
+            <span class="ap-density-demo" data-density-preview="<?= e($dkey) ?>" aria-hidden="true"><span></span><span></span><span></span></span>
+            <span class="ap-meta"><?= $dkey === 'compact' ? 'More visible per screen' : 'More breathing room' ?></span>
           </label>
         <?php endforeach; ?>
       </div>
-    </div>
+    </fieldset>
 
-    <div class="mt-5 border-t border-slate-100 pt-4">
-      <h3 class="text-sm font-bold text-slate-900">Layout</h3>
-      <p class="mt-1 text-xs text-slate-500">
+    <fieldset class="ap-section">
+      <legend class="sr-only">Choose app shell layout</legend>
+      <div class="ap-section-head">
+        <span class="ap-step">03</span>
+        <div>
+          <h3 class="ap-section-title">App shell layout</h3>
+          <p class="ap-section-copy">
         How the logged-in shell is arranged: where the navigation sits and how much room the page content gets.
         Arrangements only reshape desktop screens (1024px and wider) — phones keep the drawer and normal scrolling
         either way, so no visitor ever loses the menu. <code>Classic shell</code> is what LearnHub ships.
-      </p>
-      <div class="mt-3 grid gap-3 sm:grid-cols-2">
+          </p>
+        </div>
+      </div>
+      <div class="ap-grid ap-grid-two">
         <?php
         /* Decorative wireframe of each arrangement (80x52), drawn inline so the
            picker shows the shape before it is saved. Inline SVG on purpose: no
@@ -495,38 +532,72 @@ require __DIR__ . '/header.php';
         };
         ?>
         <?php foreach (ui_layout_choices() as $lkey => $linfo): $lOn = ui_layout() === $lkey; ?>
-          <label class="cursor-pointer rounded-2xl border p-4 transition <?= $lOn
-              ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200'
-              : 'border-slate-200 bg-white hover:border-slate-300' ?>">
+          <label class="ap-choice <?= $lOn ? 'is-selected' : '' ?>" data-appearance-choice>
             <span class="flex items-start gap-3">
-              <svg viewBox="0 0 80 52" class="h-11 w-16 shrink-0 rounded-lg bg-slate-50 ring-1 ring-slate-200"
+              <svg viewBox="0 0 80 52" class="ap-layout-preview"
                 aria-hidden="true"><?= $lhMock($lkey) ?></svg>
               <span class="min-w-0">
                 <span class="flex flex-wrap items-center gap-2">
                   <input type="radio" name="ui_layout" value="<?= e($lkey) ?>" <?= $lOn ? 'checked' : '' ?> class="h-4 w-4">
-                  <span class="text-sm font-semibold text-slate-900"><?= e($linfo[0]) ?></span>
-                  <?php if ($lOn): ?><span class="rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white">in use</span><?php endif; ?>
+                  <span class="ap-choice-title"><?= e($linfo[0]) ?></span>
+                  <?php if ($lOn): ?><span class="ap-badge">In use</span><?php endif; ?>
                 </span>
-                <span class="mt-1 block text-xs leading-5 text-slate-500"><?= e($linfo[1]) ?></span>
-                <span class="mt-2 block text-[11px] font-semibold text-slate-400"><?= $lkey === 'classic'
+                <span class="ap-copy"><?= e($linfo[1]) ?></span>
+                <span class="ap-meta"><?= $lkey === 'classic'
                     ? 'built in — no extra stylesheet'
-                    : e('assets/layout-' . $lkey . '.css') ?></span>
+                    : 'Layout preview · desktop' ?></span>
               </span>
             </span>
           </label>
         <?php endforeach; ?>
       </div>
-    </div>
+    </fieldset>
 
-    <div class="mt-4 flex flex-wrap items-center gap-3">
-      <button type="submit"
-        class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700">
-        Save appearance</button>
-      <span class="text-xs text-slate-500">
-        Loaded: <code><?= ui_theme_url() === '' ? 'theme missing (upload assets/theme-' . e(ui_theme()) . '.css)' : e(ui_theme_url()) ?></code>
-        <?php if (ui_density_url() !== ''): ?> <code><?= e(ui_density_url()) ?></code><?php endif; ?>
-        <?php if (ui_layout_url() !== ''): ?> <code><?= e(ui_layout_url()) ?></code><?php endif; ?>
-      </span>
+    <fieldset class="ap-section">
+      <legend class="sr-only">Choose dashboard line graph design</legend>
+      <div class="ap-section-head">
+        <span class="ap-step">04</span>
+        <div>
+          <h3 class="ap-section-title">Line graph design</h3>
+          <p class="ap-section-copy">Choose how the 14-day activity graphs appear on teacher and student dashboards.</p>
+        </div>
+      </div>
+      <div class="ap-grid ap-grid-two">
+        <?php foreach (ui_chart_style_choices() as $chartKey => $chartInfo): $chartOn = ui_chart_style() === $chartKey; ?>
+          <label class="ap-choice <?= $chartOn ? 'is-selected' : '' ?>" data-appearance-choice>
+            <span class="ap-chart-demo" data-chart-preview="<?= e($chartKey) ?>" aria-hidden="true">
+              <svg viewBox="0 0 160 48" preserveAspectRatio="none">
+                <path class="ap-chart-gridline" d="M2 12H158 M2 24H158 M2 36H158"></path>
+                <path class="ap-chart-area" d="M4 36 L32 27 L58 31 L83 15 L110 22 L136 9 L156 17 L156 44 L4 44 Z"></path>
+                <path class="ap-chart-visits" d="M4 36 L32 27 L58 31 L83 15 L110 22 L136 9 L156 17"></path>
+                <path class="ap-chart-done" d="M4 40 L32 35 L58 30 L83 33 L110 24 L136 27 L156 20"></path>
+                <path class="ap-chart-visits-smooth" d="M4 36 C18 31.5 18 31.5 32 27 S48 28 58 31 S74 21 83 15 S101 19 110 22 S127 14 136 9 S150 13 156 17"></path>
+                <path class="ap-chart-done-smooth" d="M4 40 C18 37.5 18 37.5 32 35 S48 28 58 30 S74 34 83 33 S101 25 110 24 S127 29 136 27 S150 22 156 20"></path>
+                <g class="ap-chart-points-visits">
+                  <circle cx="4" cy="36" r="2"></circle><circle cx="32" cy="27" r="2"></circle><circle cx="58" cy="31" r="2"></circle>
+                  <circle cx="83" cy="15" r="2"></circle><circle cx="110" cy="22" r="2"></circle><circle cx="136" cy="9" r="2"></circle><circle cx="156" cy="17" r="2"></circle>
+                </g>
+                <g class="ap-chart-points-done">
+                  <circle cx="4" cy="40" r="2"></circle><circle cx="32" cy="35" r="2"></circle><circle cx="58" cy="30" r="2"></circle>
+                  <circle cx="83" cy="33" r="2"></circle><circle cx="110" cy="24" r="2"></circle><circle cx="136" cy="27" r="2"></circle><circle cx="156" cy="20" r="2"></circle>
+                </g>
+              </svg>
+            </span>
+            <span class="ap-choice-head">
+              <input type="radio" name="ui_chart_style" value="<?= e($chartKey) ?>" <?= $chartOn ? 'checked' : '' ?>>
+              <span class="ap-choice-title"><?= e($chartInfo[0]) ?></span>
+              <?php if ($chartOn): ?><span class="ap-badge">In use</span><?php endif; ?>
+            </span>
+            <span class="ap-copy"><?= e($chartInfo[1]) ?></span>
+            <span class="ap-meta"><?= ['area' => 'Filled visits line', 'points' => 'Daily value markers', 'smooth' => 'Curved trend lines', 'thin' => 'Lightweight stroke'][$chartKey] ?></span>
+          </label>
+        <?php endforeach; ?>
+      </div>
+    </fieldset>
+
+    <div class="ap-savebar">
+      <span class="ap-save-note">Changes apply site-wide after you save. You can return here anytime to switch back.</span>
+      <button type="submit" class="ap-save-button">Save appearance <span aria-hidden="true">→</span></button>
     </div>
   </form>
 
@@ -544,6 +615,20 @@ require __DIR__ . '/header.php';
 </div>
 
 <script>
+/* Keep the selected card treatment in sync while the appearance form is edited. */
+(function () {
+  var form = document.getElementById('lh-appearance-picker');
+  if (!form) return;
+  form.addEventListener('change', function (event) {
+    var input = event.target;
+    if (!input || input.type !== 'radio' || !input.name) return;
+    form.querySelectorAll('input[type="radio"][name="' + input.name + '"]').forEach(function (radio) {
+      var card = radio.closest('[data-appearance-choice]');
+      if (card) card.classList.toggle('is-selected', radio.checked);
+    });
+  });
+})();
+
 /* inline mail test on the settings page (same endpoint as the header button) */
 (function () {
   var btn = document.getElementById('lh-settings-test');

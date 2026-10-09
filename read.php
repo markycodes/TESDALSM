@@ -17,7 +17,9 @@ $materialId = (int) ($_GET['m'] ?? 0);
 $course = course_row($courseId);
 if (!$course) { http_response_code(404); exit('Course not found.'); }
 $isOwner = (int) $course['teacher_id'] === $userId;
-if (!$isOwner && !is_enrolled_id($courseId, $userId)) {
+/* The main admin passes this gate too — the same read-only reach as on the
+   course page (admin_lessons.php links straight here). */
+if (!$isOwner && ($user['role'] ?? '') !== 'admin' && !is_enrolled_id($courseId, $userId)) {
     http_response_code(403);
     exit('Enroll in this course to read its materials.');
 }
@@ -35,8 +37,9 @@ if (!$material || ($material['type'] ?? '') !== 'file') {
    itself and sends the leave-beacon on pagehide (script before </body>). */
 touch_presence($userId);
 $trackVisit = ($user['role'] ?? '') === 'student' && !$isOwner;
+$attendance_entered = 0;
 if ($trackVisit) {
-    resume_attendance($userId, $courseId);
+    $attendance_entered = resume_attendance($userId, $courseId);
 }
 
 $payload = read_material_payload($material);
@@ -49,6 +52,7 @@ $state = material_user_states($userId, $courseId)[$materialId] ?? [];
 $depth = (int) ($state['depth'] ?? 0);
 $seconds = (int) ($state['seconds'] ?? 0);
 $done = material_completed($userId, $materialId);
+$isAdmin = ($user['role'] ?? '') === 'admin';
 $ext = strtolower(ext_of((string) ($material['orig_name'] ?? $material['filename'] ?? '')));
 $fileSrc = 'download.php?c=' . $courseId . '&m=' . $materialId . '&disp=inline';
 
@@ -87,7 +91,12 @@ if (is_file($absFile)) {
     <a href="course.php?id=<?= (int) $courseId ?>" class="shrink-0 rounded-lg px-2 py-1.5 text-sm font-semibold text-indigo-600 hover:bg-indigo-50">← Back to course</a>
     <div class="min-w-0 flex-1 px-2 text-center">
       <p class="truncate text-sm font-bold text-slate-900"><?= e((string) $material['title']) ?></p>
-      <p class="truncate text-xs text-slate-500"><?= e((string) $course['title']) ?> · <?= e((string) ($course['teacher_name'] ?? '')) ?></p>
+      <p class="truncate text-xs text-slate-500">
+        <?= e((string) $course['title']) ?> · <?= e((string) ($course['teacher_name'] ?? '')) ?>
+        <?php if ($trackVisit): ?>
+          · ⏱ Time spent <span data-reader-open-seconds="<?= max(0, time() - $attendance_entered) ?>" data-start-at="<?= $attendance_entered ?>" class="tabular-nums"><?= duration_between($attendance_entered, null) ?></span>
+        <?php endif; ?>
+      </p>
     </div>
     <span id="read-badge" class="shrink-0 rounded-full px-3 py-1 text-xs font-semibold <?= $done ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-50 text-indigo-700' ?>"><?= $done ? '✓ Completed' : 'Read ' . $depth . '%' ?></span>
   </div>
@@ -219,18 +228,22 @@ if (is_file($absFile)) {
 
 <?php $quizInfo = lesson_quiz($materialId); ?>
 <?php if ($quizInfo): ?>
-  <?php if ($isOwner): ?>
+  <?php
+    $quizLessonDone = material_completed($userId, $materialId);
+    $quizLessonReady = $isOwner || $isAdmin || $quizLessonDone;
+  ?>
+  <?php if ($isOwner || $isAdmin): ?>
   <div class="mt-6 rounded-2xl bg-white p-5 text-sm text-slate-600 ring-1 ring-slate-200">
     🧪 <b>Quiz assigned:</b> “<?= e((string) $quizInfo['title']) ?>” · <?= count($quizInfo['questions']) ?> question(s) · pass <?= (int) $quizInfo['pass_score'] ?>%
     · <a href="course.php?id=<?= (int) $courseId ?>" class="font-semibold text-indigo-600 hover:underline">edit on the course page</a>
     · <a href="quiz.php?c=<?= (int) $courseId ?>&amp;m=<?= $materialId ?>" class="font-semibold text-indigo-600 hover:underline">preview quiz</a>
   </div>
   <?php else: ?>
-  <div id="quiz-lock-card" class="mt-6 rounded-2xl bg-white p-5 text-center ring-1 ring-slate-200 <?= $done ? 'hidden' : '' ?>">
-    <p class="text-sm font-semibold text-slate-500">🔒 A quiz is attached to this lesson (“<?= e((string) $quizInfo['title']) ?>”) — complete the lesson to unlock it.</p>
+  <div id="quiz-lock-card" class="mt-6 rounded-2xl bg-white p-5 text-center ring-1 ring-slate-200 <?= $quizLessonReady ? 'hidden' : '' ?>">
+    <p class="text-sm font-semibold text-slate-500">🔒 A quiz is attached to this lesson (“<?= e((string) $quizInfo['title']) ?>”) — complete this lesson to unlock it.</p>
   </div>
-  <div id="quiz-unlock-card" class="mt-6 rounded-2xl bg-white p-5 text-center ring-1 ring-emerald-200 <?= $done ? '' : 'hidden' ?>">
-    <p class="text-sm font-semibold text-emerald-700">✓ Lesson completed — the quiz is unlocked</p>
+  <div id="quiz-unlock-card" class="mt-6 rounded-2xl bg-white p-5 text-center ring-1 ring-emerald-200 <?= $quizLessonReady ? '' : 'hidden' ?>">
+    <p class="text-sm font-semibold text-emerald-700">✓ Lesson complete — the quiz is unlocked</p>
     <a href="quiz.php?c=<?= (int) $courseId ?>&amp;m=<?= $materialId ?>"
        class="mt-3 inline-block rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">🧪 Take the quiz (<?= count($quizInfo['questions']) ?> questions)</a>
   </div>
@@ -396,6 +409,7 @@ if (is_file($absFile)) {
   var csrf = csrfEl ? csrfEl.content : '';
   var courseId = '<?= (int) $courseId ?>';
   var materialId = '<?= (int) $materialId ?>';
+  var folderId = '<?= (int) ($material['folder_id'] ?? 0) ?>';
   var minSeconds = <?= max(5, $minSeconds) ?>;
   var tracking = <?= $trackable ? 'true' : 'false' ?>;
   var isOwner = <?= $isOwner ? 'true' : 'false' ?>;
@@ -505,11 +519,12 @@ if (is_file($absFile)) {
       if (data.ok && data.complete && !completed) {
         completed = true; render();
         if (badgeEl) { badgeEl.textContent = '✓ Completed'; badgeEl.className = 'shrink-0 rounded-full px-3 py-1 text-xs font-semibold bg-emerald-100 text-emerald-700'; }
+        var folderProgress = data.folder_progress && data.folder_progress[folderId];
         var unlockCard = document.getElementById('quiz-unlock-card');
         var lockCard = document.getElementById('quiz-lock-card');
         if (unlockCard) unlockCard.classList.remove('hidden');
         if (lockCard) lockCard.classList.add('hidden');
-        toast('✓ Material completed — quiz unlocked, course progress ' + data.pct + '%');
+        toast('✓ Material completed — its quiz is unlocked.');
       }
     } catch (e) {}
   }
@@ -520,9 +535,8 @@ if (is_file($absFile)) {
 </script>
 <script>
 /* This reader runs without the app shell (no header.php / app.js), so it keeps
-   its own study session alive: ping.php keeps presence fresh — otherwise the
-   stale-presence closer would end the attendance visit ~3 minutes into reading —
-   and the pagehide beacon closes the visit when the student really leaves. */
+   presence fresh. It records the active course in session storage for the next
+   app page to close if the student leaves this course. */
 (function () {
   var csrf = document.querySelector('meta[name="csrf"]').content;
   var ping = function () {
@@ -534,22 +548,28 @@ if (is_file($absFile)) {
   };
   ping();
   setInterval(ping, 55000);
+  var visitTimer = document.querySelector('[data-reader-open-seconds]');
+  if (visitTimer) {
+    var visitStart = parseInt(visitTimer.getAttribute('data-start-at') || '0', 10);
+    var renderVisitTime = function () {
+      var visitSeconds = Math.max(0, Math.floor(Date.now() / 1000) - visitStart);
+      var h = Math.floor(visitSeconds / 3600);
+      var m = Math.floor((visitSeconds % 3600) / 60);
+      var s = visitSeconds % 60;
+      visitTimer.textContent = h > 0
+        ? h + 'h ' + String(m).padStart(2, '0') + 'm'
+        : m + 'm ' + String(s).padStart(2, '0') + 's';
+    };
+    renderVisitTime();
+    setInterval(renderVisitTime, 1000);
+  }
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible') ping();
   });
 <?php if ($trackVisit): ?>
-  if (navigator.sendBeacon) {
-    window.addEventListener('pagehide', function () {
-      navigator.sendBeacon('attendance.php', new URLSearchParams({
-        csrf: csrf, course: '<?= (int) $courseId ?>',
-      }));
-    });
-  }
+  try { sessionStorage.setItem('lh-active-attendance-course', '<?= (int) $courseId ?>'); } catch (error) {}
 <?php endif; ?>
 })();
 </script>
 </body>
 </html>
-
-
-

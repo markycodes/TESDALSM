@@ -77,7 +77,7 @@ if ($selCategory !== '' && in_array($selCategory, $allCategories, true)) {
 
 /* ---- records for the selected day ----
    Who may see whom: the teacher of the courses in scope (and the main admin)
-   read every visit of the day; a student reads their own visits and nothing
+   read the latest visit per student/course that day; a student reads their own visits and nothing
    else. The IP address of a classmate is therefore never printed for a student,
    and neither is a classmate's row. The same rule is applied to the live
    refresh in realtime.php (v=day), which reports 'ownOnly' so the redrawn table
@@ -88,14 +88,18 @@ if ($scopeIds) {
   $in = implode(',', array_fill(0, count($scopeIds), '?'));
   $sql = "SELECT a.id, a.user_id, a.entered_at, a.left_at, a.ip,
                    u.name, u.avatar,
+                   CASE WHEN u.role = 'student' AND e.user_id IS NULL THEN 1 ELSE 0 END AS removed,
                    c.title AS course_title, c.category AS course_category
             FROM attendance a
             JOIN users u ON u.id = a.user_id
             JOIN courses c ON c.id = a.course_id
+            LEFT JOIN enrollments e ON e.course_id = a.course_id AND e.user_id = a.user_id
             WHERE a.entered_at >= ? AND a.entered_at < ? AND a.course_id IN ($in)"
-    . ($mayReadAttendance ? '' : ' AND a.user_id = ?') .
+    . ($mayReadAttendance
+      ? ' AND a.id = (SELECT MAX(a2.id) FROM attendance a2 WHERE a2.user_id = a.user_id AND a2.course_id = a.course_id AND a2.entered_at >= ? AND a2.entered_at < ?)'
+      : ' AND a.user_id = ?') .
     ' ORDER BY a.entered_at DESC';
-  $params = array_merge([$dayStart, $dayEnd], $scopeIds, $mayReadAttendance ? [] : [$me]);
+  $params = array_merge([$dayStart, $dayEnd], $scopeIds, $mayReadAttendance ? [$dayStart, $dayEnd] : [$me]);
   $stmt = db()->prepare($sql);
   $stmt->execute($params);
   $records = $stmt->fetchAll();
@@ -194,7 +198,7 @@ require __DIR__ . '/header.php';
      they are: 'Students' above a 1 would otherwise read as though the class had
      vanished, when it only means nobody but you is listed here. */
   $stats = $mayReadAttendance ? [
-    ['📥', 'Visits', (string) count($records)],
+    ['📥', 'Latest visits', (string) count($records)],
     ['🧑‍🎓', 'Students', (string) $uniqueStudents],
     ['🟢', 'In course now', (string) ($isToday ? $openCount : 0)],
     ['⏱', 'Total time', $fmtDur($totalSeconds)],
@@ -219,7 +223,7 @@ require __DIR__ . '/header.php';
      and your own is not worth a column of your own. -->
 <section class="mt-8" data-live-scope="day" data-show-ip="<?= $mayReadAttendance ? '1' : '0' ?>">
   <div class="flex items-center justify-between">
-    <h2 class="text-lg font-bold text-slate-900">Recorded visits (<span
+    <h2 class="text-lg font-bold text-slate-900"><?= $mayReadAttendance ? 'Latest attendance per student' : 'Recorded visits' ?> (<span
         data-day-stat="total"><?= count($records) ?></span>)</h2>
     <?php if ($isToday): ?><span class="text-xs text-slate-400">Durations update live for open
         sessions</span><?php endif; ?>
@@ -259,7 +263,8 @@ require __DIR__ . '/header.php';
                          teacher who already has this student on a roster */
                     $who = '<div class="flex items-center gap-2">'
                          . user_peer_avatar_html(['id' => (int) $r['user_id'], 'name' => (string) $r['name'], 'avatar' => (string) ($r['avatar'] ?? '')], 'h-8 w-8')
-                         . '<div class="min-w-0"><p class="truncate font-semibold text-slate-900">' . e((string) $r['name']) . '</p>'
+                         . '<div class="min-w-0"><p class="truncate font-semibold text-slate-900">' . e((string) $r['name'])
+                         . ((int) ($r['removed'] ?? 0) ? ' <span class="inline-block rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-600">Removed</span>' : '') . '</p>'
                          . '<p class="text-xs text-slate-400">' . ($isOnline ? '🟢 online' : 'offline') . '</p></div></div>'; ?>
                 <?= profile_hover_html($who, (int) $r['user_id'], ['block' => true, 'self' => false]) ?>
               </td>
@@ -282,6 +287,7 @@ require __DIR__ . '/header.php';
               <td class="px-4 py-3 text-slate-600">
                 <?php if ($open): ?>
                   <span data-open-seconds="<?= max(0, $now - (int) $r['entered_at']) ?>"
+                    data-start-at="<?= (int) $r['entered_at'] ?>"
                     class="font-semibold text-emerald-700"></span>
                 <?php else: ?>
                   <?= $fmtDur($dur) ?>

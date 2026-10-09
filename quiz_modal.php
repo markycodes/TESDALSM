@@ -1,11 +1,11 @@
 <?php if (!function_exists('db')) { http_response_code(403); exit('Forbidden'); } /* include-only partial: no direct URL access */ ?>
-<!-- Assign / edit the quiz of a lesson (teacher only, opened from the lesson cards) -->
+<!-- Assign / edit a folder quiz (teacher only) -->
 <div id="quiz-modal" class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 p-4">
   <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
     <div class="flex items-start justify-between">
       <div>
-        <h3 class="text-lg font-bold text-slate-900">🧪 Lesson quiz</h3>
-        <p class="mt-1 text-sm text-slate-500">Lesson: <b id="quiz-lesson-title">—</b></p>
+        <h3 class="text-lg font-bold text-slate-900">🧪 <span id="quiz-kind-label">Folder quiz</span></h3>
+        <p class="mt-1 text-sm text-slate-500"><span id="quiz-target-label">Folder</span>: <b id="quiz-lesson-title">—</b></p>
       </div>
       <button data-modal-close data-tip="Close" aria-label="Close" class="lh-tip lh-tip-end rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">✕</button>
     </div>
@@ -13,6 +13,7 @@
     <form method="post" action="quiz_save.php" class="mt-4 space-y-4">
       <?= csrf_field() ?>
       <input type="hidden" name="course_id" value="<?= e((string) $course['id']) ?>">
+      <input type="hidden" name="folder_id" id="quiz-folder-id" value="">
       <input type="hidden" name="material_id" id="quiz-material-id" value="">
       <div class="grid gap-3 sm:grid-cols-3">
         <label class="block text-sm font-medium text-slate-700 sm:col-span-2">Quiz title
@@ -35,7 +36,7 @@
 
       <button type="button" id="quiz-add-row"
         class="w-full rounded-xl border-2 border-dashed border-slate-300 py-2.5 text-sm font-semibold text-slate-500 hover:border-indigo-300 hover:text-indigo-600">＋ Add question</button>
-      <p class="text-xs leading-5 text-slate-400">Mark the correct option for every question (options 3–4 are optional). Students see the quiz only after completing the lesson. Saving replaces the existing quiz and clears its past attempts.</p>
+      <p id="quiz-gate-copy" class="text-xs leading-5 text-slate-400">Mark the correct option for every question (options 3–4 are optional). Students unlock this folder quiz when all lessons in this folder are complete. Each folder has independent progress.</p>
 
       <div class="flex flex-wrap justify-end gap-2 pt-1">
         <button type="button" data-modal-close
@@ -47,6 +48,7 @@
     <form method="post" action="quiz_delete.php" data-confirm="Remove the quiz assigned to this lesson? Students will no longer see it." class="mt-2">
       <?= csrf_field() ?>
       <input type="hidden" name="course_id" value="<?= e((string) $course['id']) ?>">
+      <input type="hidden" name="folder_id" id="quiz-del-folder-id" value="">
       <input type="hidden" name="material_id" id="quiz-del-material-id" value="">
       <button type="submit" id="quiz-remove"
         class="hidden w-full rounded-xl border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50">🗑 Remove this quiz</button>

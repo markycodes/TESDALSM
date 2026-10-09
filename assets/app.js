@@ -153,7 +153,19 @@ document.addEventListener('click', (e) => {
   const opener = e.target.closest('[data-modal-open]');
   if (opener) {
     e.preventDefault();
-    openModal(document.getElementById(opener.getAttribute('data-modal-open')));
+    const modal = document.getElementById(opener.getAttribute('data-modal-open'));
+    if (modal && modal.id === 'lesson-modal' && opener.hasAttribute('data-folder-select')) {
+      const folderId = opener.getAttribute('data-folder-select');
+      modal.querySelectorAll('select[name="folder_id"]').forEach((select) => {
+        select.value = folderId;
+      });
+      const tab = opener.getAttribute('data-lesson-tab');
+      if (tab) {
+        const tabButton = modal.querySelector('[data-tab-btn="' + tab + '"]');
+        if (tabButton) switchLessonTab(tabButton);
+      }
+    }
+    openModal(modal);
     return;
   }
   const closer = e.target.closest('[data-modal-close]');
@@ -188,11 +200,11 @@ function quizRenumber() {
     addBtn.classList.toggle('hover:text-indigo-600', !full);
   }
 }
-function quizLoadRows(mid) {
+function quizLoadRows(mid, isFolder) {
   const rows = document.getElementById('quiz-rows');
   if (!rows) return;
   rows.innerHTML = '';
-  const tpl = document.querySelector('template[data-quiz-template="' + mid + '"]');
+  const tpl = document.querySelector('template[' + (isFolder ? 'data-folder-quiz-template' : 'data-quiz-template') + '="' + mid + '"]');
   if (tpl) rows.appendChild(tpl.content.cloneNode(true));
   if (!rows.querySelector('[data-q-row]')) {
     const blank = document.querySelector('template[data-quiz-blank-row]');
@@ -201,21 +213,49 @@ function quizLoadRows(mid) {
   quizRenumber();
 }
 document.addEventListener('click', (e) => {
+  const explanationBtn = e.target.closest('[data-explanation-toggle]');
+  if (explanationBtn) {
+    e.preventDefault();
+    const input = explanationBtn.parentElement.querySelector('[data-explanation-input]');
+    if (!input) return;
+    const show = input.classList.contains('hidden');
+    input.classList.toggle('hidden', !show);
+    explanationBtn.setAttribute('aria-expanded', show ? 'true' : 'false');
+    explanationBtn.textContent = show ? '− Hide explanation' : '+ Add explanation';
+    return;
+  }
+  const folderBtn = e.target.closest('[data-modal-open="quiz-modal"][data-folder-quiz-edit]');
   const editBtn = e.target.closest('[data-modal-open="quiz-modal"][data-quiz-edit]');
-  if (editBtn) {
+  const quizBtn = folderBtn || editBtn;
+  if (quizBtn) {
     /* runs after the generic opener (registered earlier) has shown the modal */
-    const mid = editBtn.getAttribute('data-quiz-edit') || '';
-    const matInput = document.getElementById('quiz-material-id');
-    if (matInput) matInput.value = mid;
+    const isFolder = !!folderBtn;
+    const mid = quizBtn.getAttribute(isFolder ? 'data-folder-quiz-edit' : 'data-quiz-edit') || '';
+    const folderInput = document.getElementById('quiz-folder-id');
+    const materialInput = document.getElementById('quiz-material-id');
+    const deleteFolderInput = document.getElementById('quiz-del-folder-id');
+    const deleteMaterialInput = document.getElementById('quiz-del-material-id');
+    if (folderInput) folderInput.value = isFolder ? mid : '';
+    if (deleteFolderInput) deleteFolderInput.value = isFolder ? mid : '';
+    if (materialInput) materialInput.value = isFolder ? '' : mid;
+    if (deleteMaterialInput) deleteMaterialInput.value = isFolder ? '' : mid;
     const lessonTitle = document.getElementById('quiz-lesson-title');
-    if (lessonTitle) lessonTitle.textContent = editBtn.getAttribute('data-title') || '—';
-    const tpl = document.querySelector('template[data-quiz-template="' + mid + '"]');
+    if (lessonTitle) lessonTitle.textContent = quizBtn.getAttribute('data-title') || '—';
+    const kindLabel = document.getElementById('quiz-kind-label');
+    const targetLabel = document.getElementById('quiz-target-label');
+    const gateCopy = document.getElementById('quiz-gate-copy');
+    if (kindLabel) kindLabel.textContent = isFolder ? 'Folder quiz' : 'Lesson quiz';
+    if (targetLabel) targetLabel.textContent = isFolder ? 'Folder' : 'Lesson';
+    if (gateCopy) gateCopy.textContent = isFolder
+      ? 'Mark the correct option for every question (options 3–4 are optional). Students unlock this folder quiz when every lesson in this folder reaches 100%. Each folder has independent progress.'
+      : 'Mark the correct option for every question (options 3–4 are optional). This existing lesson quiz is available only after every lesson in its folder is complete.';
+    const tpl = document.querySelector('template[' + (isFolder ? 'data-folder-quiz-template' : 'data-quiz-template') + '="' + mid + '"]');
     const has = !!(tpl && tpl.getAttribute('data-has-quiz') === '1');
     const title = document.getElementById('quiz-title');
     if (title) title.value = has ? (tpl.getAttribute('data-quiz-title') || '') : '';
     const pass = document.getElementById('quiz-pass');
     if (pass) pass.value = has ? (tpl.getAttribute('data-pass') || '60') : '60';
-    quizLoadRows(mid);
+    quizLoadRows(mid, isFolder);
     return;
   }
   if (e.target.closest('#quiz-add-row')) {
@@ -239,6 +279,13 @@ document.addEventListener('click', (e) => {
     if (quizRowCount() <= 1) {
       /* never leave zero rows — clear the last one instead */
       row.querySelectorAll('input:not([type="hidden"])').forEach((i) => { i.value = ''; });
+      row.querySelectorAll('textarea').forEach((textarea) => { textarea.value = ''; });
+      row.querySelectorAll('[data-explanation-toggle]').forEach((button) => {
+        const input = button.parentElement.querySelector('[data-explanation-input]');
+        if (input) input.classList.add('hidden');
+        button.setAttribute('aria-expanded', 'false');
+        button.textContent = '+ Add explanation';
+      });
       const sel = row.querySelector('select');
       if (sel) sel.selectedIndex = 0;
     } else {
@@ -279,6 +326,23 @@ function switchLessonTab(btn) {
   });
 }
 document.addEventListener('click', (e) => {
+  const folderTab = e.target.closest('[data-folder-tab-button]');
+  if (folderTab) {
+    const tabset = folderTab.closest('[data-folder-tabset]');
+    if (!tabset) return;
+    const key = folderTab.getAttribute('data-folder-tab-button');
+    tabset.querySelectorAll('[data-folder-tab-button]').forEach((button) => {
+      const active = button === folderTab;
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+      button.classList.toggle('bg-indigo-600', active);
+      button.classList.toggle('text-white', active);
+      button.classList.toggle('text-slate-600', !active);
+    });
+    tabset.querySelectorAll('[data-folder-tab-pane]').forEach((pane) => {
+      pane.classList.toggle('hidden', pane.getAttribute('data-folder-tab-pane') !== key);
+    });
+    return;
+  }
   const btn = findTabButton(e.target);
   if (!btn) return;
   try {
@@ -288,6 +352,67 @@ document.addEventListener('click', (e) => {
     const msg = document.getElementById('tab-error');
     if (msg) { msg.textContent = 'Tab error: ' + err.message; msg.classList.remove('hidden'); }
     console.error('[TAB] error:', err);
+  }
+});
+
+/* ---------- move lessons between course folders ---------- */
+let draggedLesson = null;
+document.addEventListener('dragstart', (e) => {
+  const lesson = e.target.closest('[data-movable-lesson]');
+  if (!lesson) return;
+  draggedLesson = lesson;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', lesson.getAttribute('data-movable-lesson') || '');
+  lesson.classList.add('opacity-50');
+});
+document.addEventListener('dragend', (e) => {
+  const lesson = e.target.closest('[data-movable-lesson]');
+  if (lesson) lesson.classList.remove('opacity-50');
+  document.querySelectorAll('[data-folder-drop-target].ring-2').forEach((folderHeader) => {
+    folderHeader.classList.remove('ring-2', 'ring-indigo-400', 'bg-indigo-50');
+  });
+  draggedLesson = null;
+});
+document.addEventListener('dragover', (e) => {
+  const folderHeader = e.target.closest('[data-folder-drop-target]');
+  if (!folderHeader || !draggedLesson) return;
+  if (folderHeader.closest('[data-folder-progress]').getAttribute('data-course-id') !== draggedLesson.getAttribute('data-course-id')) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  folderHeader.classList.add('ring-2', 'ring-indigo-400', 'bg-indigo-50');
+});
+document.addEventListener('dragleave', (e) => {
+  const folderHeader = e.target.closest('[data-folder-drop-target]');
+  if (!folderHeader || folderHeader.contains(e.relatedTarget)) return;
+  folderHeader.classList.remove('ring-2', 'ring-indigo-400', 'bg-indigo-50');
+});
+document.addEventListener('drop', async (e) => {
+  const folderHeader = e.target.closest('[data-folder-drop-target]');
+  if (!folderHeader || !draggedLesson) return;
+  e.preventDefault();
+  folderHeader.classList.remove('ring-2', 'ring-indigo-400', 'bg-indigo-50');
+  const courseId = folderHeader.closest('[data-folder-progress]').getAttribute('data-course-id') || '';
+  const materialId = draggedLesson.getAttribute('data-movable-lesson') || e.dataTransfer.getData('text/plain');
+  const folderId = folderHeader.getAttribute('data-folder-drop-target') || '';
+  if (courseId !== draggedLesson.getAttribute('data-course-id')) return;
+  if (folderId === draggedLesson.getAttribute('data-folder-id')) {
+    showToast('This lesson is already in that folder.');
+    return;
+  }
+  try {
+    const response = await fetch('folder_move.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'fetch' },
+      body: new URLSearchParams({
+        csrf: csrfToken(), course: courseId, material: materialId, folder: folderId,
+      }).toString(),
+    });
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.error || 'The lesson could not be moved.');
+    showToast('Lesson moved to ' + result.folder + '.');
+    setTimeout(() => window.location.reload(), 500);
+  } catch (error) {
+    showToast(error.message || 'The lesson could not be moved. Please try again.', 'error');
   }
 });
 
@@ -454,6 +579,7 @@ document.querySelectorAll('input[type="file"][data-chunk-url]').forEach((input) 
     const base = {
       csrf: (form.querySelector('[name="csrf"]') || {}).value || '',
       course_id: (form.querySelector('[name="course_id"]') || {}).value || '',
+      folder_id: (form.querySelector('[name="folder_id"]') || {}).value || '',
       lesson_type: (form.querySelector('[name="lesson_type"]') || {}).value || 'video',
       title: (form.querySelector('[name="title"]') || {}).value || '',
       description: (form.querySelector('[name="description"]') || {}).value || '',
@@ -555,6 +681,24 @@ document.addEventListener('submit', (e) => {
   });
 });
 
+document.addEventListener('change', (event) => {
+  const master = event.target.closest('[data-course-select-all]');
+  if (master) {
+    document.querySelectorAll('[data-course-student-select]').forEach((checkbox) => {
+      checkbox.checked = master.checked;
+    });
+    return;
+  }
+  const studentCheckbox = event.target.closest('[data-course-student-select]');
+  if (!studentCheckbox) return;
+  const masterCheckbox = document.querySelector('[data-course-select-all]');
+  if (!masterCheckbox) return;
+  const all = Array.from(document.querySelectorAll('[data-course-student-select]'));
+  const selected = all.filter((checkbox) => checkbox.checked).length;
+  masterCheckbox.checked = all.length > 0 && selected === all.length;
+  masterCheckbox.indeterminate = selected > 0 && selected < all.length;
+});
+
 /* ---------- AJAX resilience for shared hosts (InfinityFree, etc.) ----------
    Their anti-bot system answers some requests with an HTML challenge page
    instead of JSON ("This site requires Javascript…"). When a poller gets
@@ -632,13 +776,58 @@ function applyCourseProgress(courseId, data) {
     if (role === 'pct') el.textContent = data.pct + '%';
   });
 }
-function setLessonState(materialId, text, done) {
+function setLessonState(materialId, text, done, percent = null) {
   document.querySelectorAll('[data-lesson-state="' + materialId + '"]').forEach((el) => {
     el.textContent = text;
+    el.setAttribute('data-folder-done', done ? '1' : '0');
     el.classList.toggle('bg-emerald-100', !!done);
     el.classList.toggle('text-emerald-700', !!done);
     el.classList.toggle('bg-slate-100', !done);
     el.classList.toggle('text-slate-600', !done);
+  });
+  const videoProgress = document.querySelector('[data-video-progress="' + materialId + '"]');
+  if (videoProgress && percent !== null) {
+    const progress = done ? 100 : Math.max(0, Math.min(100, percent));
+    videoProgress.style.width = progress + '%';
+    const progressBar = videoProgress.parentElement;
+    if (progressBar && progressBar.getAttribute('role') === 'progressbar') {
+      progressBar.setAttribute('aria-valuenow', String(progress));
+    }
+  }
+  document.querySelectorAll('[data-folder-lesson="' + materialId + '"]').forEach((el) => {
+    el.setAttribute('data-folder-done', done ? '1' : '0');
+  });
+  document.querySelectorAll('[data-lesson-quiz-link="' + materialId + '"]').forEach((el) => {
+    el.classList.toggle('hidden', !done);
+  });
+  document.querySelectorAll('[data-lesson-quiz-lock="' + materialId + '"]').forEach((el) => {
+    el.classList.toggle('hidden', done);
+  });
+  updateFolderQuizProgress();
+}
+function updateFolderQuizProgress() {
+  document.querySelectorAll('[data-folder-progress]').forEach((folder) => {
+    const folderId = folder.getAttribute('data-folder-id');
+    const lessons = Array.from(document.querySelectorAll('[data-folder-lesson]')).filter((lesson) =>
+      lesson.getAttribute('data-folder-id') === folderId
+    );
+    const total = lessons.length;
+    const done = lessons.filter((lesson) => lesson.getAttribute('data-folder-done') === '1').length;
+    const pct = total ? (done === total ? 100 : Math.min(99, Math.round(done * 100 / total))) : 0;
+    const progressText = folder.querySelector('[data-folder-progress-text]');
+    if (progressText) progressText.textContent = done + ' / ' + total + ' lessons complete · ' + pct + '%';
+    const quizLink = folder.querySelector('[data-folder-quiz-link]');
+    const quizLock = folder.querySelector('[data-folder-quiz-lock]');
+    if (quizLink && quizLock) {
+      const unlocked = total > 0 && pct >= 100;
+      quizLink.classList.toggle('hidden', !unlocked);
+      quizLock.classList.toggle('hidden', unlocked);
+    }
+    const legacyLinks = document.querySelectorAll('[data-folder-legacy-link="' + folderId + '"]');
+    const legacyLocks = document.querySelectorAll('[data-folder-legacy-lock="' + folderId + '"]');
+    const folderComplete = total > 0 && pct >= 100;
+    legacyLinks.forEach((el) => el.classList.toggle('hidden', !folderComplete));
+    legacyLocks.forEach((el) => el.classList.toggle('hidden', folderComplete));
   });
 }
 /* Lessons we already celebrated — the completion toast must pop exactly once.
@@ -659,7 +848,7 @@ async function sendWatch(courseId, materialId, watched, duration, position) {
   if (!data.ok) return null;
   applyCourseProgress(courseId, data);
   const pct = data.percent || 0;
-  setLessonState(materialId, data.complete ? '✓ Completed' : (pct > 0 ? '▶ ' + pct + '% watched' : 'Not started'), !!data.complete);
+  setLessonState(materialId, data.complete ? '✓ Complete' : (pct > 0 ? pct + '% watched' : 'Not started'), !!data.complete, pct);
   if (data.complete && !completedToasts.has(String(materialId))) {
     completedToasts.add(String(materialId));
     showToast('Video lesson completed 🎉');
@@ -1067,38 +1256,63 @@ if (document.body.hasAttribute('data-heartbeat')) {
   });
 }
 
-/* ---------- attendance: close the visit when leaving the course page ----------
-   pagehide ONLY — not visibilitychange:hidden. Tab switches must keep the visit
-   open: a student who peeks at another tab is still in their study session, and
-   closing on "hidden" froze the teacher's live "Time spent" counter the moment
-   they tabbed away (it looked like attendance stopped counting while studying).
-   Real departures still close it (navigation, tab/browser closed → pagehide),
-   and a session abandoned without a beacon is finished server-side by
-   close_stale_attendance() once the heartbeat goes stale. */
+/* Keep one attendance visit open while navigating course content. Close it on
+   the next app page outside a course; browser exits are closed by the stale
+   presence handler, which records the last heartbeat as the leave time. */
 const attendanceMeta = document.querySelector('meta[name="attendance-course"]');
-if (attendanceMeta) {
-  const closeVisit = () => {
-    if (!navigator.sendBeacon) return;
-    navigator.sendBeacon('attendance.php', new URLSearchParams({
-      csrf: csrfToken(), course: attendanceMeta.getAttribute('content') || '',
-    }));
-  };
-  window.addEventListener('pagehide', closeVisit);
+const attendanceCourseKey = 'lh-active-attendance-course';
+let previousAttendanceCourse = '';
+try {
+  previousAttendanceCourse = sessionStorage.getItem(attendanceCourseKey) || '';
+} catch (error) {
+  /* The stale-presence closer remains the fallback when session storage is unavailable. */
 }
 
-/* ---------- attendance day page: live durations for open sessions ---------- */
-document.querySelectorAll('[data-open-seconds]').forEach((el) => {
-  let s = parseInt(el.getAttribute('data-open-seconds') || '0', 10);
-  const fmt = (v) => {
-    const h = Math.floor(v / 3600);
-    const m = Math.floor((v % 3600) / 60);
-    const ss = v % 60;
-    return h > 0 ? h + 'h ' + String(m).padStart(2, '0') + 'm' : m + 'm ' + String(ss).padStart(2, '0') + 's';
-  };
-  const render = () => { el.textContent = fmt(s); };
-  render();
-  setInterval(() => { s++; render(); }, 1000);
-});
+if (attendanceMeta) {
+  const currentCourseId = attendanceMeta.getAttribute('content') || '';
+  if (previousAttendanceCourse && previousAttendanceCourse !== currentCourseId && navigator.sendBeacon) {
+    navigator.sendBeacon('attendance.php', new URLSearchParams({
+      csrf: csrfToken(), course: previousAttendanceCourse,
+    }));
+  }
+  try {
+    sessionStorage.setItem(attendanceCourseKey, currentCourseId);
+  } catch (error) {
+    /* The stale-presence closer remains the fallback when session storage is unavailable. */
+  }
+} else if (previousAttendanceCourse && navigator.sendBeacon) {
+  navigator.sendBeacon('attendance.php', new URLSearchParams({
+    csrf: csrfToken(), course: previousAttendanceCourse,
+  }));
+  try {
+    sessionStorage.removeItem(attendanceCourseKey);
+  } catch (error) {
+    /* A later page load may safely retry closing this visit. */
+  }
+}
+
+/* ---------- live durations for open attendance sessions ---------- */
+function lhRenderOpenDuration(el) {
+  const startedAt = parseInt(el.getAttribute('data-start-at') || '0', 10);
+  let seconds = parseInt(el.getAttribute('data-open-seconds') || '0', 10);
+  seconds = startedAt > 0
+    ? Math.max(0, Math.floor(Date.now() / 1000) - startedAt)
+    : seconds + 1;
+  el.setAttribute('data-open-seconds', String(seconds));
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const ss = seconds % 60;
+  el.textContent = h > 0
+    ? h + 'h ' + String(m).padStart(2, '0') + 'm'
+    : m + 'm ' + String(ss).padStart(2, '0') + 's';
+}
+
+function lhUpdateOpenDurations() {
+  document.querySelectorAll('[data-open-seconds]').forEach(lhRenderOpenDuration);
+}
+
+lhUpdateOpenDurations();
+setInterval(lhUpdateOpenDurations, 1000);
 
 /* ---------- enrollments page: live online status + auto-submitting filters ---------- */
 const presenceMeta = document.querySelector('meta[name="presence-ids"]');
@@ -1502,22 +1716,9 @@ if (dayFilter) {
     setTimeout(tick, 500);
     return function () { running = false; clearTimeout(timer); };
   }
-  var tickersOn = {};
   function runOpenTickers(container) {
     (container || document).querySelectorAll('[data-open-seconds]').forEach(function (el) {
-      var key = el.getAttribute('data-open-seconds') + '|' + ((el.dataset && el.dataset.mark) || '');
-      if (tickersOn[key]) return;
-      tickersOn[key] = true;
-      var s = parseInt(el.getAttribute('data-open-seconds'), 10) || 0;
-      var fmt = function () {
-        var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60, out = [];
-        if (h) out.push(h + 'h');
-        if (m || h) out.push(m + 'm');
-        if (!h) out.push(sec + 's');
-        el.textContent = out.length ? out.join(' ') : '0s';
-      };
-      fmt();
-      setInterval(function () { s++; fmt(); }, 1000);
+      lhRenderOpenDuration(el);
     });
   }
 
@@ -1998,7 +2199,7 @@ if (dayFilter) {
         logBody.innerHTML = d.attLog.length
           ? d.attLog.map(function (a) {
             var left = a.left_at ? lmsClock(a.left_at) : (a.online ? '<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">🟢 Online</span>' : '<span class="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">⏳ In course</span>');
-            return '<tr><td class="px-4 py-3 font-semibold text-slate-900">' + lmsEsc(a.name) + '</td><td class="px-4 py-3 text-slate-600">' + new Date(a.entered_at * 1000).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) + '</td><td class="px-4 py-3 text-slate-600">' + left + '</td><td class="px-4 py-3 text-slate-600">' + (a.left_at ? lmsDur(a.left_at - a.entered_at) : '<span data-open-seconds="' + Math.max(0, Math.floor(Date.now() / 1000) - a.entered_at) + '" data-mark="d' + a.id + '" class="font-semibold text-emerald-700"></span>') + '</td>' + (showIp ? '<td class="hidden px-4 py-3 text-slate-400 md:table-cell">' + lmsEsc(a.ip) + '</td>' : '') + '</tr>';
+            return '<tr><td class="px-4 py-3 font-semibold text-slate-900">' + lmsEsc(a.name) + (a.removed ? ' <span class="inline-block rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-600">Removed</span>' : '') + '</td><td class="px-4 py-3 text-slate-600">' + new Date(a.entered_at * 1000).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) + '</td><td class="px-4 py-3 text-slate-600">' + left + '</td><td class="px-4 py-3 text-slate-600">' + (a.left_at ? lmsDur(a.left_at - a.entered_at) : '<span data-open-seconds="' + Math.max(0, Math.floor(Date.now() / 1000) - a.entered_at) + '" data-start-at="' + a.entered_at + '" data-mark="d' + a.id + '" class="font-semibold text-emerald-700"></span>') + '</td>' + (showIp ? '<td class="hidden px-4 py-3 text-slate-400 md:table-cell">' + lmsEsc(a.ip) + '</td>' : '') + '</tr>';
           }).join('')
           : '<tr><td class="px-4 py-6 text-center text-sm text-slate-400" colspan="' + (showIp ? 5 : 4) + '">No attendance recorded for this course yet.</td></tr>';
         runOpenTickers(logBody);   /* freshly-rendered open rows need their per-second ticker restarted */
@@ -2037,7 +2238,7 @@ if (dayFilter) {
         var circle = r.avatar
           ? '<img src="' + lmsEsc(r.avatar) + '" alt="' + lmsEsc(r.name ? 'Profile picture of ' + r.name : 'Profile picture') + '" loading="lazy" decoding="async" class="lh-avatar-img h-8 w-8 rounded-full">'
           : '<span class="lh-avatar-initial grid h-8 w-8 place-items-center rounded-full bg-emerald-600 text-sm font-bold text-white" aria-hidden="true">' + lmsEsc((String(r.name || '').charAt(0) || '?').toUpperCase()) + '</span>';
-        var student = '<div class="flex items-center gap-2">' + circle + '<div class="min-w-0"><p class="truncate font-semibold text-slate-900">' + lmsEsc(r.name) + '</p><p class="text-xs text-slate-400">' + (r.online ? '🟢 online' : 'offline') + '</p></div></div>';
+        var student = '<div class="flex items-center gap-2">' + circle + '<div class="min-w-0"><p class="truncate font-semibold text-slate-900">' + lmsEsc(r.name) + (r.removed ? ' <span class="inline-block rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-600">Removed</span>' : '') + '</p><p class="text-xs text-slate-400">' + (r.online ? '🟢 online' : 'offline') + '</p></div></div>';
         /* the shared hover card listens on the document, so the rebuilt cell only
            needs the same wrapper attrs the first paint carried to keep its card */
         if (r.hover) student = '<div class="lh-hcard lh-hcard-block"' + r.hover + '>' + student + '</div>';
@@ -2046,7 +2247,7 @@ if (dayFilter) {
           '<td class="px-4 py-3">' + student + '</td>' +
           '<td class="px-4 py-3"><span class="inline-block rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">' + lmsEsc(r.course_title) + '</span><span class="block text-xs text-slate-400">' + lmsEsc(r.course_category) + '</span></td>' +
           '<td class="px-4 py-3">' + (r.open ? (r.online ? '<span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700"><span class="relative flex h-2 w-2"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span></span> Online</span>' : '<span class="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">⏳ In course</span>') : '<span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">⏹ Left ' + lmsClock(r.left_at) + '</span>') + '</td>' +
-          '<td class="px-4 py-3 text-slate-600">' + (r.open ? '<span data-open-seconds="' + Math.max(0, Math.floor(Date.now() / 1000) - r.entered_at) + '" data-mark="d' + r.id + '" class="font-semibold text-emerald-700"></span>' : lmsDur(r.duration)) + '</td>' +
+          '<td class="px-4 py-3 text-slate-600">' + (r.open ? '<span data-open-seconds="' + Math.max(0, Math.floor(Date.now() / 1000) - r.entered_at) + '" data-start-at="' + r.entered_at + '" data-mark="d' + r.id + '" class="font-semibold text-emerald-700"></span>' : lmsDur(r.duration)) + '</td>' +
           (showIp ? '<td class="hidden px-4 py-3 text-slate-400 md:table-cell">' + lmsEsc(r.ip) + '</td>' : '') + '</tr>';
       }).join('');
       sec.innerHTML = '<div class="mt-4 overflow-x-auto rounded-2xl bg-white shadow-sm ring-1 ring-slate-200"><table class="w-full text-left text-sm"><thead class="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-4 py-3 font-semibold">Entered</th><th class="px-4 py-3 font-semibold">Student</th><th class="px-4 py-3 font-semibold">Course</th><th class="px-4 py-3 font-semibold">Status</th><th class="px-4 py-3 font-semibold">Time spent</th>' + (showIp ? '<th class="hidden px-4 py-3 font-semibold md:table-cell">IP address</th>' : '') + '</tr></thead><tbody class="divide-y divide-slate-100">' + rows + '</tbody></table></div>';
@@ -2449,5 +2650,3 @@ if (dayFilter) {
   /* capture, so a card beside a name inside a scrolling list box follows it */
   document.addEventListener('scroll', function () { if (openBy) place(openBy); }, { passive: true, capture: true });
 })();
-
-

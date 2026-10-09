@@ -200,7 +200,7 @@
 })();
 </script>
 
-<script src="assets/app.js?v=31"></script>
+<script src="assets/app.js?v=44"></script>
 <script>
 /* Self-healing fallback for the invite-link buttons. If the browser served a
    stale (or the host a missing) app.js — i.e. window.lhWireShare never appeared
@@ -257,6 +257,29 @@
   window.lhWireShare = wire;
   wire();
 })();
+</script>
+
+<script>
+/* Show/hide password — ONE delegated handler for every eye button on the page
+   (login, register, …). The button ships aria-pressed="false" from
+   password_toggle_btn(); this flips the input's type AND aria-pressed together,
+   so the icon (which CSS keys off aria-pressed) always tells the truth. The
+   button is type="button", so clicking it can never submit the form — the CSRF
+   field and the inputs are left alone. Refocus the input afterwards: some
+   browsers park the click on the button, and the visitor was mid-type. */
+document.addEventListener('click', function (e) {
+  var t = e.target;
+  var btn = t && t.closest ? t.closest('.lh-pw-btn') : null;
+  if (!btn) return;
+  var inp = document.getElementById(btn.getAttribute('data-lh-pw-toggle') || '');
+  if (!inp) return;
+  var show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password';
+  btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+  btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+  btn.setAttribute('title', show ? 'Hide password' : 'Show password');
+  try { inp.focus({ preventScroll: true }); } catch (err) { inp.focus(); }
+});
 </script>
 
 </body>

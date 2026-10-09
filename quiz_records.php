@@ -29,7 +29,7 @@ require __DIR__ . '/header.php';
 <div class="mt-3 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 md:p-8">
   <p class="text-xs font-bold uppercase tracking-widest text-indigo-500">Teacher tools</p>
   <h1 class="mt-1 text-3xl font-extrabold tracking-tight text-slate-900">👤 Student Quiz Records</h1>
-  <p class="mt-2 text-sm text-slate-500">Every quiz your students have completed, grouped by student (alphabetical). Each quiz is one attempt — the stored result is final.</p>
+  <p class="mt-2 text-sm text-slate-500">Every folder or legacy lesson quiz your students have completed, grouped by student (alphabetical). Each quiz is one attempt — the stored result is final.</p>
 
   <div class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
     <div class="rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200">
@@ -60,7 +60,7 @@ require __DIR__ . '/header.php';
 <div class="mt-6 rounded-2xl border-2 border-dashed border-slate-300 p-12 text-center">
   <p class="text-4xl">👤</p>
   <h2 class="mt-3 text-lg font-bold text-slate-900">No quiz records yet</h2>
-  <p class="mt-1 text-sm text-slate-500">Assign a quiz to a lesson — records appear here as soon as a student finishes it.</p>
+  <p class="mt-1 text-sm text-slate-500">Add a quiz to a folder — records appear here as soon as a student finishes it.</p>
 </div>
 <?php else: ?>
 <div class="mt-6 space-y-5" id="student-cards">
@@ -80,7 +80,7 @@ require __DIR__ . '/header.php';
           <thead class="bg-slate-50 text-left text-xs font-bold uppercase tracking-wide text-slate-500">
             <tr>
               <th class="px-5 py-3">📌 Quiz title</th>
-              <th class="px-5 py-3">📖 Lesson</th>
+              <th class="px-5 py-3">📁 Folder / lesson</th>
               <th class="px-5 py-3">🎯 Score</th>
               <th class="px-5 py-3">📊 %</th>
               <th class="px-5 py-3">🏷️ Status</th>

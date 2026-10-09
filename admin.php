@@ -93,34 +93,53 @@ $page_title = 'Admin';
 require __DIR__ . '/header.php';
 ?>
 
-<div class="mx-auto max-w-4xl">
-  <div class="reveal">
-    <h1 class="text-2xl font-bold text-slate-900">🛡️ Admin control</h1>
-    <p class="mt-1 text-sm text-slate-500">Everything that concerns the whole website lives here — only the main administrator can open this page.</p>
+<div class="lh-admin-page mx-auto max-w-7xl">
+  <div class="lh-admin-hero reveal">
+    <div class="flex flex-wrap items-start justify-between gap-5">
+      <div>
+        <p class="lh-admin-eyebrow">LearnHub · Administration</p>
+        <h1 class="lh-admin-title">Admin control center</h1>
+        <p class="lh-admin-description">A school-wide overview of courses, people, schedules, and system health.</p>
+      </div>
+      <span class="inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-white/80 px-3.5 py-2 text-xs font-bold text-indigo-700 shadow-sm">
+        <span class="h-2 w-2 rounded-full <?= $maint ? 'bg-rose-500' : 'bg-emerald-500' ?>"></span>
+        <?= $maint ? 'Maintenance mode' : 'System online' ?>
+      </span>
+    </div>
+    <div class="mt-5 flex flex-wrap gap-2">
+      <a href="admin_lessons.php" class="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700">Browse lessons <span aria-hidden="true">→</span></a>
+      <a href="admin_progress.php" class="rounded-xl border border-indigo-200 bg-white/80 px-4 py-2.5 text-sm font-bold text-indigo-700 transition hover:bg-white">Track student progress</a>
+      <a href="codes.php" class="rounded-xl border border-slate-200 bg-white/80 px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-white">Manage invite codes</a>
+    </div>
   </div>
 
   <!-- stats strip -->
   <div class="reveal mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-    <?php foreach ([['👨‍🎓 Students', $stats['students']], ['👩‍🏫 Teachers', $stats['teachers']], ['🔗 Enrollments', $stats['enrollments']], ['📚 Courses', $stats['courses']], ['🛡️ Admins', $stats['admins']]] as $s): ?>
-      <div class="rounded-2xl bg-white p-4 text-center shadow-sm ring-1 ring-slate-200">
-        <div class="text-xl font-extrabold text-slate-900"><?= (int) $s[1] ?></div>
-        <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-400"><?= $s[0] ?></div>
+    <?php foreach ([['👨‍🎓', 'Students', $stats['students']], ['👩‍🏫', 'Teachers', $stats['teachers']], ['🔗', 'Enrollments', $stats['enrollments']], ['📚', 'Courses', $stats['courses']], ['🛡️', 'Admins', $stats['admins']]] as $s): ?>
+      <div class="lh-admin-stat reveal">
+        <div class="relative z-10 mb-2 text-lg" aria-hidden="true"><?= $s[0] ?></div>
+        <div class="lh-admin-stat-value"><?= (int) $s[2] ?></div>
+        <div class="lh-admin-stat-label"><?= $s[1] ?></div>
       </div>
     <?php endforeach; ?>
   </div>
 
   <!-- courses & enrollment overview -->
   <div class="reveal mt-6 grid gap-6 lg:grid-cols-3">
-    <div class="lg:col-span-2 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+    <div class="lh-admin-card lg:col-span-2 p-6">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h2 class="text-base font-bold text-slate-900">📚 Courses &amp; enrollment</h2>
-        <span class="text-xs text-slate-400"><?= count($overview) ?> courses · <?= (int) $stats['enrollments'] ?> total enrollments</span>
+        <span class="flex flex-wrap items-center gap-2 text-xs text-slate-400"><?= count($overview) ?> courses · <?= (int) $stats['enrollments'] ?> total enrollments
+          <a href="admin_lessons.php"
+            class="rounded-full bg-indigo-50 px-2.5 py-0.5 font-semibold text-indigo-700 hover:bg-indigo-100">📚 Lessons by teacher →</a></span>
+        <a href="admin_progress.php"
+          class="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100">✅ Student completion →</a>
       </div>
       <?php if (!$overview): ?>
         <p class="mt-4 rounded-xl border-2 border-dashed border-slate-300 p-6 text-center text-sm text-slate-400">No courses yet.</p>
       <?php else: ?>
-      <div class="mt-4 overflow-x-auto">
-        <table class="w-full min-w-[520px] text-left text-sm">
+      <div class="lh-admin-table-wrap mt-4">
+        <table class="lh-admin-table w-full min-w-[520px] text-left text-sm">
           <thead>
             <tr class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-400">
               <th class="px-2 py-2">Course</th>
@@ -148,7 +167,7 @@ require __DIR__ . '/header.php';
       <?php endif; ?>
     </div>
 
-    <div class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+    <div class="lh-admin-card p-6">
       <h2 class="text-base font-bold text-slate-900">🟢 Teachers online now</h2>
       <?php if (!$onlineTeachers): ?>
         <p class="mt-4 rounded-xl border-2 border-dashed border-slate-300 p-6 text-center text-sm text-slate-400">No teachers online right now.</p>
@@ -172,7 +191,7 @@ require __DIR__ . '/header.php';
 
   <!-- students online -->
   <div class="reveal mt-6 grid gap-6 lg:grid-cols-3">
-    <div class="lg:col-span-2 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+    <div class="lh-admin-card lg:col-span-2 p-6">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h2 class="text-base font-bold text-slate-900">🟣 Students online now</h2>
         <span class="text-xs text-slate-400"><?= count($onlineStudents) ?> online · <?= (int) $stats['students'] ?> total</span>
@@ -196,7 +215,7 @@ require __DIR__ . '/header.php';
       <?php endif; ?>
     </div>
 
-    <div class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+    <div class="lh-admin-card p-6">
       <h2 class="text-base font-bold text-slate-900">🗓️ Timetable today</h2>
       <?php if (!$adminTodayItems): ?>
         <p class="mt-4 rounded-xl border-2 border-dashed border-slate-300 p-6 text-center text-sm text-slate-400">No teacher has anything scheduled today.</p>
@@ -223,7 +242,7 @@ require __DIR__ . '/header.php';
 
   <!-- live classes happening anywhere right now -->
   <?php if ($liveNow): ?>
-  <div class="reveal mt-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+  <div class="lh-admin-card reveal mt-6 p-6">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <h2 class="text-base font-bold text-slate-900">🔴 Live classes now</h2>
       <span class="text-xs text-slate-400"><?= count($liveNow) ?> running</span>
@@ -249,7 +268,7 @@ require __DIR__ . '/header.php';
   <?php endif; ?>
 
   <!-- site control -->
-  <div class="reveal mt-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+  <div class="lh-admin-card reveal mt-6 p-6">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h2 class="text-base font-bold text-slate-900">Website status</h2>
@@ -273,7 +292,7 @@ require __DIR__ . '/header.php';
     </form>
   </div>
   <!-- teacher access codes -->
-  <div class="reveal mt-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+  <div class="lh-admin-card reveal mt-6 p-6">
     <h2 class="text-base font-bold text-slate-900">👩‍🏫 Teacher access codes</h2>
     <p class="mt-1 text-sm text-slate-500">A person can only register as a <b>teacher</b> with one of these one-time codes (choose “Teacher” on the
       <a href="register.php" class="font-semibold text-emerald-700 hover:underline">registration page</a> and enter it). Students still get their codes from their teachers.</p>
@@ -283,12 +302,12 @@ require __DIR__ . '/header.php';
         class="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700">🔑 Generate a teacher code</button>
     </form>
 
-    <div class="reveal lh-plain mt-5 rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+    <div class="lh-admin-card reveal lh-plain mt-5">
       <?php if (!$tcodes): ?>
         <p class="p-5 text-center text-sm text-slate-400">No teacher codes yet — generate the first one above.</p>
       <?php else: ?>
-      <div class="overflow-x-auto p-4">
-        <table class="w-full min-w-[520px] text-left text-sm">
+      <div class="lh-admin-table-wrap mt-4">
+        <table class="lh-admin-table w-full min-w-[520px] text-left text-sm">
           <thead>
             <tr class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-400">
               <th class="px-2 py-2">Code</th>
@@ -338,7 +357,7 @@ require __DIR__ . '/header.php';
 
   <!-- settings + account -->
   <div class="reveal mt-6 grid gap-6 lg:grid-cols-2">
-    <div class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+    <div class="lh-admin-card p-6">
       <h2 class="text-base font-bold text-slate-900">⚙️ Site settings</h2>
       <p class="mt-1 text-sm text-slate-500">
         <?php $lhT = (string) ($diag['transport'] ?? 'none');
@@ -353,7 +372,7 @@ require __DIR__ . '/header.php';
         class="mt-4 inline-block rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">Open settings</a>
     </div>
 
-    <div class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+    <div class="lh-admin-card p-6">
       <h2 class="text-base font-bold text-slate-900">🔐 Admin password</h2>
       <form method="post" class="mt-3 space-y-3">
         <?= csrf_field() ?>

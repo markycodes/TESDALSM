@@ -2,7 +2,7 @@
 /**
  * Quiz answer endpoint — locks in ONE answer per question (single attempt).
  * Guards:
- *  - require_quiz_access(): enrolled + lesson completed (owner = preview only);
+ *  - require_quiz_access(): enrolled + attached lesson/folder completed (owner = preview only);
  *  - a finished quiz cannot be answered again (result exists -> lockout);
  *  - an already-answered question is never overwritten (re-POST is ignored);
  *  - the answer is persisted immediately, so closing the browser keeps progress.
@@ -14,11 +14,12 @@ verify_csrf();
 $userId = (int) $user['id'];
 $courseId = (int) ($_POST['course'] ?? 0);
 $materialId = (int) ($_POST['material'] ?? 0);
+$folderId = (int) ($_POST['folder'] ?? 0);
 $questionId = (int) ($_POST['question'] ?? 0);
 $choice = (int) ($_POST['option'] ?? -1);
-$back = 'quiz.php?c=' . $courseId . '&m=' . $materialId;
+$back = $folderId > 0 ? 'quiz.php?c=' . $courseId . '&f=' . $folderId : 'quiz.php?c=' . $courseId . '&m=' . $materialId;
 
-$ctx = require_quiz_access($userId, $courseId, $materialId);
+$ctx = require_quiz_access($userId, $courseId, $materialId, $folderId);
 $quiz = $ctx['quiz'];
 $isOwner = $ctx['isOwner'];
 
